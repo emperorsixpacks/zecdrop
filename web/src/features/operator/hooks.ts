@@ -66,6 +66,7 @@ const FUNDING_REFRESH_MS = 5_000;
 /** The inbox states in which something is still to happen. */
 const INBOX_IN_PROGRESS: ReadonlySet<InboxState> = new Set<InboxState>([
   "preparing",
+  "checking",
   "unavailable",
   "waiting",
   "confirming",

@@ -68,6 +68,7 @@ for (const viewport of [
           ["campaign-real-inbox-scheduled.json", /is ready\. At about/u],
           ["campaign-real-inbox-moving.json", /Moving .+ to the payout's public address/u],
           ["campaign-real-inbox-unavailable.json", /can't be used right now/u],
+          ["campaign-real-inbox-checking.json", /Checking what has reached this payout's shielded address/u],
         ] as const) {
           await serve(page, file);
           await expect(page.getByTestId("inbox-status")).toContainText(text);

@@ -454,6 +454,13 @@
       "note": "the inbox wallet could not be set up: no address is shown; the public address still works",
       "path": "/api/campaigns/{id}",
       "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-checking.json",
+      "method": "GET",
+      "note": "after a restart, before the wallet is read again: its address and \"checking\", so the page never falls back to the public address alone",
+      "path": "/api/campaigns/{id}",
+      "status": 200
     }
   ],
   "generated_by": "crates/drop-operator/tests/api_contract.rs"

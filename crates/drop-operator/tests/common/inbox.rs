@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -52,7 +52,11 @@ pub struct Fake {
     pub spent_at: HashMap<[u8; 32], u32>,
     /// How many times the wallet was synced.
     pub refreshes: u32,
+    /// Accounts whose wallet directory is gone (until set up again).
+    pub lost: HashSet<u32>,
     pub fail_setup: bool,
+    /// Every sync fails, as when zcash-devtool hangs or the server is down.
+    pub fail_refresh: bool,
 }
 
 #[derive(Clone, Default)]
@@ -137,13 +141,21 @@ impl InboxBackend for FakeInbox {
                 return Err(InboxError::Unavailable);
             }
             fake.set_up.push((account, birthday));
+            fake.lost.remove(&account);
             Ok(FakeInbox::address(account))
         })
+    }
+
+    fn has_wallet(&self, account: u32) -> bool {
+        !self.lock().lost.contains(&account)
     }
 
     fn refresh(&self, account: u32) -> BoxFuture<'_, Result<Snapshot, InboxError>> {
         Box::pin(async move {
             let mut fake = self.lock();
+            if fake.lost.contains(&account) || fake.fail_refresh {
+                return Err(InboxError::Unavailable);
+            }
             fake.refreshes += 1;
             let tip = fake.wallet_tip;
             // Only what the wallet has scanned: a note from its block on, a spend from the block it was mined in on.

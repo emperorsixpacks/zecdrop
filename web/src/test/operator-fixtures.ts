@@ -82,6 +82,7 @@ import g_campaign_real_deposit_shallow_shielded from "../../../fixtures/contract
 import g_campaign_real_deposit_shallow from "../../../fixtures/contract/operator/golden/campaign-real-deposit-shallow.json?raw";
 import g_campaign_real_deposit_too_small from "../../../fixtures/contract/operator/golden/campaign-real-deposit-too-small.json?raw";
 import g_campaign_real_funded from "../../../fixtures/contract/operator/golden/campaign-real-funded.json?raw";
+import g_campaign_real_inbox_checking from "../../../fixtures/contract/operator/golden/campaign-real-inbox-checking.json?raw";
 import g_campaign_real_inbox_confirming from "../../../fixtures/contract/operator/golden/campaign-real-inbox-confirming.json?raw";
 import g_campaign_real_inbox_moved from "../../../fixtures/contract/operator/golden/campaign-real-inbox-moved.json?raw";
 import g_campaign_real_inbox_moving from "../../../fixtures/contract/operator/golden/campaign-real-inbox-moving.json?raw";
@@ -249,6 +250,7 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "campaign-real-deposit-shallow.json": g_campaign_real_deposit_shallow,
   "campaign-real-deposit-too-small.json": g_campaign_real_deposit_too_small,
   "campaign-real-funded.json": g_campaign_real_funded,
+  "campaign-real-inbox-checking.json": g_campaign_real_inbox_checking,
   "campaign-real-inbox-confirming.json": g_campaign_real_inbox_confirming,
   "campaign-real-inbox-moved.json": g_campaign_real_inbox_moved,
   "campaign-real-inbox-moving.json": g_campaign_real_inbox_moving,

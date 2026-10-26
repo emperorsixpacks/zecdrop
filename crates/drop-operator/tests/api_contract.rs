@@ -862,6 +862,30 @@ async fn inbox_scenarios(g: &mut Golden) {
         &campaign_view(&h, &id).await,
         "the inbox wallet could not be set up: no address is shown; the public address still works",
     );
+
+    // A restart, and the wallet not looked at again yet: what the store knows, never nothing.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    let (id, _) = create(&h).await;
+    inboxes.round(&h.state).await;
+    let h = h.restart(Options {
+        required_depth: DEPTH,
+        ..Builder::default().options
+    });
+    fake.lock().fail_refresh = true;
+    attach(&h, &fake).round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-checking.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "after a restart, before the wallet is read again: its address and \"checking\", so the page never falls back to the public address alone",
+    );
 }
 
 // ---------------------------------------------------------------------------

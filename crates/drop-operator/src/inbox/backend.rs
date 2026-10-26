@@ -118,15 +118,31 @@ impl DevtoolInbox {
         let raw = fs::read(step("tx.bin")).map_err(|_| InboxError::Unavailable)?;
         Ok((raw, txid))
     }
+}
 
-    fn scratch(wallet: &Path) -> Result<PathBuf, InboxError> {
-        let scratch = wallet.join(SCRATCH);
-        let _ = fs::remove_dir_all(&scratch);
+/// A transaction's scratch directory (0700) in a wallet, deleted however the build ends: done, failed, or dropped half way (a
+/// send-back whose page went away), as its PCZT files hold viewing keys and amounts.
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new(wallet: &Path) -> Result<Scratch, InboxError> {
+        let path = wallet.join(SCRATCH);
+        let _ = fs::remove_dir_all(&path);
         fs::DirBuilder::new()
             .mode(0o700)
-            .create(&scratch)
+            .create(&path)
             .map_err(|_| InboxError::Unavailable)?;
-        Ok(scratch)
+        Ok(Scratch(path))
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
     }
 }
 
@@ -150,6 +166,10 @@ impl InboxBackend for DevtoolInbox {
             .map(|wallet| wallet.address)
             .map_err(|_| InboxError::Unavailable)
         })
+    }
+
+    fn has_wallet(&self, account: u32) -> bool {
+        setup::wallet_dir(&self.root, account).is_dir()
     }
 
     fn refresh(&self, account: u32) -> BoxFuture<'_, Result<Snapshot, InboxError>> {
@@ -200,7 +220,7 @@ impl InboxBackend for DevtoolInbox {
                 .flatten()
                 .ok_or(InboxError::Unavailable)?
                 .uuid;
-            let scratch = Self::scratch(&wallet)?;
+            let scratch = Scratch::new(&wallet)?;
             let built = async {
                 self.devtool
                     .create(
@@ -208,14 +228,14 @@ impl InboxBackend for DevtoolInbox {
                         &account_uuid,
                         funding_address,
                         value,
-                        &scratch.join("created.pczt"),
+                        &scratch.path().join("created.pczt"),
                     )
                     .await
                     .map_err(|_| InboxError::Unavailable)?;
-                self.finish(seed, &wallet, &scratch).await
+                self.finish(seed, &wallet, scratch.path()).await
             }
             .await;
-            let _ = fs::remove_dir_all(&scratch);
+            drop(scratch);
             let (raw, txid) = built?;
             let facts = keys
                 .check_move(&raw, funding_address, value, &context.as_context())
@@ -243,16 +263,21 @@ impl InboxBackend for DevtoolInbox {
                 .flatten()
                 .ok_or(InboxError::Unavailable)?
                 .uuid;
-            let scratch = Self::scratch(&wallet)?;
+            let scratch = Scratch::new(&wallet)?;
             let built = async {
                 self.devtool
-                    .create_max(&wallet, &account_uuid, to, &scratch.join("created.pczt"))
+                    .create_max(
+                        &wallet,
+                        &account_uuid,
+                        to,
+                        &scratch.path().join("created.pczt"),
+                    )
                     .await
                     .map_err(|_| InboxError::Unavailable)?;
-                self.finish(seed, &wallet, &scratch).await
+                self.finish(seed, &wallet, scratch.path()).await
             }
             .await;
-            let _ = fs::remove_dir_all(&scratch);
+            drop(scratch);
             let (raw, txid) = built?;
             let facts = keys
                 .check_return(&raw, to, &context.as_context())
@@ -323,5 +348,20 @@ mod tests {
             fs::metadata(&wallet).unwrap().permissions().mode() & 0o777,
             0o700
         );
+    }
+
+    #[test]
+    fn a_scratch_directory_is_the_owners_alone_and_goes_however_the_build_ends() {
+        let dir = tempfile::tempdir().unwrap();
+        let scratch = Scratch::new(dir.path()).unwrap();
+        let path = scratch.path().to_path_buf();
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        fs::write(path.join("created.pczt"), "x").unwrap();
+        // Dropped without finishing, as a build is when the request that started it goes away.
+        drop(scratch);
+        assert!(!path.exists());
     }
 }

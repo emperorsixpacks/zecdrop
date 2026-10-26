@@ -8,7 +8,7 @@ export const INBOX_WORDING = {
   /** The "?" beside the ask. */
   why: [
     "ZecDrop then moves exactly the funding to the payout's public address, a few minutes later. That public step is what lets anyone check the total.",
-    "The move's network fee is in the amount shown. Pay it in one payment or in several.",
+    "The move's network fee is in the amount shown. Pay it in one payment or in several, each of more than 0.00005 TAZ: a smaller one costs more to move than it holds, so it can't be moved or sent back.",
     "Your wallet never pays a public address, and the public step is made by ZecDrop, not your wallet. Its amount and time are public, like any deposit's.",
   ],
   whyLabel: "About the shielded address",
@@ -16,6 +16,8 @@ export const INBOX_WORDING = {
   qrLabel: "QR code for this deposit: the payout's shielded address and the amount",
   qrCaption: "Scan with a Zcash wallet on your phone: it fills in this shielded address and the amount.",
   preparing: "Setting up this payout's shielded address…",
+  /** After the operator restarts, before it has looked at the wallet again. */
+  checking: "Checking what has reached this payout's shielded address…",
   unavailable: "This payout's shielded address can't be used right now. The operator keeps trying. You can pay the public address instead.",
   waiting: "No deposit seen yet. This page checks again every few seconds.",
   shortTail: "Payments to this address add up.",

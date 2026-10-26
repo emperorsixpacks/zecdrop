@@ -219,6 +219,8 @@ function InboxStatus({ inbox, campaign }: { inbox: InboxView; campaign: Operator
     switch (inbox.state) {
       case "preparing":
         return <p className="text-base text-muted-foreground">{INBOX_WORDING.preparing}</p>;
+      case "checking":
+        return <p className="text-base text-muted-foreground">{INBOX_WORDING.checking}</p>;
       case "unavailable":
         return <p className="text-base text-problem">{INBOX_WORDING.unavailable}</p>;
       case "waiting":
@@ -373,35 +375,51 @@ function InboxReturn({ campaign }: { campaign: OperatorCampaign }) {
 /** The inbox states in which what it holds can go back: no move can happen from them. */
 const RETURNABLE: ReadonlySet<InboxView["state"]> = new Set<InboxView["state"]>(["short", "dust", "unused", "moved"]);
 
-/** The inbox states in which paying the public address as well could only make trouble: something is already on its way. */
-const PUBLIC_CLOSED: ReadonlySet<InboxView["state"]> = new Set<InboxView["state"]>(["scheduled", "moving", "moved", "returning"]);
+/** The inbox states in which paying the public address as well could only make trouble: something is already on its way,
+ * or (checking, after the operator restarts) the payer may already have paid the shielded address. */
+const PUBLIC_CLOSED: ReadonlySet<InboxView["state"]> = new Set<InboxView["state"]>([
+  "checking",
+  "scheduled",
+  "moving",
+  "moved",
+  "returning",
+]);
+
+/** The inbox states in which a payment to it is what happens next: nothing yet, or not enough. In any other the ask, and the
+ * QR code that pays it, would only invite paying twice. */
+const ASK_STATES: ReadonlySet<InboxView["state"]> = new Set<InboxView["state"]>(["waiting", "short", "dust"]);
 
 /** The funding screen of a payout with a shielded deposit address: that address first, the public one as the fallback
  * until anything reaches the shielded one (REQ-FUND-008). */
 function InboxFunding({ campaign, inbox }: { campaign: OperatorCampaign; inbox: InboxView }) {
   const headingId = useId();
   const showPublic = campaign.fundingAddress !== null && inbox.received === "0" && !PUBLIC_CLOSED.has(inbox.state);
+  const asking = ASK_STATES.has(inbox.state);
+  // When short (or over by too little), what is missing: the payment that makes the move possible, not the whole again.
+  const amount = inbox.state !== "waiting" && inbox.need !== null ? inbox.need : inbox.asked;
   return (
     <section aria-labelledby={headingId} className="space-y-5" data-testid="inbox-funding">
       <h2 id={headingId} className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">
         Is it funded?
       </h2>
-      <p className="flex max-w-[64ch] flex-wrap items-center gap-x-1 text-base" data-testid="inbox-ask">
-        <span>
-          Send <strong><Zec zatoshi={inbox.asked} /></strong> {INBOX_WORDING.ask}
-        </span>
-        <Why label={INBOX_WORDING.whyLabel}>
-          <div className="space-y-2">
-            {INBOX_WORDING.why.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
-        </Why>
-      </p>
-      {inbox.depositAddress !== null && (
+      {asking && (
+        <p className="flex max-w-[64ch] flex-wrap items-center gap-x-1 text-base" data-testid="inbox-ask">
+          <span>
+            Send <strong><Zec zatoshi={amount} /></strong> {INBOX_WORDING.ask}
+          </span>
+          <Why label={INBOX_WORDING.whyLabel}>
+            <div className="space-y-2">
+              {INBOX_WORDING.why.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          </Why>
+        </p>
+      )}
+      {asking && inbox.depositAddress !== null && (
         <AddressBlock
           address={inbox.depositAddress}
-          zatoshi={inbox.asked}
+          zatoshi={amount}
           testId="inbox"
           copyLabel={INBOX_WORDING.copyLabel}
           qrLabel={INBOX_WORDING.qrLabel}

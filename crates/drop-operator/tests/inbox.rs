@@ -618,6 +618,12 @@ async fn what_is_left_after_the_move_goes_back_stored_before_it_is_sent() {
         );
     }
     assert_eq!(view(&h, &id).await["inbox"]["state"], "returning");
+    // The log says a send-back went, not which transaction it is: nothing public ties it to the payout.
+    assert_clean(
+        "logs",
+        &h.logs.lines().join("\n"),
+        std::slice::from_ref(&txid),
+    );
     // A second one while it is in flight is refused.
     assert_eq!(
         send_back(&h, &id, &to, true).await.json()["error"]["code"],
@@ -647,4 +653,143 @@ async fn a_payout_without_an_inbox_has_nothing_to_send_back() {
     let reply = send_back(&h, &id, &recipient_ua(5), true).await;
     assert_eq!(reply.status, StatusCode::NOT_FOUND);
     assert_eq!(reply.json()["error"]["code"], "inbox_not_found");
+}
+
+// covers: REQ-FUND-008
+#[tokio::test]
+async fn after_a_restart_or_a_failed_look_the_page_never_falls_back_to_the_public_address_alone() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (id, _, account) = create(&h).await;
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    fake.deposit(account, REQUIRED + FEE, 1_001, 7);
+    fake.tip(1_001);
+    inboxes.round(&h.state).await;
+    assert_eq!(view(&h, &id).await["inbox"]["state"], "confirming");
+
+    // The wallet can't be read for a while: the page keeps what it said, never "pay the public address instead".
+    fake.lock().fail_refresh = true;
+    inboxes.round(&h.state).await;
+    assert_eq!(view(&h, &id).await["inbox"]["state"], "confirming");
+
+    // A restart, and the wallet still can't be read: the page says the address and that it is checking, not nothing.
+    let h = h.restart(Options {
+        required_depth: DEPTH,
+        ..Builder::default().options
+    });
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    let v = view(&h, &id).await;
+    assert_eq!(v["inbox"]["state"], "checking");
+    assert_eq!(v["inbox"]["deposit_address"], FakeInbox::address(account));
+
+    // Once it can: what it holds.
+    fake.lock().fail_refresh = false;
+    inboxes.round(&h.state).await;
+    assert_eq!(view(&h, &id).await["inbox"]["state"], "confirming");
+
+    // A move in flight across a restart is "moving" from the start.
+    fake.tip(1_010);
+    inboxes.round(&h.state).await;
+    let txid = h
+        .state
+        .store()
+        .load_inbox(&id)
+        .unwrap()
+        .unwrap()
+        .pending
+        .unwrap()
+        .txid;
+    fake.lock().fail_refresh = true;
+    let h = h.restart(Options {
+        required_depth: DEPTH,
+        ..Builder::default().options
+    });
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    let v = view(&h, &id).await;
+    assert_eq!(
+        (&v["inbox"]["state"], &v["inbox"]["txid"]),
+        (&json!("moving"), &json!(txid))
+    );
+}
+
+// covers: REQ-FUND-005
+#[tokio::test]
+async fn a_lost_wallet_is_set_up_again_from_the_seed_and_scans_from_its_birthday() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (id, _, account) = create(&h).await;
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    fake.deposit(account, REQUIRED + FEE, 995, 7);
+    fake.lock().lost.insert(account);
+    fake.tip(1_003);
+    inboxes.round(&h.state).await;
+    assert_eq!(
+        fake.lock().set_up,
+        vec![(account, 990), (account, 990)],
+        "set up again, from the birthday it was first set up with"
+    );
+    assert_eq!(view(&h, &id).await["inbox"]["state"], "confirming");
+    assert_eq!(
+        h.state.store().load_inbox(&id).unwrap().unwrap().address,
+        FakeInbox::address(account)
+    );
+}
+
+// covers: REQ-FUND-007
+#[tokio::test]
+async fn a_payout_of_another_wallet_seed_is_left_alone_and_its_inbox_never_sent_back() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (made_before, _, before_account) = create(&h).await;
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    attach(&h, &fake).round(&h.state).await;
+    assert_eq!(fake.lock().set_up.len(), 1);
+
+    // The same store, opened with another seed, makes a payout of its own: account numbers start again for each seed.
+    let h = h.restart_as(
+        [0x99; 32],
+        Options {
+            required_depth: DEPTH,
+            ..Builder::default().options
+        },
+    );
+    let inboxes = attach(&h, &fake);
+    let (mine, _, account) = create(&h).await;
+    assert_eq!(
+        account, before_account,
+        "the dangerous case: the same account number"
+    );
+    inboxes.round(&h.state).await;
+    assert_eq!(
+        fake.lock().set_up.len(),
+        2,
+        "only this seed's payout is set up"
+    );
+    // Too little to move, so what it holds could go back: through the other payout's account number, it would.
+    fake.deposit(account, 50_000, 990, 5);
+    inboxes.round(&h.state).await;
+    assert_eq!(view(&h, &mine).await["inbox"]["state"], "short");
+
+    // The other seed's payout: no send-back (its account number would reach this seed's inbox), and no warning each round.
+    let refused = send_back(&h, &made_before, &recipient_ua(5), true).await;
+    assert_eq!(refused.status, StatusCode::CONFLICT, "{}", refused.text());
+    assert_eq!(refused.json()["error"]["code"], "wrong_wallet_seed");
+    assert!(fake.lock().returns.is_empty());
+    assert_clean(
+        "logs",
+        &h.logs.lines().join("\n"),
+        &[format!("inbox of {made_before}")],
+    );
 }

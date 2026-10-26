@@ -402,6 +402,7 @@ const addressText = z.string().min(1).max(512).regex(/^\S+$/u, "address contains
  * crates/drop-operator/src/inbox/engine.rs. */
 export const INBOX_STATES = [
   "preparing",
+  "checking",
   "unavailable",
   "waiting",
   "confirming",

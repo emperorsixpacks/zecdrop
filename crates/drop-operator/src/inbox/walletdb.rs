@@ -159,10 +159,16 @@ impl WalletDb {
             conn.query_row("SELECT COALESCE(MAX(height), 0) FROM blocks", [], |row| {
                 row.get(0)
             })?;
+        // A note whose transaction is unmined and expired is gone, by zcash_client_sqlite's own test of expiry (its
+        // `tx_unexpired_condition`, at the height after the tip; 40 blocks when the expiry height is unknown).
         let mut notes = conn.prepare(
             "SELECT n.id, n.value, n.nf, n.is_change, t.mined_height
                FROM ironwood_received_notes n
                JOIN transactions t ON t.id_tx = n.transaction_id
+              WHERE t.mined_height IS NOT NULL
+                 OR t.expiry_height = 0
+                 OR t.expiry_height > ?1
+                 OR (t.expiry_height IS NULL AND t.min_observed_height + 40 > ?1)
               ORDER BY n.id",
         )?;
         let mut spends = conn.prepare(
@@ -172,7 +178,7 @@ impl WalletDb {
               WHERE s.ironwood_received_note_id = ?1",
         )?;
         let rows = notes
-            .query_map([], |row| {
+            .query_map([tip], |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
                     row.get::<_, i64>(1)?,
@@ -257,7 +263,7 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE accounts (id INTEGER PRIMARY KEY, uuid BLOB NOT NULL, hd_account_index INTEGER, orchard_ivk_item_cache BLOB);
              CREATE TABLE blocks (height INTEGER PRIMARY KEY);
-             CREATE TABLE transactions (id_tx INTEGER PRIMARY KEY, txid BLOB, mined_height INTEGER, expiry_height INTEGER);
+             CREATE TABLE transactions (id_tx INTEGER PRIMARY KEY, txid BLOB, mined_height INTEGER, expiry_height INTEGER, min_observed_height INTEGER NOT NULL);
              CREATE TABLE ironwood_received_notes (id INTEGER PRIMARY KEY, transaction_id INTEGER, account_id INTEGER, value INTEGER, nf BLOB, is_change INTEGER);
              CREATE TABLE ironwood_received_note_spends (ironwood_received_note_id INTEGER, transaction_id INTEGER);
              CREATE TABLE orchard_received_notes (id INTEGER PRIMARY KEY, transaction_id INTEGER, value INTEGER);
@@ -278,13 +284,21 @@ mod tests {
         .unwrap();
         conn.execute_batch(
             "INSERT INTO blocks VALUES (100), (110);
-             INSERT INTO transactions VALUES (1, x'01', 101, 0), (2, x'02', 105, 0), (3, x'03', NULL, 140), (4, x'04', NULL, 90), (5, x'05', 108, 0);
+             INSERT INTO transactions VALUES (1, x'01', 101, 0, 101), (2, x'02', 105, 0, 105), (3, x'03', NULL, 140, 104),
+                                             (4, x'04', NULL, 90, 80), (5, x'05', 108, 0, 108), (6, x'06', NULL, 110, 70),
+                                             (7, x'07', NULL, 0, 70), (8, x'08', NULL, NULL, 70), (9, x'09', NULL, NULL, 71);
              -- note 1: a deposit, unspent; note 2: spent by a pending move (expiry 140 > tip 110);
              -- note 3: once in a transaction that expired (90 < 110): unspent again; note 4: spent by a mined transaction.
+             -- Received in unmined transactions: note 5's expired at the tip (110), note 6's never expires, note 7's expiry
+             -- is unknown and it was first seen 40 blocks before the tip (gone), note 8's 39 (still there).
              INSERT INTO ironwood_received_notes VALUES (1, 1, 1, 500, x'1111111111111111111111111111111111111111111111111111111111111111', 0),
                                                        (2, 2, 1, 700, NULL, 0),
                                                        (3, 2, 1, 50, NULL, 1),
-                                                       (4, 1, 1, 9, NULL, 0);
+                                                       (4, 1, 1, 9, NULL, 0),
+                                                       (5, 6, 1, 800, NULL, 0),
+                                                       (6, 7, 1, 600, NULL, 0),
+                                                       (7, 8, 1, 300, NULL, 0),
+                                                       (8, 9, 1, 400, NULL, 0);
              INSERT INTO ironwood_received_note_spends VALUES (2, 3), (3, 4), (4, 5);
              INSERT INTO orchard_received_notes VALUES (1, 1, 1234);",
         )
@@ -303,8 +317,11 @@ mod tests {
                 (700, NoteSpend::Pending),
                 (50, NoteSpend::Unspent),
                 (9, NoteSpend::Mined),
+                (600, NoteSpend::Unspent),
+                (400, NoteSpend::Unspent),
             ]
         );
+        assert_eq!(notes[4].mined_height, None);
         assert_eq!(notes[0].confirmations(110), 10);
         assert_eq!(notes[0].nullifier, Some([0x11; 32]));
         assert!(notes[2].is_change);

@@ -17,7 +17,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use drop_core::{CampaignId, Network, Txid};
+use drop_core::{CampaignId, Network, OutPoint, Txid};
 use drop_zcash::{
     inbox::{orchard_receiver_owned_by, InboxTxContext, InboxTxFacts},
     zcash_network, CampaignKeys, InboxKeys,
@@ -125,6 +125,8 @@ pub trait InboxBackend: Send + Sync {
         account: u32,
         birthday: u32,
     ) -> BoxFuture<'a, Result<String, InboxError>>;
+    /// Whether payout account `account`'s inbox wallet is there to sync.
+    fn has_wallet(&self, account: u32) -> bool;
     /// Syncs the wallet and reads what it holds.
     fn refresh(&self, account: u32) -> BoxFuture<'_, Result<Snapshot, InboxError>>;
     /// The node's tip and branch.
@@ -205,6 +207,8 @@ impl Default for InboxSettings {
 pub enum InboxState {
     /// Being set up.
     Preparing,
+    /// After a restart, before the first look at the wallet: only what the store knows.
+    Checking,
     /// The wallet could not be set up or read; nothing moves until it can.
     Unavailable,
     /// Nothing has arrived.
@@ -273,6 +277,32 @@ impl InboxView {
             orchard: "0".into(),
         }
     }
+
+    /// What the page says after a restart, before the first look at the wallet: what the store knows. Never nothing, which
+    /// would leave the page with the public address alone for a payout whose inbox a payer may already have paid.
+    fn restored(asked_zat: u64, inbox: &InboxRecord, funded: bool) -> InboxView {
+        let mut view = InboxView::preparing(asked_zat);
+        view.deposit_address = Some(inbox.address.clone());
+        (view.state, view.txid) = match (&inbox.pending, &inbox.moved) {
+            (Some(p), _) if p.kind == InboxTxKind::Return => {
+                (InboxState::Returning, Some(p.txid.clone()))
+            }
+            (Some(p), _) => (InboxState::Moving, Some(p.txid.clone())),
+            (None, Some(moved)) if funded => (InboxState::Moved, Some(moved.clone())),
+            (None, Some(moved)) => (InboxState::Moving, Some(moved.clone())),
+            (None, None) => (InboxState::Checking, None),
+        };
+        view
+    }
+}
+
+/// What a payout's funding address must receive.
+fn required_funding(state: &AppState, record: &CampaignRecord) -> Result<u64, InboxError> {
+    let batches = state.plan(record).map_err(|_| InboxError::Unavailable)?;
+    Ok(funding_plan(&batches, &record.fee_policy)
+        .map_err(|_| InboxError::Unavailable)?
+        .required
+        .as_u64())
 }
 
 /// The inboxes of one operator: the backend, and what the page reads.
@@ -336,18 +366,44 @@ impl Inboxes {
         let Ok(deposits) = state.store().campaign_deposits() else {
             return;
         };
+        self.restore(state, &deposits);
         for (id, funding) in deposits {
             let _work = self.work.lock().await;
             if let Err(error) = self.one(state, &id, funding.is_some()).await {
+                // Only a wallet that could not be set up says so: it has shown no address, so no one can have paid it. After
+                // any other failure the page keeps what it last said, which never sends a payer who may have paid the inbox
+                // to the public address.
                 if let Some(mut view) = self.view(&id) {
-                    if matches!(view.state, InboxState::Preparing)
-                        || error == InboxError::Unavailable
-                    {
+                    if view.state == InboxState::Preparing {
                         view.state = InboxState::Unavailable;
                         self.set_view(&id, view);
                     }
                 }
                 state.logger().warn(format_args!("inbox of {id}: {error}"));
+            }
+        }
+    }
+
+    /// Gives every stored inbox the page has no word on (after a restart) what the store knows ([`InboxView::restored`]).
+    fn restore(&self, state: &AppState, deposits: &[(CampaignId, Option<OutPoint>)]) {
+        for (id, funding) in deposits {
+            if self.view(id).is_some() {
+                continue;
+            }
+            let Ok(Some(inbox)) = state.store().load_inbox(id) else {
+                continue;
+            };
+            let Ok(Some(record)) = state.store().load_campaign(id) else {
+                continue;
+            };
+            if !state.wallet_matches(&record) {
+                continue;
+            }
+            if let Ok(required) = required_funding(state, &record) {
+                self.set_view(
+                    id,
+                    InboxView::restored(asked(required), &inbox, funding.is_some()),
+                );
             }
         }
     }
@@ -358,7 +414,8 @@ impl Inboxes {
             .load_campaign(id)
             .map_err(|_| InboxError::Unavailable)?
             .ok_or(InboxError::Unavailable)?;
-        if record.network != Network::Testnet {
+        // A payout made with another wallet seed is not this operator's to touch: its inbox is another seed's.
+        if record.network != Network::Testnet || !state.wallet_matches(&record) {
             return Ok(());
         }
         let Some(funding_address) = state
@@ -367,11 +424,7 @@ impl Inboxes {
         else {
             return Ok(());
         };
-        let batches = state.plan(&record).map_err(|_| InboxError::Unavailable)?;
-        let required = funding_plan(&batches, &record.fee_policy)
-            .map_err(|_| InboxError::Unavailable)?
-            .required
-            .as_u64();
+        let required = required_funding(state, &record)?;
         let mut inbox = store.load_inbox(id).map_err(|_| InboxError::Unavailable)?;
 
         // A payout funded before it had an inbox never gets one.
@@ -415,6 +468,17 @@ impl Inboxes {
                 .is_some_and(|at| at.elapsed() < FINISHED_REFRESH)
         {
             return Ok(());
+        }
+        // A wallet whose directory is gone is set up again from the seed, as it first was: the same phrase, so the same
+        // address, scanning from the same birthday.
+        if !self.backend.has_wallet(record.account) {
+            let address = self
+                .backend
+                .set_up(state.seed(), record.account, inbox.birthday)
+                .await?;
+            if address != inbox.address {
+                return Err(InboxError::Unavailable);
+            }
         }
         let snapshot = self.backend.refresh(record.account).await?;
         lock(&self.refreshed_at).insert(id.clone(), Instant::now());
@@ -503,8 +567,8 @@ impl Inboxes {
                 view.need = Some(need.to_string());
                 InboxState::Short
             }
-            (None, None, Plan::Dust { over }) => {
-                view.need = Some(super::plan::MIN_CHANGE.saturating_sub(over).to_string());
+            (None, None, Plan::Dust { need }) => {
+                view.need = Some(need.to_string());
                 InboxState::Dust
             }
             (None, None, Plan::Move { .. }) => InboxState::Scheduled,
@@ -655,6 +719,10 @@ impl Inboxes {
     ) -> Result<String, SendBackError> {
         let _work = self.work.lock().await;
         let id = &record.id;
+        // Another wallet seed's payout: its account number may be this seed's other payout's (the route refuses it first).
+        if !state.wallet_matches(record) {
+            return Err(SendBackError::NoInbox);
+        }
         let mut inbox = state
             .store()
             .load_inbox(id)
@@ -690,13 +758,8 @@ impl Inboxes {
             })
             .collect();
         if record.funding.is_none() && inbox.moved.is_none() {
-            let batches = state.plan(record).map_err(|_| InboxError::Unavailable)?;
-            let required = funding_plan(&batches, &record.fee_policy)
-                .map_err(|_| InboxError::Unavailable)?
-                .required
-                .as_u64();
             let payout = Payout {
-                required,
+                required: required_funding(state, record)?,
                 funded_otherwise: false,
                 busy_or_moved: false,
             };
@@ -736,9 +799,9 @@ impl Inboxes {
             .map_err(|_| InboxError::Unavailable)?;
         lock(&self.sent_at).insert(id.clone(), Instant::now());
         let sent = self.backend.broadcast(&built.raw).await;
+        // Not its txid: unlike a move's, which is the payout's public deposit, nothing public ties a send-back to the payout.
         state.logger().info(format_args!(
-            "inbox of {id}: send-back {} sent ({:?})",
-            built.facts.txid,
+            "inbox of {id}: send-back sent ({:?})",
             sent.unwrap_or(Sent::Rejected)
         ));
         // As the next round will say it: on its way back, and nothing said to be left.

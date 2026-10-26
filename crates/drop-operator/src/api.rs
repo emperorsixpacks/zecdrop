@@ -732,6 +732,8 @@ async fn inbox_return(
         ));
     }
     let record = load(&state, &id)?;
+    // Another seed's payout may share an account number with one of this seed's, whose inbox it would then spend.
+    state.check_wallet(&record)?;
     let no_inbox = || {
         ApiError::new(
             StatusCode::NOT_FOUND,
@@ -739,10 +741,16 @@ async fn inbox_return(
             "this payout has no shielded deposit address",
         )
     };
-    let Some(inboxes) = state.inboxes() else {
+    let Some(inboxes) = state.inboxes().cloned() else {
         return Err(no_inbox());
     };
-    match inboxes.send_back(&state, &record, body.to.trim()).await {
+    // Once confirmed, it runs to the end even if the page goes away.
+    let task = {
+        let (state, to) = (state.clone(), body.to.trim().to_owned());
+        tokio::spawn(async move { inboxes.send_back(&state, &record, &to).await })
+    };
+    let outcome = task.await.map_err(|e| state.internal(&e))?;
+    match outcome {
         Ok(txid) => Ok((StatusCode::ACCEPTED, Json(json!({ "txid": txid })))),
         Err(SendBackError::NoInbox) => Err(no_inbox()),
         Err(SendBackError::Refused) => Err(ApiError::bad_request(

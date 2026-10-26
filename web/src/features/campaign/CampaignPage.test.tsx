@@ -20,6 +20,7 @@ import {
 } from "@/test/fake-operator";
 import { FUNDING_SOURCE_WORDING } from "@/features/operator/funding-source-wording";
 import { INBOX_WORDING } from "@/features/operator/inbox-wording";
+import { fundingPaymentUri } from "@/lib/payment-uri";
 import { BANNED } from "@/test/banned-phrases";
 import { fixtureJson, goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
@@ -819,6 +820,35 @@ describe("a real chain", () => {
       const status = await screen.findByTestId("inbox-status");
       expect(status).toHaveTextContent(/has arrived\. Send .+ more\./u);
       expect(status).toHaveTextContent(INBOX_WORDING.shortTail);
+    });
+
+    it("when short, asks for what is missing, and its wallet link pays that, not the whole again", async () => {
+      const short = goldenJson("campaign-real-inbox-short.json") as { inbox: { need: string; asked: string } };
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-short.json") }, realHealth);
+      await screen.findByTestId("inbox-ask");
+      expect(screen.getByRole("link", { name: "Open in wallet" })).toHaveAttribute(
+        "href",
+        fundingPaymentUri("utest1FAKEinboxDepositAddressNotARealAddress", short.inbox.need),
+      );
+      expect(short.inbox.need).not.toBe(short.inbox.asked);
+    });
+
+    it("once a deposit has arrived and is enough, asks for no other: no ask, no address to pay", async () => {
+      for (const file of ["campaign-real-inbox-confirming.json", "campaign-real-inbox-scheduled.json", "campaign-real-inbox-moving.json"]) {
+        const { unmount } = open({ "GET /api/campaigns/:id": campaign(file) }, realHealth);
+        await screen.findByTestId("inbox-status");
+        expect(screen.queryByTestId("inbox-ask"), file).toBeNull();
+        expect(screen.queryByTestId("inbox-address"), file).toBeNull();
+        unmount();
+      }
+    });
+
+    it("after the operator restarts, says it is checking, and offers neither the public address nor a way to pay again", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-checking.json") }, realHealth);
+      expect(await screen.findByTestId("inbox-status")).toHaveTextContent(INBOX_WORDING.checking);
+      expect(screen.queryByTestId("public-instead")).toBeNull();
+      expect(screen.queryByTestId("funding-address")).toBeNull();
+      expect(screen.queryByTestId("inbox-ask")).toBeNull();
     });
 
     it("says when the move is due, and why it waits", async () => {
