@@ -27,8 +27,8 @@ for (const viewport of VIEWPORTS) {
 
           await page.goto("/");
           await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-          await page.getByRole("radio", { name: "Public" }).waitFor();
-          await check(page, "home, public view", problems);
+          await page.getByRole("radio", { name: "Everyone" }).waitFor();
+          await check(page, "home, everyone's view", problems);
           await page.getByRole("radio", { name: "Auditor" }).click();
           await check(page, "home, auditor view", problems);
           await page.getByRole("radio", { name: "One person" }).click();

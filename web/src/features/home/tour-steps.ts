@@ -46,14 +46,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "add",
     title: "Add the payouts",
-    text: "Drop in a CSV of addresses and amounts, or paste it.",
+    text: "Import your list, or type people in one by one.",
     publicNote: "Nothing yet.",
     hiddenNote: "The whole list. Only the operator on your computer has it.",
     shots: [
       {
         id: "add-payouts",
         height: 860,
-        alt: "The operator's Add the payouts screen. The run is named Autumn grants. Above the list it says 8 people, 0.005 TAZ; each row shows a shortened address, an amount and a memo.",
+        alt: "The operator's Add the payouts screen for an organisation. The run is named Autumn grants. Above the list it says 8 people, 0.005 TAZ; each row shows a shortened address, an amount and a memo.",
         caption: "Operator screen: Add the payouts",
       },
     ],
@@ -83,13 +83,13 @@ export const TOUR_STEPS: readonly TourStep[] = [
       {
         id: "fund-waiting",
         height: 900,
-        alt: "The operator's Fund and send screen while it waits for funds. Practice mode offers a button that records a pretend deposit, and the Send 8 payouts button is greyed out.",
+        alt: "The operator's Fund and send screen while it waits for funds. Practice mode asks what the pretend deposit is paid from, your shielded balance or a transparent address, and offers a button that records it.",
         caption: "Operator screen: waiting for funds",
       },
       {
         id: "fund-funded",
         height: 800,
-        alt: "The same screen once the pretend deposit is recorded. A green tick says Funded, and the Send 8 payouts button is ready.",
+        alt: "The same screen once the pretend deposit is recorded. A green tick says Funded, a line says the pretend deposit came from the shielded pool and would name no address of yours, and the Send 8 payouts button is ready.",
         caption: "Operator screen: funded",
       },
     ],
@@ -125,7 +125,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
       {
         id: "receipt",
         height: 1500,
-        alt: "The public receipt page for the real testnet batch: Settled, 8 payouts, 0.005 TAZ, fee 0.00045 TAZ, funded from one address, out in 8 outputs. Below, eight rows of black bars hide who got what.",
+        alt: "The public receipt page for the real testnet batch: Settled, 8 payouts, 0.005 TAZ, fee 0.00045 TAZ, funded from one address with a deposit from transparent funds, out in 8 outputs. Below, eight rows of black bars hide who got what.",
         caption: "The public receipt of the real testnet batch",
       },
     ],

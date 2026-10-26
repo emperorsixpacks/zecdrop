@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { demoReceipt, SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import "@/test/dom";
@@ -50,12 +50,51 @@ describe("the home page", () => {
     }
   });
 
-  it("puts three short lines under the lens: what is public, what is hidden, what is checkable", () => {
+  it("makes three promises under the headline, one short line each", () => {
     renderHome();
-    const lines = screen.getAllByRole("list").find((ul) => ul.textContent?.includes("Checkable")) as HTMLElement;
-    const items = within(lines).getAllByRole("listitem");
-    expect(items.map((li) => li.firstElementChild?.textContent)).toEqual(["Public", "Hidden", "Checkable"]);
-    for (const item of items) expect((item.textContent ?? "").split(/\s+/u).length).toBeLessThanOrEqual(14);
+    for (const line of [
+      "Anyone can check the total.",
+      "Each person can prove their own payout.",
+      "Only the auditor you choose sees the list.",
+    ]) {
+      expect(screen.getByText(line)).toBeInTheDocument();
+    }
+  });
+
+  it("says who sees what: the same four as the switch on the sheet, and how each view is opened", () => {
+    renderHome();
+    const views = screen.getByTestId("four-views");
+    const items = within(views).getAllByRole("listitem");
+    expect(items.map((li) => li.firstElementChild?.textContent)).toEqual(["Everyone", "One person", "An auditor", "You"]);
+    expect(views).toHaveTextContent("From the receipt link, with no key.");
+    expect(views).toHaveTextContent("From their payslip, which proves it to anyone.");
+    expect(views).toHaveTextContent("With this payout's viewing key, and nothing from your other payouts.");
+    expect(views).toHaveTextContent("On your own computer, where the keys stay.");
+    // What everyone sees includes what the deposit spent, never who got what.
+    expect(views).toHaveTextContent("whether the deposit came out of the shielded pool");
+  });
+
+  it("compares a public list, a private wallet and ZecDrop, question by question, in a table and on a phone", () => {
+    renderHome();
+    const table = screen.getByTestId("compare-table");
+    expect(within(table).getAllByRole("columnheader").map((th) => th.firstElementChild?.textContent)).toEqual([
+      "A public list",
+      "A private wallet",
+      "ZecDrop",
+    ]);
+    const questions = within(table).getAllByRole("rowheader").map((th) => th.textContent);
+    expect(questions).toEqual([
+      "Anyone can check the total",
+      "Who got what stays private",
+      "One person can prove their own payout",
+      "An auditor can check the list",
+      "The payer's address stays off the chain",
+    ]);
+    // The same answers, one question at a time, for a narrow screen.
+    const list = screen.getByTestId("compare-list");
+    expect(within(list).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(questions);
+    expect(list).toHaveTextContent("Yes, with a payslip");
+    expect(table).toHaveTextContent("Yes, if you pay from a shielded balance");
   });
 
   it("says how to run a payout, in order, and that there is no wallet to connect", () => {
@@ -72,6 +111,35 @@ describe("the home page", () => {
     // The page offers nothing to connect: no such button or link anywhere.
     expect(screen.queryByRole("button", { name: /connect/iu })).toBeNull();
     expect(screen.queryByRole("link", { name: /connect/iu })).toBeNull();
+  });
+
+  it("prints the real run as a receipt, with the receipt's own figures and the limits as measured", () => {
+    renderHome();
+    const receipt = screen.getByTestId("run-receipt");
+    const line = (name: string) => within(receipt).getByText(name).closest("div")?.querySelector("dd")?.textContent;
+    expect(line("Payouts")).toBe("8");
+    expect(line("Transaction")).toBe("6e23…7955");
+    expect(line("Total")).toBe("0.005 TAZ");
+    expect(line("Network fee")).toBe("0.00045 TAZ");
+    expect(line("Mined at block")).toBe("4,478,289");
+    expect(line("Most in one transaction")).toBe("330");
+    expect(line("Time to prove 330")).toBe("142 s");
+    // The one thing it has not done is said on it, as on the page's status line.
+    expect(within(receipt).getByText("No mainnet payout yet.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
+  });
+
+  it("says what a person being paid can do, and where", () => {
+    renderHome();
+    const section = screen.getByRole("heading", { level: 2, name: "For the people you pay" }).closest("section") as HTMLElement;
+    expect(within(section).getByRole("link", { name: "Get ready to be paid" })).toHaveAttribute("href", "/get-paid");
+    expect(within(section).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
+  });
+
+  it("keeps the three public figures plain: nothing is drawn behind the writing", () => {
+    renderHome();
+    const summary = screen.getByTestId("lens-summary");
+    for (const el of [summary, ...summary.querySelectorAll("*")]) expect(el.className).not.toMatch(/marker|highlighter|marked/u);
   });
 
   it("keeps the count, the total and the fee readable, from the real receipt", () => {
@@ -137,11 +205,19 @@ describe("the lens on the home page", () => {
     expect(screen.getByText("ZecDrop demo payout 5")).toBeInTheDocument();
   });
 
-  it("goes back to hiding everything when 'Public' is chosen again", async () => {
+  it("'You' (the payer) reveals every row too, and says it is on the payer's own computer", async () => {
+    const user = userEvent.setup();
+    renderHome();
+    await user.click(screen.getByRole("radio", { name: "You" }));
+    expect(rows().every((r) => r.getAttribute("data-revealed") === "true")).toBe(true);
+    expect(screen.getByText("What you see as the payer, on your own computer.")).toBeInTheDocument();
+  });
+
+  it("goes back to hiding everything when 'Everyone' is chosen again", async () => {
     const user = userEvent.setup();
     renderHome();
     await user.click(screen.getByRole("radio", { name: "Auditor" }));
-    await user.click(screen.getByRole("radio", { name: "Public" }));
+    await user.click(screen.getByRole("radio", { name: "Everyone" }));
     for (const address of addresses) expect(document.body.innerHTML).not.toContain(address.slice(0, 20));
     for (const memo of memos) expect(document.body.innerHTML).not.toContain(memo);
   });
@@ -149,5 +225,97 @@ describe("the lens on the home page", () => {
   it("says the testnet coin has no value", () => {
     renderHome();
     expect(screen.getByText("Amounts are in TAZ, the testnet coin. It has no value.")).toBeInTheDocument();
+  });
+});
+
+describe("the first look", () => {
+  // The page plays it once a visit, so each test loads the page afresh.
+  async function freshHome() {
+    vi.resetModules();
+    const { default: Fresh } = await import("./HomePage");
+    return render(
+      <MemoryRouter>
+        <Fresh />
+      </MemoryRouter>,
+    );
+  }
+
+  function lively() {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    document.documentElement.dataset["motion"] = "lively";
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    delete document.documentElement.dataset["motion"];
+  });
+
+  // covers: REQ-PRIV-002
+  it("draws the bars over cells that hold nothing, and is then still", async () => {
+    lively();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { container } = await freshHome();
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(16);
+    // While the bars are being drawn the page is as private as it is after: no address, memo or amount of the list.
+    const html = document.body.innerHTML;
+    for (const row of samplePayoutRows()) {
+      expect(html).not.toContain((row.address ?? "never").slice(0, 20));
+      expect(html).not.toContain(row.memo ?? "never");
+    }
+    expect(document.body.textContent).not.toMatch(amount("0.0006", "0.0004", "0.0009", "0.0005", "0.0007", "0.0003", "0.0010"));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+  });
+
+  it("plays once a visit: coming back to the page draws nothing", async () => {
+    lively();
+    const first = await freshHome();
+    first.unmount();
+    const { default: Again } = await import("./HomePage");
+    const { container } = render(
+      <MemoryRouter>
+        <Again />
+      </MemoryRouter>,
+    );
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+  });
+
+  it("does not play in Calm, or when the system asks for reduced motion", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    const { container } = await freshHome();
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+    cleanup();
+
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    document.documentElement.dataset["motion"] = "calm";
+    const calm = await freshHome();
+    expect(calm.container.querySelectorAll(".bar-in")).toHaveLength(0);
+  });
+});
+
+describe("who it is for", () => {
+  it("shows two doors, personal and organisation, each a way into a practice payout in its own view", () => {
+    renderHome();
+    const personal = screen.getByTestId("door-personal");
+    const organisation = screen.getByTestId("door-organisation");
+    expect(within(personal).getByRole("heading", { level: 3, name: "Personal" })).toBeInTheDocument();
+    expect(within(personal).getByText("Money home to family")).toBeInTheDocument();
+    expect(within(personal).getByRole("button", { name: "Try a personal payout" })).toBeInTheDocument();
+    expect(within(organisation).getByRole("heading", { level: 3, name: "Organisation" })).toBeInTheDocument();
+    expect(within(organisation).getByText("Payroll and contributors")).toBeInTheDocument();
+    expect(within(organisation).getByRole("button", { name: "Try an organisation payout" })).toBeInTheDocument();
   });
 });

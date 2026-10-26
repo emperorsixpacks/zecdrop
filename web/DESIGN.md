@@ -8,6 +8,16 @@ Owner feedback (2026-10-19): the UI is "just okay": make it more pleasing and mo
 be curved "so the notch can be felt", and the get-paid page is too wordy. Answered by "The screen" (below), the get-paid page's
 rewrite, and the header's new offset. The identity is unchanged: paper, ink, the marker, redaction bars, the big tight grotesque.
 
+Owner feedback (2026-10-20): "the UI is fine but we need a cool landing page"; the home page read as documentation, not as a
+landing page. Answered by "Home" (below): the headline beside the sheet, with one first look on it (the bars are drawn while the
+total counts up), a band across the screen in the bar's own colours, the real run printed as a till receipt, a section for the
+people being paid, and the steps, practice mode and tour kept. No new colour, font or claim.
+
+Owner feedback (2026-10-20, later): no yellow highlighting on the writing; the text is plain ink ("complete black"). So nothing is
+highlighted behind text anywhere: a revealed address, amount or memo in the lens is plain text where its bar was, the row of the one
+person revealed takes the neutral tint of a row, and the home page's three public figures are plain. The marker yellow stays where it
+is not on the writing: the action in the dark set, the focus ring, the capsule's *Mainnet* chip and current page.
+
 Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
 default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
 operator screens inherit the tokens and get their own pass after. The structure, flow, copy rules and tests below are unchanged.
@@ -42,8 +52,9 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
 - Dark (after hours; chosen by the person, or by a system that says dark): desk `#121212`, sheet `#1B1B1B`, ink `#F2F2EE`,
   muted `#A1A19B`, rule `#333330`, bar `#C9C9C2`, good `#4ADE80`, bad `#FF8A8A`. Black would vanish on this page, so the
   **action is the marker** (`#FFD60A`, ink `#141414` on it).
-- The **marker** is what has been revealed (the lens lifts a bar and the text under it is highlighted), where focus is (an ink
-  outline with a marker ring), where you are in the header capsule, and the word *Mainnet* on it. It is not used for decoration.
+- The **marker** is where focus is (an ink outline with a marker ring), where you are in the header capsule, and the word
+  *Mainnet* on it. It is never drawn behind writing (owner, 2026-10-20): what the lens reveals is plain text where the bar was.
+  It is not used for decoration.
   No gradient anywhere, no glow, no hatching on bars.
 - The **header capsule** is the redaction bar, so its fill (`--p-island`) is the bar's, in both sets. Its text (`--p-island-ink`) is
   `#F2F2EE` on the black bar and `#141414` on the dark set's light grey; its quieter text (`--p-island-muted`) is `#A1A19B` and
@@ -54,8 +65,8 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
   to 80. Body line length at most 64 characters. Left aligned everywhere. No third-party font requests (CSP stays
   `'self'`): bundle the files; record package names, versions and licences (OFL) in `PROVENANCE.md`.
 - Shape: one scale of curves, cut from the screen's own corner down to the smallest chip (see "The screen"): pills for buttons,
-  chips and segmented controls, 20px slips of paper for cards, 14px for fields, 2px for redaction bars and the marker on revealed
-  text (they are strokes, not objects). One white **sheet** holds the lens on the home page; elsewhere structure comes from
+  chips and segmented controls, 20px slips of paper for cards, 14px for fields, 2px for redaction bars (they are
+  strokes, not objects). One white **sheet** holds the lens on the home page; elsewhere structure comes from
   spacing, hairline rules and large type, and a step or a result sits on a slip. Rows are ruled lines.
 - The mark: the logo is a small redaction bar next to the name.
 - Motion: **Lively** is the default, **Calm** is the other choice (kept in localStorage), and the system's
@@ -64,7 +75,8 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
   itself, the sending timeline advancing, the sealed stamp with a short confetti burst, button press feedback, a sliding thumb
   on every segmented control, toasts, the header capsule's morph when it is opened or closed, the press response of everything
   that can be pressed, a redaction bar's label on touch, and a new page's cross-fade. Not allowed: entrance fades on every
-  section, a background glow, anything that moves while the page loads or scrolls, anything that moves by itself.
+  section, a background glow, anything that moves while the page loads or scrolls, anything that moves by itself. One exception
+  (2026-10-20): the home page's **first look**, Lively only and once a visit, about two seconds, then still (see "Home").
 
 ## Self-critique of the plan (done before building)
 
@@ -84,10 +96,24 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
  Payouts ──── Check ──── Send            ← slim 3-segment tracker; the only numbered thing
 ```
 
-**Stage 1, Payouts.** A big drop zone ("Drop a CSV here, or paste it"). After a file/paste: a ruled table (address short,
-amount, memo), live total counting up, per-row problems inline in the row ("Line 4: amount has too many decimals"),
-never echoing full addresses in errors. Name field ("Name this payout run", optional default "Payout, 8 Oct"). A closed
-"Options" disclosure holds fee level and payouts per batch with good defaults. Primary: **Continue**.
+**Stage 1, Payouts.** It opens with *Who it's for*, a sliding control (*Personal*, *Organisation*) and one line under it; the
+choice is kept on the browser like the theme (`src/lib/audience.ts`, `zd:audience`, written only when changed) and changes only
+what is shown, never what is sent. **Personal** (the default) is the people list and Continue. **Organisation** starts from the
+drop zone, with *Add people one by one instead* under it, and has *Options*; on the Check stage it keeps *Batches* and *List
+fingerprint*, and on the campaign page *Batches*, *Auditor access* and *Give an auditor access*, which a personal payout's page
+leaves out behind one line, "The batch detail and the auditor's key are in the organisation view.", and *Show them*. Since
+2026-10-20 (owner: "do away with the csv file and spreadsheet that most people might not use") the personal view is **the
+people list** (REQ-IMP-002): the count and the total counting up, then *Amounts*, a sliding control
+(*Set each*, *Even*, *Lucky*; short words so it fits at 320px), then one ruled block a person (*Person N*, *Address* in the mono
+face, *Amount* with its unit, *Note they'll see*, *Remove* on the right) and *Add a person*. *Even* and *Lucky* ask for a *Total to
+split* and show each share in the row; one line under the total says what the split means (equal shares can be worked out from the
+total; random ones cannot), and *Lucky* has *Shuffle again*. A field's problem shows once it is left, every problem on Continue
+("3 problems to fix.", which takes the focus), and the operator's own sentence for a line sits on the person of that line; an
+address that looks wrong for the network is a hint in ink, not a problem. Practice mode puts *Use the example list* above it. A
+file is the organisation view's: the drop zone ("Drop a CSV here", choose a file, or paste it); an imported list shows as a ruled table (address short, amount, memo) with per-row problems inline ("Line 4: amount
+has too many decimals") and *Use a different list* goes back to the people. Errors never echo an address. Name field ("Name this
+payout run", optional default "Payout, 8 Oct"). A closed "Options" disclosure holds fee level and payouts per batch with good
+defaults. Primary: **Continue**.
 
 **Stage 2, Check.** Left, huge: `8 people  0.005 TAZ  + 0.00045 fee`. Under it the lens switch + the list. Warnings are
 short chips ("Only 3 people: amounts are easy to guess") each with a "Why?" popover. Time estimate as one line ("About 20
@@ -95,16 +121,37 @@ seconds"). Primary: **Looks right, continue**. Secondary: back.
 
 **Stage 3, Send.** One question first: *Is it funded?* Shows the funding address with a copy button, an Open in wallet link and a QR code of the
 same wallet link (REQ-FUND-003; see "QR codes") and a live "Waiting for funds" pulse that flips to "Funded" the
-moment the operator sees it. Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
+moment the operator sees it. Under the amount, one ask with a "?": **Pay from your shielded balance**, and why (REQ-FUND-004).
+Once a deposit is seen, at any depth, one line says what it spent: a calm "From the shielded pool: the deposit names no address
+of yours. Its amount and time are public." or a warning box (never an error) that it came from transparent funds, with "You
+can still send". On the mock chain and in practice mode the pretend deposit has a *Paid from* choice (shielded by default) and
+the line says "(pretend)". Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
 0.00045 fee. It cannot be undone."). After confirming, the sheet becomes a live timeline: Preparing, Proving, Sending,
 Confirming 1 / 2 / 3, Done, with elapsed time and a realistic estimate; failures say what happened and what to do. On
-Done: the sealed stamp, then three big actions: **Open public receipt**, **Copy receipt link**, **Give an auditor access**
-(the existing irreversible-disclosure confirmation stays). "Fund from another coin" (NEAR) is a collapsed row under the
+Done: the sealed stamp, then the big actions: **Open public receipt**, **Copy receipt link**, **Send payslips** and **Give an
+auditor access** (the existing irreversible-disclosure confirmation stays). *Send payslips* opens the *Payslips* row (REQ-PAY-005):
+one line, the warning, *Show payslips*; then a ruled row a person (*Person N* and their note, the address short and the amount)
+with *Send payslip*, which opens the payslip page's own link and QR screens for that person, one at a time; *Hide payslips*, and
+they hide themselves after ten minutes. On the mock chain the row says there is no real transaction to prove. "Fund from another coin" (NEAR) is a collapsed row under the
 address, not a section: closed, it asks the price service nothing. On a testnet campaign it opens to a price preview (NEAR
 delivers mainnet ZEC only; it creates nothing). On a mainnet campaign it takes the funder's refund address, shows a price quote
 (still nothing created), and asks for its own "I understand" before the deposit address. The operator keeps that address, so
 closing the row or reloading shows it again. A swap's success is "paid to the deposit address, says the service"; the campaign
 is funded only when the operator sees the coin on chain.
+
+**Stage 3 with a shielded deposit address** (a testnet operator run with zcash-devtool; REQ-FUND-008, `inbox-wording.ts`).
+*Is it funded?* leads with the payout's own shielded address instead: the same address block (copy, Open in wallet, QR code)
+for that address and exactly the funding plus the move's fee, and the ask "Send 0.0056 TAZ from your shielded wallet to this
+payout's own shielded address." Its "?" says what happens next: ZecDrop moves exactly the funding to the payout's public address
+a few minutes later, and that public step is what lets anyone check the total; the move's fee is in the amount; one payment or
+several. Under it, one live status line (a polite live region) says where the shielded address stands, in plain words: setting
+up; no deposit seen yet; a deposit confirming, *N* of 10; short by an amount ("Payments to this address add up."); enough,
+moving at a stated time, with why the wait is random; the move confirming. The public address stays one step away, in a closed
+"Pay the public address instead" row, until anything reaches the shielded one. After funding, the funded line adds "Moved here
+from this payout's shielded address.", and anything left there gets a **Send it back** form: the payer's own shielded address
+(a shape check in the page; the operator refuses a transparent or Sapling-only address, the shielded address itself and the
+payout's own), then a confirm step ("This can't be undone. Send it all to the address above?"). The page keeps asking while a
+move or a send-back is on its way; the operator answers from memory, so asking never runs zcash-devtool.
 
 **Campaigns page.** Empty: a heading, one friendly sentence, three bars that stand for rows (decoration, hidden from assistive
 technology, no text) and the drop zone as the call to action. The same bars and a primary "Start a payout" are the empty state
@@ -117,20 +164,51 @@ in screenshots). It is a `role="status"`, as is "Chain mode unknown: practice co
 
 ## Public pages
 
-**Home.** Headline "Pay many people. Keep who got what private. Prove the total." in large heavy type, three lines on a wide
-screen. Below it, on the left the status line, the two buttons and three short lines; on the right one white sheet holding the
-lens demo (stacked, sheet before the lines, on a phone). The lens demo is on the real
-8-payout sample list (rows labelled Person 1..8; amounts from the public sample CSV), with the lens switch as the hero
-interaction. Three buttons: *See a real receipt* (the one that is filled), *How privacy works* and *Try a practice payout*, which
-turns practice mode on and opens the first screen of a payout. Three short lines (what is public / hidden / checkable)
-and the one-sentence testnet status. No paragraphs of explanation above the fold. Between the four steps and the tour a calm
-section, *Try it yourself*, two short lines and one outline button (*Try it yourself in practice mode*): rather than read the
-tour, do it. Neither button is the highlighted one, and neither changes a pinned sentence.
+**Home** is the landing page (owner, 2026-10-20; restructured 2026-10-23 around one idea, *one payout, four views*: the same
+payout as everyone, one person paid, an auditor and the payer see it). In order:
+
+1. **The headline and the sheet**, side by side on a wide screen so the first look is seen without a scroll (stacked on a phone).
+   Left: "Pay many people. Keep who got what private. Prove the total." in the big grotesque pushed further (weight 800, width
+   72%, up to 92px); under it the three promises, one line each ("Anyone can check the total." / "Each person can prove their
+   own payout." / "Only the auditor you choose sees the list."); two buttons (*See a real receipt*, filled; *Try a practice
+   payout*, outline); two text links (*How privacy works*, *Being paid? Start here*); and the testnet status in one small muted
+   line, said once on the first screen but not as the lead. Right: the one white sheet, *One payout, four views*, with the real
+   transaction's short id, the count, total and fee in plain ink, and the lens on the real 8-payout sample list (Person 1..8)
+   with a four-way switch under the list: *Everyone*, *One person*, *Auditor*, *You*. The auditor and the payer both see every
+   row; the caption read out under the switch says how (this payout's viewing key; the payer's own computer). The switch is under
+   the list so the tab order runs down the page (`e2e/keyboard.spec.ts` holds it). Four do not fit in one row on a phone, so below
+   `sm` they sit two by two (a grid with a pill's corner, at most 22rem wide, not as wide as the caption), and the pill follows a
+   choice down to the second row (`e2e/responsive.spec.ts` holds both).
+2. **The first look** (Lively, once a visit): the sixteen bars wipe in row after row over cells that never held any text,
+   while the total counts up; about a second, then still. In Calm, under reduced motion and on a return to the page it is not
+   played. It is the page's one unprompted motion; nothing else on the page moves by itself.
+3. **The band, *Who sees what***: the redaction bar itself across the whole screen (the header capsule's fill and ink), "One
+   transaction pays everyone. What each person sees depends on what they hold.", then the four views in very large type, each
+   with what it sees and, in the muted ink, how it is opened: *Everyone* (the receipt link, no key), *One person* (their
+   payslip), *An auditor* (this payout's viewing key, nothing from other payouts), *You* (your own computer, where the keys stay).
+4. **How it compares**: a public list (an airdrop on a public chain), a private wallet (paying from a shielded wallet) and
+   ZecDrop, answered question by question in plain words: anyone can check the total; who got what stays private; one person can
+   prove their own payout; an auditor can check the list; the payer's address stays off the chain (only if they pay from a
+   shielded balance, and said so). A table on a slip from `md` up, the
+   ZecDrop column set off by an ink rule and semibold; on a phone one slip per question with the three answers, so nothing is
+   wider than the screen.
+5. **It ran on public testnet**: three short lines and *Open the receipt*, beside the real run printed as a till receipt (the
+   torn sheet, mono, dotted leaders, tilted a degree on a wide screen): payouts, transaction, total, fee, block, time to settle;
+   then the limits measured offline (330 in one transaction, 142 s to prove it, 0.52 s to check it); ending "No mainnet payout
+   yet." Every figure is the real receipt's or is named in `src/features/home/run-facts.ts` with its source.
+6. **Who it's for**: two slips, *Personal* and *Organisation*, each with three uses as ruled lines, one line on how it works,
+   and its own button into practice mode in that view.
+7. **How to run a payout** (the four steps; the third says to pay from your shielded balance), then **For the people you pay**
+   (the get-paid page and payslips, one line each), then the tour, and last **Try it yourself** on a slip (the button beside
+   the text on a wide screen).
+
+No paragraph is longer than a short sentence (a test holds them to 16 words), and no part claims more than the status line.
 
 **Receipt.** One white **sheet** with an ink rule on top and a torn bottom edge (`.receipt-sheet`, a mask). On the left a
 verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), then what the verifier found, then the funds flow as three
-stations down a line, like the lines of a receipt (Funded from, Private pool, 8 outputs); on the right the lens (public, with
-the note). On a phone it is one column, with dashed perforations between the parts. Below the sheet, on the desk, collapsed accordions: Transaction, Funding address, List
+stations down a line, like the lines of a receipt (Funded from, Private pool, 8 outputs); under the funding address a small
+caption says what the deposit spent ("Deposit out of the shielded pool" or "Deposit from transparent funds", REQ-VER-007),
+with a "?"; no caption when the verifier did not say. On the right the lens (public, with the note). On a phone it is one column, with dashed perforations between the parts. Below the sheet, on the desk, collapsed accordions: Transaction, Funding address (with "What the deposit spent"), List
 fingerprint, "What this proves and what it doesn't" (two short lists of three items each at most, wording from
 docs/PRIVACY_BOUNDARY.md, banned phrases still enforced). Findings keep the Rust-sourced sentences, shown inside the
 verdict area and in details.
@@ -357,8 +435,9 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   lifts, and its shadow is never drawn on a thing the keyboard has focused, because the focus ring is a shadow too. Calm shortens all of it,
   and under "reduce motion" it is gone: a pressed thing is its colour alone.
 - **Segmented controls.** One pill that glides to the chosen option in 220ms with a small spring (`--motion` scales it). It is the ink
-  (the marker in the dark set), not the highlighter: the marker is kept for what is revealed and where focus is.
-- **Redaction bars answer touch.** A hidden bar in the lens (the home page's *Same payout, three views*, the receipt's *What the public sees*,
+  (the marker in the dark set), the action's colour, as the buttons are. Where the options sit in two rows (the home page's four
+  views on a phone) it glides across and down.
+- **Redaction bars answer touch.** A hidden bar in the lens (the home page's *One payout, four views*, the receipt's *What the public sees*,
   the operator's check) shows its label, *hidden*, sliding up inside it under a pointer or a finger, and puts it away again. Always the same
   word, never a figure. It is drawn by the stylesheet with an empty alternative text (`content: "hidden" / ""`), so no screen reader reads
   it, and the bar's own name is still the one thing read; a browser that does not know that syntax draws none.
@@ -411,5 +490,5 @@ would be no help. The same sizes, so the page holds the same space.
 ### Not done here (stage 2)
 
 The capsule's live activity (the progress of a running payout, on every page): the capsule is one button with a name made of its parts, so a
-fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. A hero moment on the home page, and richer practice-mode
-guidance, are untouched.
+fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. Richer practice-mode guidance is untouched. (The hero
+moment on the home page was done on 2026-10-20: "Home", above.)

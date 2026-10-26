@@ -7,7 +7,7 @@
 // URL; the response, like every response, contains none of it.
 
 import { sendToApi } from "@/api/client";
-import { parsePublicReceipt, type OutPointView, type PublicReceipt } from "@/api/types";
+import { parsePublicReceipt, type FundingSource, type OutPointView, type PublicReceipt } from "@/api/types";
 
 import { getToken, rejectToken } from "./session";
 import {
@@ -27,12 +27,16 @@ import {
   parseCampaignList,
   parseHealth,
   parseOperatorError,
+  parseInboxReturn,
+  parsePayslipsExport,
   parseViewingKeyExport,
   parseStartResponse,
+  type InboxReturnResponse,
   type OperatorCampaign,
   type OperatorCampaignSummary,
   type OperatorError,
   type OperatorHealth,
+  type PayslipsExport,
   type StartResponse,
   type ViewingKeyExport,
 } from "./schemas";
@@ -183,15 +187,19 @@ export async function createCampaign(input: CreateCampaignInput, signal?: AbortS
   });
 }
 
-/** Mock chain only: record the funding deposit. */
+/** Mock chain only: record the funding deposit, and optionally what it spent (to show either kind). */
 export async function recordFunding(
   id: string,
-  deposit: { outpoint: OutPointView; amount: string },
+  deposit: { outpoint: OutPointView; amount: string; source?: FundingSource },
   signal?: AbortSignal,
 ): Promise<OperatorCampaign> {
   return await request(campaignPath(id, "/fund-observed"), {
     method: "POST",
-    body: { outpoint: `${deposit.outpoint.txid}:${String(deposit.outpoint.vout)}`, amount: deposit.amount },
+    body: {
+      outpoint: `${deposit.outpoint.txid}:${String(deposit.outpoint.vout)}`,
+      amount: deposit.amount,
+      ...(deposit.source === undefined ? {} : { source: deposit.source }),
+    },
     parse: parseCampaign,
     ...(signal ? { signal } : {}),
   });
@@ -218,6 +226,31 @@ export async function exportViewingKey(id: string, signal?: AbortSignal): Promis
   return await request(campaignPath(id, "/audit-ufvk-export"), {
     parse: parseViewingKeyExport,
     extraHeaders: { [DISCLOSURE_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** Ask for the payslips of a settled campaign: every payout with its own payslip (REQ-PAY-005). The caller must
+ * already have shown the person what a payslip discloses. They are returned to the caller and kept nowhere else. */
+export async function exportPayslips(id: string, signal?: AbortSignal): Promise<PayslipsExport> {
+  return await request(campaignPath(id, "/payslips"), {
+    parse: parsePayslipsExport,
+    extraHeaders: { [DISCLOSURE_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** The header that confirms a send-back, which moves money and cannot be undone (REQ-FUND-007). Sent only after the
+ * person has confirmed where it goes (see InboxReturn). */
+export const SEND_HEADER = "X-Zecdrop-Confirm-Send";
+
+/** Send everything spendable in a payout's shielded deposit address, less the fee, back to the shielded address `to`. */
+export async function returnInbox(id: string, to: string, signal?: AbortSignal): Promise<InboxReturnResponse> {
+  return await request(campaignPath(id, "/inbox/return"), {
+    method: "POST",
+    body: { to },
+    parse: parseInboxReturn,
+    extraHeaders: { [SEND_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
     ...(signal ? { signal } : {}),
   });
 }

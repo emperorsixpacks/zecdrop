@@ -18,7 +18,7 @@ screenshot and **unverified**. Re-check the deadline and the rules inside the si
 
 ## Deadline
 
-**Oct 28, 2026 · 23:59 UTC** (submit form). Internal target: submitted by **Oct 21**.
+**Oct 28, 2026 · 23:59 UTC** (submit form). The owner's target is to submit around **Oct 25-26**.
 
 ## Track
 
@@ -32,8 +32,8 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 | Registered | done | |
 | Project name (≤ 64 chars) | decided | `ZecDrop` (confirmed by the owner) |
 | Track | open | Shielded Payments |
-| Description | draft | `docs/submission/description.md`, refreshed 2026-10-15; the repository and video links are still blank |
-| Code repository | open | `JemIIahh/zecdrop`, private until the public flip; `main` is still the initial import, the work is on `near-funding-and-redesign` |
+| Description | draft | `docs/submission/description.md`, refreshed 2026-10-20; the repository and video links are still blank |
+| Code repository | open | `JemIIahh/zecdrop`, private until the public flip; `main` holds all the current work, merged through pull requests (#2 and #3 on 2026-10-19; #4, a list without a spreadsheet, payslips on the payer's screen and personal and organisation views, and #5 on 2026-10-20); the live site runs `main` at `7dcfb39` since 2026-10-20 |
 | A working demo | partly | site live at <https://zecdrop-site.vercel.app> and checked on 2026-10-16: a shareable link (in `docs/JUDGES.md`) asks the hosted key-less verifier, which a teammate runs on a VPS (`deploy/vps/`), and shows the real 8-payout receipt live. The VPS must stay up through judging. A hosted operator sandbox is not built, see ADR 0002 |
 | A two-minute demo video | script ready | `docs/submission/video-script.md`; not recorded |
 | Repo public by Oct 28 | open | tick the box; run the pre-flip checklist below |
@@ -43,7 +43,7 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 
 - [x] No seeds, mnemonics, UFVKs, JWTs or `.env` in any commit (full history scanned 2026-10-15: only placeholder test keys and "TEST ONLY" test seeds; the only tracked dotfile is `web/.env.example`). Re-scan after any new commit.
 - [x] README says all code was written in the build window.
-- [ ] `PROVENANCE.md` present for generated code (present in `web/` and `crates/drop-chain/`); no file copied from another project (the owner confirms this one).
+- [ ] `PROVENANCE.md` present for generated code and for what is built from upstream (present in `web/`, `crates/drop-chain/` and `scripts/zcash-devtool/`); no file copied from another project (the owner confirms this one).
 - [x] LICENSE-MIT and LICENSE-APACHE present.
 - [x] README commands work from a clean clone (2026-10-16, a fresh clone of `main` at `9714d8a`: fmt, clippy, 642 Rust tests, spec drift 29 of 29, web install, lint, typecheck, 1882 unit tests and build all passed; the Playwright e2e suite was not part of this run).
 

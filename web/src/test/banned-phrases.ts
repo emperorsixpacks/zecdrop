@@ -28,4 +28,11 @@ export const BANNED: [label: string, pattern: RegExp][] = [
   ["funded once the service says so", /funded\s+(as\s+soon\s+as|once|when)\s+(the\s+)?(service|swap|near)/iu],
   ["the swap funds the campaign", /(swap|service|near)\s+(has\s+|will\s+)?(funds?|funded)\s+(the|your)\s+campaign/iu],
   ["safe and secure", /\b(safe|secure)\s+(swap|exchange|funding|transfer)/iu],
+
+  // Where a deposit came from (REQ-FUND-004, REQ-VER-007): a deposit from a shielded balance names no address. Its amount and
+  // its time are public, and nothing here can say who paid, so nothing may claim the payer is hidden or untraceable.
+  ["untraceable", /untraceable|\b(cannot|can't|can\s+not)\s+be\s+(traced|linked)|impossible\s+to\s+(trace|link)/iu],
+  ["anonymous payer", /anonymous(ly)?\s+(payer|deposit|funder|funding|payment|donor)|(payer|funder|sender|donor)\s+(is|stays|remains)\s+anonymous/iu],
+  ["the payer is hidden", /hides?\s+(who\s+(paid|funded|sent)|the\s+(payer|funder|sender))|(payer|funder|sender)\s+(is|stays|remains)\s+(hidden|private|invisible|secret)/iu],
+  ["nobody can see who paid", /(no\s*one|nobody)\s+(can|could|will)\s+(see|tell|know|find\s+out)\s+who\s+(paid|funded|sent)/iu],
 ];

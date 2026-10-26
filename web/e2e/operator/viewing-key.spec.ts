@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
 
+import { useAudience } from "../helpers.js";
 import { operatorUrl, seeded } from "./env.js";
 import { dumpBrowserState, observe } from "./privacy.js";
 
@@ -35,6 +36,8 @@ test("the viewing key is on screen only while shown, and nowhere else", async ({
   const { funded } = seeded();
 
   const seen = await observe(page);
+  // The viewing key is one of an organisation's tools.
+  await useAudience(page, "organisation");
   await page.route(/\/api\/health$/u, (route) => route.fulfill({ json: golden("health-real.json") }));
   await page.route(new RegExp(`/api/campaigns/${funded}$`, "u"), (route) =>
     route.fulfill({ json: { ...golden("campaign-real-awaiting-deposit.json"), id: funded } }),

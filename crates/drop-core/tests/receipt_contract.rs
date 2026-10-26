@@ -16,8 +16,8 @@ use std::path::PathBuf;
 
 use drop_core::{
     plan_batches, BatchReceipt, BatchStatus, CampaignId, CampaignPhase, ChainReceiptInputs,
-    FeePolicy, Finding, FundingRef, FundingState, ManifestCommitment, Network, OutPoint, Pool,
-    PublicReceipt, ReceiptInputs, Recipient, Txid, Zatoshi,
+    FeePolicy, Finding, FundingRef, FundingSource, FundingState, ManifestCommitment, Network,
+    OutPoint, Pool, PublicReceipt, ReceiptInputs, Recipient, Txid, Zatoshi,
 };
 
 /// An obviously fake transparent address, as the fixtures show it.
@@ -128,17 +128,19 @@ fn representative_receipt() -> PublicReceipt {
         funding_state: FundingState::Funded,
         required_depth: 3,
         funding_address: Some(FUNDING_ADDRESS),
+        funding_source: Some(FundingSource::Shielded),
     })
     .unwrap()
 }
 
-// covers: REQ-PRIV-001
+// covers: REQ-PRIV-001, REQ-VER-007
 #[test]
 fn public_receipt_json_matches_the_golden_fixture() {
     let receipt = representative_receipt();
     check_golden("public-receipt.json", &receipt);
     // The shapes the web side must handle: one built and confirmed batch, one with a null txid.
     assert_eq!(receipt.funding_address.as_deref(), Some(FUNDING_ADDRESS));
+    assert_eq!(receipt.funding_source, Some(FundingSource::Shielded));
     assert!(receipt.batches[0].txid.is_some());
     assert!(receipt.batches[1].txid.is_none());
     assert!(receipt.findings.is_empty());
@@ -181,6 +183,7 @@ fn chain_receipt(
     batches: Vec<BatchReceipt>,
     findings: Vec<Finding>,
     funding: &[Option<&str>],
+    source: Option<FundingSource>,
 ) -> PublicReceipt {
     let funding: Vec<Option<String>> = funding.iter().map(|a| a.map(str::to_owned)).collect();
     PublicReceipt::from_chain_facts_with_funding(
@@ -192,6 +195,7 @@ fn chain_receipt(
             required_depth: 3,
             batches,
             findings,
+            funding_source: source,
         },
         &funding,
     )
@@ -241,9 +245,12 @@ fn verifier_receipt_with_every_batch_level_finding_matches_the_golden_fixture() 
             Some(OTHER_ADDRESS),
             Some(FUNDING_ADDRESS),
         ],
+        // Two deposits could not be looked up, so where they came from is not established.
+        None,
     );
     check_golden("public-receipt-findings.json", &receipt);
     assert_eq!(receipt.funding_address, None);
+    assert_eq!(receipt.funding_source, None);
     assert!(receipt
         .findings
         .contains(&Finding::MixedFundingSources { batch_index: 6 }));
@@ -278,7 +285,7 @@ fn verifier_receipt_with_every_batch_level_finding_matches_the_golden_fixture() 
     assert_eq!(receipt.fee_total, None);
 }
 
-// covers: REQ-PRIV-001, REQ-VER-001, REQ-VER-004
+// covers: REQ-PRIV-001, REQ-VER-001, REQ-VER-004, REQ-VER-007
 #[test]
 fn verifier_receipt_with_a_declared_total_mismatch_matches_the_golden_fixture() {
     let receipt = chain_receipt(
@@ -288,9 +295,13 @@ fn verifier_receipt_with_a_declared_total_mismatch_matches_the_golden_fixture() 
         vec![],
         // Both batches spend from the same address: the receipt states it.
         &[Some(FUNDING_ADDRESS), Some(FUNDING_ADDRESS)],
+        // A deposit that spent a transparent coin: a privacy fact, not one of the findings.
+        Some(FundingSource::Transparent),
     );
     check_golden("public-receipt-declared-mismatch.json", &receipt);
     assert_eq!(receipt.funding_address.as_deref(), Some(FUNDING_ADDRESS));
+    assert_eq!(receipt.funding_source, Some(FundingSource::Transparent));
+    // The transparent deposit added no finding: the only one is the mismatch.
     assert_eq!(receipt.findings, vec![Finding::DeclaredTotalMismatch]);
     assert_eq!(receipt.phase, CampaignPhase::Failed);
     assert!(receipt.campaign_id.is_none());

@@ -22,11 +22,11 @@ use std::sync::Arc;
 use axum::http::{Method, StatusCode};
 use common::zcash::*;
 use common::*;
-use drop_core::{CampaignId, FailureKind, Zatoshi};
+use drop_core::{CampaignId, FailureKind, Txid, Zatoshi};
 use drop_operator::accounts::{AccountAllocator, AccountError};
 use drop_operator::chain::{ChainError, UtxoSighting};
 use drop_operator::real::{ZcashBackend, ZcashConnector};
-use drop_operator::state::Options;
+use drop_operator::state::{Options, RunState};
 use drop_zcash::{CampaignKeys, ZcashAddressCodec};
 use serde_json::{json, Map, Value};
 
@@ -39,6 +39,7 @@ const FAKE_ID: &str = "c-000000000001";
 const FAKE_COMMITMENT: &str = "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0";
 const FAKE_ADDRESS: &str = "tFAKEfundingAddressNotARealAddress0000";
 const FAKE_UFVK: &str = "uviewFAKEplaceholderNotAKeyNotAKeyNotAKeyNotAKey";
+const FAKE_RECIPIENT: &str = "utest1FAKErecipientAddressNotARealAddress0000";
 
 fn fake_outpoint() -> String {
     format!("{}:0", "cd".repeat(32))
@@ -72,6 +73,18 @@ fn normalise(value: &mut Value) {
                     }
                     ("ufvk", Value::String(_)) => *inner = json!(FAKE_UFVK),
                     ("txid", Value::String(_)) => *inner = json!("a0".repeat(32)),
+                    // A payout row's address, and a payslip's receiver (from that address), note
+                    // seed and place in the shuffled bundle.
+                    ("address", Value::String(_)) => *inner = json!(FAKE_RECIPIENT),
+                    ("receiver", Value::String(_)) => *inner = json!("f0".repeat(43)),
+                    ("rseed", Value::String(_)) => *inner = json!("f1".repeat(32)),
+                    ("action", Value::Number(_)) => *inner = json!(0),
+                    // A payout's shielded deposit address (from the fake inbox wallet).
+                    ("deposit_address", Value::String(_)) => {
+                        *inner = json!("utest1FAKEinboxDepositAddressNotARealAddress")
+                    }
+                    // When an inbox's move is due: a time.
+                    ("move_at", Value::Number(_)) => *inner = json!(1_700_000_600u64),
                     _ => normalise(inner),
                 }
             }
@@ -114,6 +127,9 @@ impl Golden {
                 recipient_ua(0),
                 recipient_ua(1),
                 recipient_ua(2),
+                receiver_hex(0),
+                receiver_hex(1),
+                receiver_hex(2),
             ],
         }
     }
@@ -211,6 +227,16 @@ fn ufvk_of(account: u32) -> String {
         .unwrap()
 }
 
+/// The Orchard receiver of recipient `i`, as a payslip spells it.
+fn receiver_hex(i: u32) -> String {
+    match zcash_keys::address::Address::decode(&NETWORK, &recipient_ua(i)) {
+        Some(zcash_keys::address::Address::Unified(ua)) => {
+            hex::encode(ua.orchard().unwrap().to_raw_address_bytes())
+        }
+        _ => panic!("not a unified address"),
+    }
+}
+
 fn rows() -> Vec<Row> {
     vec![
         Row {
@@ -270,6 +296,10 @@ impl ZcashConnector for DownConnector {
     fn sightings(&self, _address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
         Err(down())
     }
+
+    fn transaction(&self, _txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        Err(down())
+    }
 }
 
 /// An account registry that cannot be written.
@@ -288,7 +318,7 @@ fn down() -> ChainError {
     }
 }
 
-// covers: REQ-FUND-002, REQ-AUD-001, REQ-SEC-001, REQ-OPS-002
+// covers: REQ-FUND-002, REQ-AUD-001, REQ-SEC-001, REQ-OPS-002, REQ-PAY-005, REQ-FUND-004
 #[tokio::test]
 async fn the_real_mode_api_shapes_are_pinned() {
     let mut g = Golden::new();
@@ -352,8 +382,9 @@ async fn the_real_mode_api_shapes_are_pinned() {
         "/api/campaigns/{id}/check-funding",
         200,
         &check,
-        "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth",
+        "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth; it spent a transparent coin, so funding_source is transparent",
     );
+    assert_eq!(check.json()["funding_source"], "transparent");
 
     // One more block: funded, and the progress note goes away.
     node.lock().tip = 1_001;
@@ -368,8 +399,10 @@ async fn the_real_mode_api_shapes_are_pinned() {
     );
 
     // The public receipt of a funded real campaign names the address its batches spend from.
+    assert_eq!(check.json()["funding_source"], "transparent");
     let receipt = h.get(&campaign_path(&id, "/receipt")).await;
     assert_eq!(receipt.json()["funding_address"], address.as_str());
+    assert_eq!(receipt.json()["funding_source"], "transparent");
     g.record(
         "receipt-real.json",
         "GET",
@@ -377,6 +410,35 @@ async fn the_real_mode_api_shapes_are_pinned() {
         200,
         &receipt,
         "the public receipt on a real chain: funding_address is the campaign's transparent address, the one every batch spends from; null on the mock chain",
+    );
+
+    // A second campaign whose deposit spent no transparent coin: the testnet faucet's payout that
+    // funded the first real batch, served under its own id. While it is still short of the depth,
+    // the page can already say where it came from.
+    let (shielded_id, shielded_created) = create(&h).await;
+    let shielded_address = shielded_created.json()["funding_address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    g.forbidden.push(shielded_address.clone());
+    put_deposit_tx(
+        &node,
+        &shielded_address,
+        REQUIRED,
+        Some(1_001),
+        real_deposit("testnet-ironwood-batch"),
+    );
+    let check = h
+        .post_empty(&campaign_path(&shielded_id, "/check-funding"))
+        .await;
+    assert_eq!(check.json()["funding_source"], "shielded");
+    g.record(
+        "campaign-real-deposit-shallow-shielded.json",
+        "POST",
+        "/api/campaigns/{id}/check-funding",
+        200,
+        &check,
+        "a sufficient deposit not deep enough yet that spent no transparent coin: funding_source is shielded",
     );
 
     // The auditor's key: refused without the acknowledgement, with the warning either way.
@@ -632,8 +694,275 @@ async fn the_real_mode_api_shapes_are_pinned() {
     );
 
     near_scenarios(&mut g).await;
+    payslips_scenarios(&mut g).await;
+    inbox_scenarios(&mut g).await;
 
     g.finish();
+}
+
+// ---------------------------------------------------------------------------
+// The shielded deposit address (REQ-FUND-008), over the fake inbox wallet
+// ---------------------------------------------------------------------------
+
+async fn campaign_view(h: &Harness, id: &CampaignId) -> Reply {
+    h.get(&campaign_path(id, "")).await
+}
+
+async fn inbox_scenarios(g: &mut Golden) {
+    use common::inbox::{attach, FakeInbox, FEE};
+    use drop_operator::inbox::engine::{InboxSettings, Inboxes};
+
+    let account_of =
+        |h: &Harness, id: &CampaignId| h.state.store().load_campaign(id).unwrap().unwrap().account;
+
+    // From an empty inbox to a moved one, with no delay before the move.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    let (id, created) = create(&h).await;
+    let address = created.json()["funding_address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let account = account_of(&h, &id);
+    inboxes.round(&h.state).await;
+    g.record("campaign-real-inbox-waiting.json", "GET", "/api/campaigns/{id}", 200, &campaign_view(&h, &id).await,
+        "a shielded deposit address set up and shown: nothing has reached it; the public address stays as the fallback");
+    fake.deposit(account, 100_000, 1_001, 1);
+    fake.tip(1_001);
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-confirming.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "a deposit confirming: 1 of the 10 confirmations a move needs",
+    );
+    fake.tip(1_012);
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-short.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "spendable, but short of the funding and the move's fee: need says how much more",
+    );
+    fake.deposit(account, REQUIRED + FEE, 1_002, 2);
+    inboxes.round(&h.state).await;
+    let moving = campaign_view(&h, &id).await;
+    g.record(
+        "campaign-real-inbox-moving.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &moving,
+        "the move is sent and not mined yet: its txid",
+    );
+    let pending = h
+        .state
+        .store()
+        .load_inbox(&id)
+        .unwrap()
+        .unwrap()
+        .pending
+        .unwrap();
+    fake.mine(&pending.txid, 1_013);
+    put_deposit_tx(
+        &node,
+        &address,
+        REQUIRED,
+        Some(1_013),
+        real_deposit("testnet-ironwood-batch"),
+    );
+    node.lock().tip = 1_015;
+    fake.tip(1_015);
+    h.post_empty(&campaign_path(&id, "/check-funding")).await;
+    inboxes.round(&h.state).await;
+    g.record("campaign-real-inbox-moved.json", "GET", "/api/campaigns/{id}", 200, &campaign_view(&h, &id).await,
+        "the move is mined and the payout funded from it: shielded; what is left in the inbox is left");
+
+    // What is left goes back to a shielded address; until the wallet has scanned it, it is on its way.
+    let sent = h
+        .call_with(
+            Method::POST,
+            &campaign_path(&id, "/inbox/return"),
+            Auth::Token,
+            Some(json!({ "to": recipient_ua(5) })),
+            &[("x-zecdrop-confirm-send", "I-UNDERSTAND")],
+        )
+        .await;
+    assert_eq!(sent.status, StatusCode::ACCEPTED, "{}", sent.text());
+    g.record(
+        "inbox-return-sent.json",
+        "POST",
+        "/api/campaigns/{id}/inbox/return",
+        202,
+        &sent,
+        "a send-back checked, stored and sent: its txid",
+    );
+    g.record(
+        "campaign-real-inbox-returning.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "a send-back on its way: its txid; nothing is said to be left while it is",
+    );
+
+    // Enough has arrived and the move waits its random delay: when it is due.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let settings = InboxSettings {
+        delay_min: std::time::Duration::from_secs(3_600),
+        delay_max: std::time::Duration::from_secs(3_600),
+        ..common::inbox::now_settings()
+    };
+    let inboxes = std::sync::Arc::new(Inboxes::new(
+        std::sync::Arc::new(fake.clone()),
+        settings,
+        None,
+    ));
+    h.state.attach_inboxes(std::sync::Arc::clone(&inboxes));
+    let (id, _) = create(&h).await;
+    inboxes.round(&h.state).await;
+    fake.deposit(account_of(&h, &id), REQUIRED + FEE, 990, 3);
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-scheduled.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "enough is spendable: the move is due at move_at, a random delay after it could be made",
+    );
+
+    // The wallet could not be set up: no address, and nothing moves.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    fake.lock().fail_setup = true;
+    let inboxes = attach(&h, &fake);
+    let (id, _) = create(&h).await;
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-unavailable.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "the inbox wallet could not be set up: no address is shown; the public address still works",
+    );
+
+    // A restart, and the wallet not looked at again yet: what the store knows, never nothing.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    let (id, _) = create(&h).await;
+    inboxes.round(&h.state).await;
+    let h = h.restart(Options {
+        required_depth: DEPTH,
+        ..Builder::default().options
+    });
+    fake.lock().fail_refresh = true;
+    attach(&h, &fake).round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-checking.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "after a restart, before the wallet is read again: its address and \"checking\", so the page never falls back to the public address alone",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Payslips for the payer's page (REQ-PAY-005)
+// ---------------------------------------------------------------------------
+
+async fn confirmed_payslips(h: &Harness, id: &CampaignId) -> Reply {
+    h.call_with(
+        Method::GET,
+        &campaign_path(id, "/payslips"),
+        Auth::Token,
+        None,
+        &[CONFIRM],
+    )
+    .await
+}
+
+async fn payslips_scenarios(g: &mut Golden) {
+    let path = "/api/campaigns/{id}/payslips";
+
+    // A campaign of its own, funded, then run to settled on an in-memory node.
+    let node = SharedNode::default();
+    let tip = u32::from(ironwood_height());
+    node.lock().tip = tip;
+    let h = real_harness(&node, DEPTH);
+    let (id, created) = create(&h).await;
+    let address = created.json()["funding_address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    g.forbidden.push(address.clone());
+    put_deposit(&node, &address, REQUIRED, Some(tip - 100), 3);
+    let funded = h.post_empty(&campaign_path(&id, "/check-funding")).await;
+    assert_eq!(funded.json()["phase"]["phase"], "funded");
+    let early = confirmed_payslips(&h, &id).await;
+    g.record(
+        "error-not-settled.json",
+        "GET",
+        path,
+        409,
+        &early,
+        "payslips are issued once every batch is confirmed at the required depth; here the campaign is funded and not started",
+    );
+
+    let start = h.post_empty(&campaign_path(&id, "/start")).await;
+    assert_eq!(start.status, StatusCode::ACCEPTED, "{}", start.text());
+    assert_eq!(h.state.wait_for_run(&id).await, RunState::Settled);
+    let refused = h.get(&campaign_path(&id, "/payslips")).await;
+    g.record(
+        "error-payslips-confirmation-required.json",
+        "GET",
+        path,
+        400,
+        &refused,
+        "the payslips are never released without X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND; the payslip warning is in the error",
+    );
+    let payslips = confirmed_payslips(&h, &id).await;
+    g.record(
+        "payslips.json",
+        "GET",
+        path,
+        200,
+        &payslips,
+        "every payslip of a settled campaign, one per payout row in payout-list order with the row's number, address (a placeholder here), amount and memo, and the warning the UI must show; a payslip is null if no output matched its row; receiver, rseed and action are placeholders",
+    );
+
+    let mock = Harness::new();
+    let (mock_id, _) = mock.create().await;
+    let unavailable = confirmed_payslips(&mock, &mock_id).await;
+    g.record(
+        "error-payslips-not-available.json",
+        "GET",
+        path,
+        409,
+        &unavailable,
+        "the mock chain has no real transactions to prove",
+    );
 }
 
 // ---------------------------------------------------------------------------

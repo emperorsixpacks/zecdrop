@@ -2,6 +2,92 @@
 
 Pitfalls and measured facts. Format: symptom → cause → fix → prevention. Newest first.
 
+## 2026-10-24 — The inbox's review: our own advice could strand a payment, and a restart could invite a second one
+
+- **Found** by an independent review of the branch; each claim was checked against our code and against librustzcash
+  `eb38d7a`, which zcash-devtool is built on.
+  - **Small notes.** zcash-devtool's wallet never spends a note worth 5,000 zatoshi or less (`rn.value > MARGINAL_FEE`, in
+    both of its note selections). It also refuses change under 5,000. Our planner counted such notes, and its "send N more"
+    could ask for one: a shortfall under 5,000, or the dust top-up. It also forgot that the payment it asked for is one more
+    note, whose fee that payment must cover. Three notes making 130,000 toward a 135,000 move were asked for 5,000 more:
+    never enough, and never spendable.
+  - **The short screen's QR code** asked for the whole amount again.
+  - **After a restart**, the page had no word on any inbox until its first refresh, so it showed the public address alone.
+  - **A failed refresh** turned a live inbox into "unavailable… pay the public address instead".
+  - **The ask and its QR code** stayed on screen after the payment arrived. This, the restart and the failed refresh could
+    each lead a payer who had paid to pay again.
+  - **The send-back route did not check the wallet seed.** Account numbers start again for each seed in one store, so with
+    another seed, a send-back of one payout could spend another payout's inbox. The round was already safe: it errored out,
+    and logged a warning every 20 seconds.
+  - **Smaller:**
+    - a lost wallet directory was never set up again;
+    - the log named each send-back's transaction;
+    - a send-back cut short by the page going away could leave its PCZT files behind until the next build.
+- **Fix:**
+  - The planner counts only notes over 5,000. It asks for one payment that covers its own note's fee, is worth spending,
+    and leaves no change or at least 5,000. A property test checks that whatever it asks for, once paid, makes a move
+    possible. A note received in an unmined, expired transaction stops counting, by the library's own expiry rule.
+  - The short screen's QR code asks for what is missing.
+  - After a restart, views are rebuilt from the store, as "checking" when nothing more is known. Only a failed setup reads
+    "unavailable". The ask and its QR code show only while a payment is expected.
+  - The route and the engine check the wallet seed, and the round skips another seed's payouts quietly.
+  - A lost wallet is set up again from the seed and its birthday. The log no longer names the send-back. A guard deletes
+    the scratch files however a build ends, and a confirmed send-back runs to the end even if the page goes away.
+- **Prevention:**
+  - Model the wallet's own rules (what it will spend, what change it makes) in the planner, and test the advice as a
+    property, not by example.
+  - Ask the same question of every screen state, including the moments after a restart or an error: could this lead someone
+    who has paid to pay again?
+
+## 2026-10-24 — The shielded deposit address on public testnet: two bugs only the real run showed, and a link we published
+
+- **Observed (live, `testnet.zec.rocks:443`):** the 8-person demo payout `c-6207fac6674f` was funded through its inbox with
+  nothing done by hand. The payer paid the inbox from a shielded wallet; the engine moved exactly 545,000 (`6e677bc5…70f3`);
+  the poller funded the payout (`shielded`); the batch `af8adf80…4a12` settled. A freshly started verifier, the eight payslips
+  and the audit all agreed, and the payout's viewing key opened none of the inbox's actions (`audit-tx`).
+- **Bug 1, on the page for ten minutes:** once the payout was funded, its screen said the whole deposit (0.0056 TAZ) was still
+  in the shielded address. **Cause:** `pczt extract` does not record the transaction in zcash-devtool's wallet, so the wallet
+  learns of the move only when it scans its block. The engine took the move as done as soon as the *node* had it mined, from a
+  wallet snapshot taken just before that block; and a funded payout's inbox is looked at only every ten minutes, so that
+  snapshot stayed. **Fix:** an inbox transaction is done only once the wallet has scanned the block it was mined in (until
+  then it is in flight, and a send-back is refused), and the ten-minute rest starts only once the view is final. The test fake
+  now sees a mined transaction only from its block on, as the real wallet does; the new test fails on the old engine.
+- **Bug 2, found by looking at the disk:** the wallet directories were 0755, though the spec says 0700. zcash-devtool makes
+  its `-w` directory with the default mode, and the rename into place kept it; only the 0700 directory above protected them.
+  **Fix:** 0700 before the rename, on every re-check and at start-up.
+- **A link we published ourselves:** the first move's fixture README named the payer's deposit, which is exactly what the
+  inbox keeps off the record: which payment fed which payout. Removed; the new fixture says why it is not there.
+- **Prevention:** run the real thing and read everything it touches, not only the result: the page in the minutes between
+  steps, the mode of every file and directory the spec names, and docs and fixtures for anything that ties a payer to a
+  payout (scanned like keys before committing). A fake that knows more than the real component, here a wallet that sees a
+  spend before scanning it, hides exactly this kind of bug.
+
+## 2026-10-23 — Where the deposit came from: the funder could always stay off the chain, and nothing said so
+
+- **Observed (live, `testnet.zec.rocks:443`, our own `fetch_tx` example):** the first real batch's deposit (`daa6b06c…8e2e`,
+  the testnet faucet's payout) has **no transparent input** and pays the campaign address exactly 12,500,000 zat; the
+  8-recipient batch's deposit (`9070aee0…f272`) is a sweep with one transparent input, the first batch's change. The faucet
+  (`faucet.testnet.valargroup.dev`, "paid from a shielded zecd wallet", `unshieldedBalance` 0) pays `tm…` addresses the same
+  way (payout `3d90ef5d…1953`: 0 transparent inputs, 46 Ironwood actions). The verifier, run locally against public testnet,
+  now answers the first batch `funding_source: shielded` and the 8-recipient one `transparent`.
+- **Cause:** the deposit address has to be transparent (it is the public total), and the docs treated that as making the
+  funder public. It does not: a deposit paid from a shielded balance names no address. Nothing asked for one or said which
+  kind had arrived.
+- **Fix:** the verifier classifies the deposits it already loads to resolve the inputs' values (no new request), the operator
+  reads the deposit by id once it is seen and keeps the answer in memory, and the funding screen and the receipt say it
+  (REQ-VER-007, REQ-FUND-004). Never a finding, never a stop.
+- **Two traps avoided:** (1) the site's receipt schema is strict, so a new key from the verifier would break the deployed
+  site: the key is optional in the schema, and **the site is deployed before the verifier**; (2) the store's row tag covers a
+  presence byte for every column, so adding a column would have made every existing row read as corrupt: the answer is public
+  chain data, kept in memory and read again after a restart instead.
+- **Found in review, fixed before merging:** the first version awaited the deposit read inside the funding check (a hung node
+  would hold the answer up to the request timeout), shared one lock with the address lookups that decide funding, re-read
+  unanswerable deposits on every poll, and the page stopped refreshing once funded, so a source learnt a moment later never
+  showed. Now the read runs in the background with a two-second wait, one read per deposit, a minute between reads that gave
+  no answer, over a connection of its own, and the page keeps looking until the source is known.
+- **Prevention:** when a privacy limit is written down, check whether it is a limit of the design or only of how it is used,
+  and whether the product can say which one happened. An informational read never sits in the path of a decision.
+
 ## 2026-10-18 — Mainnet, checked read-only before the first run: the shape is routine, three things could still have gone wrong silently
 
 - **Observed (live, `zec.rocks:443`, read-only gRPC):** mainnet is on NU6.3 (branch `37a5165b`, Zebra 6.3.0, lightwalletd

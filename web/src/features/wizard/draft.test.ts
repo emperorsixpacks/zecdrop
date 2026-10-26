@@ -59,6 +59,38 @@ describe("the draft store", () => {
     for (const sentinel of SENTINELS) expect(dump).not.toContain(sentinel);
   });
 
+  // covers: REQ-IMP-002
+  it("forgets the list built in the page the moment the campaign is created, and starts it again empty", () => {
+    const s = useWizardDraft.getState();
+    s.updatePerson(useWizardDraft.getState().people[0]?.key ?? "", { address: SENTINELS[0], amount: "4.125", memo: SENTINELS[1] });
+    s.addPerson();
+    s.setAmountMode("lucky");
+    expect(useWizardDraft.getState().splitTotal).toBe("4.125");
+    s.campaignCreated(parseCampaign(fixtureJson("create-valid.json")));
+
+    const state = useWizardDraft.getState();
+    expect(state.people).toHaveLength(1);
+    expect(state.people[0]).toMatchObject({ address: "", amount: "", memo: "" });
+    expect(state.amountMode).toBe("each");
+    expect(state.splitTotal).toBe("");
+    const dump = JSON.stringify(state, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v));
+    for (const sentinel of SENTINELS) expect(dump).not.toContain(sentinel);
+  });
+
+  it("keeps at least one person, and splits again whenever the people or the total change", () => {
+    const s = useWizardDraft.getState();
+    s.setAmountMode("even");
+    s.setSplitTotal("0.03");
+    expect(useWizardDraft.getState().people.map((p) => p.amount)).toEqual(["0.03"]);
+    s.addPerson();
+    s.addPerson();
+    expect(useWizardDraft.getState().people.map((p) => p.amount)).toEqual(["0.01", "0.01", "0.01"]);
+    s.removePerson(useWizardDraft.getState().people[0]?.key ?? "");
+    expect(useWizardDraft.getState().people.map((p) => p.amount)).toEqual(["0.015", "0.015"]);
+    for (const person of useWizardDraft.getState().people) s.removePerson(person.key);
+    expect(useWizardDraft.getState().people).toHaveLength(1);
+  });
+
   it("reset clears everything, including the created campaign", () => {
     const s = useWizardDraft.getState();
     s.setName("x");
@@ -80,6 +112,11 @@ describe("nothing is ever persisted", () => {
 
     const s = useWizardDraft.getState();
     s.setName("Sentinel campaign");
+    s.updatePerson(useWizardDraft.getState().people[0]?.key ?? "", { address: SENTINELS[0], amount: "1", memo: SENTINELS[1] });
+    s.addPerson();
+    s.setAmountMode("lucky");
+    s.setSplitTotal("4.125");
+    s.shuffle();
     s.setCsv(SENTINEL_CSV, "recipients.csv");
     s.setFeePolicy("zebra_main");
     s.setMaxOutputsPerBatch(3);

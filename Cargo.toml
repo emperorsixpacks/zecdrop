@@ -11,7 +11,8 @@ members = [
 ]
 # Spikes are throwaway, isolated experiments with their own lockfile and target dir.
 # Results are recorded in docs/ADR + docs/LEARNINGS.md; working code is then moved into a crate.
-exclude = ["spikes", "web"]
+# zcash-devtool is built on its own by scripts/zcash-devtool/build.sh (docs/ADR/0006-shielded-inbox.md).
+exclude = ["spikes", "web", "target/zcash-devtool-src"]
 
 [workspace.package]
 version = "0.1.0"

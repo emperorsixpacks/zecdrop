@@ -4,9 +4,11 @@ import type { PublicReceipt } from "@/api/types";
 import { Why } from "@/components/Why";
 import { Unknown, Zec } from "@/components/Zec";
 import { shortId } from "@/lib/ids";
+import { isPracticeId } from "@/lib/practice-mode";
 import { useInView } from "@/lib/use-in-view";
 
 import { outputCount } from "./format";
+import { RECEIPT_SOURCE_WORDING } from "./funding-source-wording";
 
 function Station({ index, label, help, children }: { index: number; label: ReactNode; help?: ReactNode; children: ReactNode }) {
   return (
@@ -27,6 +29,11 @@ function Station({ index, label, help, children }: { index: number; label: React
  * The line fills and the stations pop in, one after the other, when it scrolls into view. */
 export function FundsFlow({ receipt }: { receipt: PublicReceipt }) {
   const outputs = outputCount(receipt);
+  // What the deposit spent, when the verifier said; never on a practice receipt, which no deposit funded.
+  const source =
+    !isPracticeId(receipt.manifestCommitment) && (receipt.fundingSource === "shielded" || receipt.fundingSource === "transparent")
+      ? receipt.fundingSource
+      : null;
   const [ref, inView] = useInView<HTMLDivElement>();
   return (
     <div ref={ref} data-in={inView} className="flow relative">
@@ -34,12 +41,29 @@ export function FundsFlow({ receipt }: { receipt: PublicReceipt }) {
         <i />
       </div>
       <ol aria-label="Where the funds went">
-        <Station index={0} label="Funded from">
+        <Station
+          index={0}
+          label="Funded from"
+          {...(source !== null
+            ? {
+                help: (
+                  <Why label="About the deposit">
+                    <p>{RECEIPT_SOURCE_WORDING.flowHelp}</p>
+                  </Why>
+                ),
+              }
+            : {})}
+        >
           {receipt.fundingAddress === null ? (
             <Unknown />
           ) : (
             <span className="mono text-lg" translate="no" title={receipt.fundingAddress}>
               {shortId(receipt.fundingAddress, 6)}
+            </span>
+          )}
+          {source !== null && (
+            <span className="block text-sm font-normal text-muted-foreground" data-testid="flow-source">
+              {source === "shielded" ? RECEIPT_SOURCE_WORDING.flowShielded : RECEIPT_SOURCE_WORDING.flowTransparent}
             </span>
           )}
         </Station>

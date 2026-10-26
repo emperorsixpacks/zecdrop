@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PayoutSummary } from "@/components/PayoutSummary";
 import { PhaseDot } from "@/components/StatusDot";
 import { Disclosure } from "@/components/Disclosure";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewingKeyCard } from "@/features/audit/ViewingKeyCard";
@@ -13,10 +14,12 @@ import { FundingPanel } from "@/features/operator/FundingPanel";
 import { useCampaign, useCampaignStream } from "@/features/operator/hooks";
 import { OperatorBatchList } from "@/features/operator/OperatorBatchList";
 import { PrivacyWarnings } from "@/features/wizard/PrivacyWarnings";
+import { useAudience } from "@/lib/audience";
 import { phaseProgress, phaseSentence } from "@/lib/phase";
 
 import { ActivityLog } from "./ActivityLog";
 import { DonePanel } from "./DonePanel";
+import { PayslipsCard } from "./PayslipsCard";
 import { RunTimeline } from "./RunTimeline";
 import { SendControl } from "./SendControl";
 import { ShareDetails } from "./ShareDetails";
@@ -38,10 +41,16 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
   const funded = campaign?.funding != null;
   const stream = useCampaignStream(id, funded, campaign?.run.state ?? "unknown");
   const [auditorOpen, setAuditorOpen] = useState(false);
+  const [payslipsOpen, setPayslipsOpen] = useState(false);
+  // The batches and the auditor's key are an organisation's tools: a personal payout's page leaves them out, one tap away.
+  const audience = useAudience((s) => s.audience);
+  const setAudience = useAudience((s) => s.setAudience);
+  const organisation = audience === "organisation";
   // Confetti is for a settling this page watched, not for a receipt opened later.
   const [sawRunning, setSawRunning] = useState(false);
   if (campaign?.run.state === "running" && !sawRunning) setSawRunning(true);
   const auditor = useRef<HTMLDivElement>(null);
+  const payslips = useRef<HTMLDivElement>(null);
 
   // Read before the early returns narrow `query`: a failed refresh keeps the last good data on screen.
   const refreshFailed = query.isRefetchError;
@@ -94,6 +103,13 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
     });
   };
 
+  const openPayslips = () => {
+    setPayslipsOpen(true);
+    requestAnimationFrame(() => {
+      payslips.current?.scrollIntoView?.({ block: "start" });
+    });
+  };
+
   return (
     <div className="space-y-12">
       <div className="space-y-6">
@@ -134,7 +150,7 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
       <FundingPanel campaign={campaign} />
 
       {settled ? (
-        <DonePanel campaign={campaign} onAuditor={openAuditor} celebrate={sawRunning} />
+        <DonePanel campaign={campaign} {...(organisation ? { onAuditor: openAuditor } : {})} onPayslips={openPayslips} celebrate={sawRunning} />
       ) : started ? (
         <div className="space-y-6">
           <RunTimeline campaign={campaign} log={stream.log} />
@@ -147,9 +163,11 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
       <PrivacyWarnings warnings={campaign.warnings} />
 
       <div className="border-b border-border">
-        <Disclosure summary="Batches">
-          <OperatorBatchList campaign={campaign} />
-        </Disclosure>
+        {organisation && (
+          <Disclosure summary="Batches">
+            <OperatorBatchList campaign={campaign} />
+          </Disclosure>
+        )}
         {funded && (
           <Disclosure summary="Activity">
             <ActivityLog log={stream.log} status={stream.status} unreadable={stream.unreadable} />
@@ -158,12 +176,36 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
         <Disclosure summary="Share the receipt">
           <ShareDetails campaign={campaign} />
         </Disclosure>
-        <div ref={auditor}>
-          <Disclosure summary="Auditor access" open={auditorOpen} onOpenChange={setAuditorOpen}>
-            <ViewingKeyCard campaignId={campaign.id} />
-          </Disclosure>
-        </div>
+        {settled && (
+          <div ref={payslips}>
+            <Disclosure summary="Payslips" open={payslipsOpen} onOpenChange={setPayslipsOpen}>
+              <PayslipsCard campaignId={campaign.id} />
+            </Disclosure>
+          </div>
+        )}
+        {organisation && (
+          <div ref={auditor}>
+            <Disclosure summary="Auditor access" open={auditorOpen} onOpenChange={setAuditorOpen}>
+              <ViewingKeyCard campaignId={campaign.id} />
+            </Disclosure>
+          </div>
+        )}
       </div>
+      {!organisation && (
+        <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+          The batch detail and the auditor&apos;s key are in the organisation view.
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-1 underline underline-offset-4 hover:bg-transparent"
+            onClick={() => {
+              setAudience("organisation");
+            }}
+          >
+            Show them
+          </Button>
+        </p>
+      )}
     </div>
   );
 }

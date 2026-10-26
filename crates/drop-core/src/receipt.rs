@@ -35,6 +35,17 @@
 //! reported as mixed. The funding design never chains a batch from change, so for a campaign
 //! built by this software the finding means what it says.
 //!
+//! ## Where the deposit came from
+//!
+//! `funding_source` (REQ-VER-007) says what the deposit spent: [`FundingSource::Shielded`] when
+//! the transaction that created a batch's funding input had no transparent input, so the chain
+//! names no address it came from, and [`FundingSource::Transparent`] when it spent a transparent
+//! coin, whose origin is public. It is a privacy fact, not a finding: it never changes the phase,
+//! and it never names the address or the amount of anything the deposit spent. It looks one step
+//! back only: a batch funded by a transaction of the campaign's own (a sweep of its change, or a
+//! funding split) reads as `Transparent`, because that transaction spends the campaign's own
+//! transparent coins.
+//!
 //! Known limit: a batch's `net_into_pool` is the sum of its outputs. A batch with
 //! one recipient, or with all-equal amounts, therefore makes those amounts
 //! derivable from the receipt. The planner avoids one-recipient batches and
@@ -206,6 +217,9 @@ pub struct PublicReceipt {
     /// could not be looked up, the batches do not share one address (see
     /// [`Finding::MixedFundingSources`]), or the producer has none (the mock chain).
     pub funding_address: Option<String>,
+    /// What the deposit spent (see [`FundingSource`]); `null` when it is not established. A
+    /// receipt written before the field existed reads back as `None`.
+    pub funding_source: Option<FundingSource>,
     /// Sum of all batch totals, as declared by whoever published the campaign.
     pub declared_total: Zatoshi,
     /// Sum of all batch fees, when every batch's fee is known.
@@ -218,6 +232,42 @@ pub struct PublicReceipt {
     pub phase: CampaignPhase,
     /// Problems found; empty when everything checks out.
     pub findings: Vec<Finding>,
+}
+
+/// What a campaign's deposit spent, as the chain shows it (REQ-VER-007).
+///
+/// The deposit of a batch is the transaction that created the batch's funding input. This says
+/// only what that transaction spent, never who paid: a shielded deposit names no address, but its
+/// amount and its time are public like every deposit's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FundingSource {
+    /// The deposit spent no transparent coin: its value came out of a shielded pool, and the
+    /// transaction names no address it came from.
+    Shielded,
+    /// The deposit spent at least one transparent coin (a coinbase input counts as one). Where
+    /// that coin came from is public, and the chain now ties it to the campaign.
+    Transparent,
+}
+
+impl FundingSource {
+    /// One answer for several deposits: `Transparent` as soon as one is known to be, `Shielded`
+    /// only if there is at least one and every one is known and shielded, and `None` otherwise.
+    pub fn combine(
+        sources: impl IntoIterator<Item = Option<FundingSource>>,
+    ) -> Option<FundingSource> {
+        let mut seen = false;
+        let mut all_shielded = true;
+        for source in sources {
+            seen = true;
+            match source {
+                Some(FundingSource::Transparent) => return Some(FundingSource::Transparent),
+                Some(FundingSource::Shielded) => {}
+                None => all_shielded = false,
+            }
+        }
+        (seen && all_shielded).then_some(FundingSource::Shielded)
+    }
 }
 
 /// Why a receipt could not be assembled.
@@ -256,6 +306,8 @@ pub struct ReceiptInputs<'a> {
     pub required_depth: u32,
     /// The campaign's transparent funding address, if it has one (the mock chain has none).
     pub funding_address: Option<&'a str>,
+    /// What the deposit spent, if the producer knows it.
+    pub funding_source: Option<FundingSource>,
 }
 
 /// What a key-less verifier established from the chain.
@@ -275,6 +327,8 @@ pub struct ChainReceiptInputs<'a> {
     pub batches: Vec<BatchReceipt>,
     /// Problems found while establishing those facts.
     pub findings: Vec<Finding>,
+    /// What the deposits spent, combined with [`FundingSource::combine`]; `None` if not established.
+    pub funding_source: Option<FundingSource>,
 }
 
 /// Whether `address` can stand in a receipt: letters and digits only, of a plausible length.
@@ -301,6 +355,7 @@ impl PublicReceipt {
             funding_state,
             required_depth,
             funding_address,
+            funding_source,
         } = inputs;
         if fundings.len() != batches.len() || statuses.len() != batches.len() {
             return Err(ReceiptError::Mismatch(
@@ -334,6 +389,7 @@ impl PublicReceipt {
             campaign_id: Some(campaign_id.clone()),
             network,
             funding_address: funding_address.map(str::to_owned),
+            funding_source,
             declared_total: campaign_total(batches)?,
             fee_total: Some(Zatoshi::checked_sum(receipts.iter().filter_map(|r| r.fee))?),
             batches: receipts,
@@ -384,6 +440,7 @@ impl PublicReceipt {
             required_depth,
             batches,
             mut findings,
+            funding_source,
         } = inputs;
         if batches.is_empty() {
             return Err(ReceiptError::Mismatch("a receipt needs at least one batch"));
@@ -483,6 +540,7 @@ impl PublicReceipt {
             campaign_id: campaign_id.cloned(),
             network,
             funding_address,
+            funding_source,
             declared_total,
             fee_total,
             batches,
@@ -594,6 +652,7 @@ mod tests {
             funding_state: FundingState::Funded,
             required_depth: 6,
             funding_address: None,
+            funding_source: None,
         })
         .unwrap()
     }
@@ -669,7 +728,7 @@ mod tests {
         assert!(!debug.contains("sentinel"), "{debug}");
     }
 
-    // covers: REQ-PRIV-001
+    // covers: REQ-PRIV-001, REQ-VER-007
     #[test]
     fn json_key_set_equals_the_allow_list() {
         let f = fixture();
@@ -680,6 +739,7 @@ mod tests {
                 "campaign_id",
                 "network",
                 "funding_address",
+                "funding_source",
                 "declared_total",
                 "fee_total",
                 "batches",
@@ -747,6 +807,7 @@ mod tests {
             funding_state: FundingState::Funded,
             required_depth: 6,
             funding_address: None,
+            funding_source: None,
         })
         .unwrap();
         // 3 outputs + 1 transparent = 4 actions at 1000 each.
@@ -769,6 +830,7 @@ mod tests {
             funding_state: FundingState::Funded,
             required_depth: 6,
             funding_address: None,
+            funding_source: None,
         });
         assert!(matches!(bad, Err(ReceiptError::Amount(_))));
     }
@@ -807,6 +869,7 @@ mod tests {
             funding_state: FundingState::Funded,
             required_depth: 1,
             funding_address: None,
+            funding_source: None,
         });
         assert!(matches!(result, Err(ReceiptError::Mismatch(_))));
     }
@@ -862,6 +925,7 @@ mod tests {
             required_depth: depth,
             batches,
             findings,
+            funding_source: None,
         })
         .unwrap()
     }
@@ -975,6 +1039,7 @@ mod tests {
                 required_depth: 1,
                 batches,
                 findings: vec![],
+                funding_source: None,
             })
         };
         assert!(matches!(attempt(vec![]), Err(ReceiptError::Mismatch(_))));
@@ -1046,7 +1111,7 @@ mod tests {
         .is_err());
     }
 
-    // covers: REQ-PRIV-001
+    // covers: REQ-PRIV-001, REQ-VER-007
     #[test]
     fn chain_receipts_use_the_same_key_allow_list_with_nulls_for_unknown_facts() {
         let r = chain_receipt(
@@ -1062,6 +1127,7 @@ mod tests {
                 "campaign_id",
                 "network",
                 "funding_address",
+                "funding_source",
                 "declared_total",
                 "fee_total",
                 "batches",
@@ -1094,6 +1160,7 @@ mod tests {
             assert!(unknown[key].is_null(), "{key}");
         }
         assert!(json["campaign_id"].is_null() && json["fee_total"].is_null());
+        assert!(json["funding_source"].is_null());
         assert_eq!(serde_json::from_value::<PublicReceipt>(json).unwrap(), r);
     }
 
@@ -1123,6 +1190,7 @@ mod tests {
                 required_depth: 1,
                 batches,
                 findings,
+                funding_source: None,
             },
             &addresses,
         )
@@ -1286,6 +1354,7 @@ mod tests {
                 funding_state: FundingState::Funded,
                 required_depth: 1,
                 funding_address: address,
+                funding_source: None,
             })
         };
         assert_eq!(
@@ -1317,5 +1386,135 @@ mod tests {
         let mut value = serde_json::to_value(&r).unwrap();
         value["funding_addr"] = serde_json::json!("x");
         assert!(serde_json::from_value::<PublicReceipt>(value).is_err());
+    }
+
+    // ---- what the deposit spent ----------------------------------------------
+
+    // covers: REQ-VER-007
+    #[test]
+    fn deposits_combine_into_one_source_and_one_transparent_deposit_decides() {
+        use FundingSource::{Shielded, Transparent};
+        assert_eq!(FundingSource::combine([Some(Shielded)]), Some(Shielded));
+        assert_eq!(
+            FundingSource::combine([Some(Shielded), Some(Shielded)]),
+            Some(Shielded)
+        );
+        assert_eq!(
+            FundingSource::combine([Some(Transparent)]),
+            Some(Transparent)
+        );
+        // One transparent deposit is enough, whatever is known about the others.
+        assert_eq!(
+            FundingSource::combine([Some(Shielded), Some(Transparent)]),
+            Some(Transparent)
+        );
+        assert_eq!(
+            FundingSource::combine([None, Some(Transparent)]),
+            Some(Transparent)
+        );
+        // Shielded only when every deposit is known to be.
+        assert_eq!(FundingSource::combine([Some(Shielded), None]), None);
+        assert_eq!(FundingSource::combine([None]), None);
+        assert_eq!(
+            FundingSource::combine([]),
+            None,
+            "no deposit at all is not a shielded one"
+        );
+    }
+
+    // covers: REQ-VER-007
+    #[test]
+    fn the_funding_source_sits_after_the_funding_address_and_old_json_still_reads() {
+        let mut r = with_funding(vec![good(0, 1_000, 5)], vec![], &[Some(ADDRESS_A)]).unwrap();
+        for (source, text) in [
+            (FundingSource::Shielded, "\"funding_source\":\"shielded\""),
+            (
+                FundingSource::Transparent,
+                "\"funding_source\":\"transparent\"",
+            ),
+        ] {
+            r.funding_source = Some(source);
+            let json = serde_json::to_string(&r).unwrap();
+            let address = json.find("\"funding_address\"").unwrap();
+            let key = json.find("\"funding_source\"").unwrap();
+            let declared = json.find("\"declared_total\"").unwrap();
+            assert!(address < key && key < declared, "{json}");
+            assert!(json.contains(text), "{json}");
+            assert_eq!(serde_json::from_str::<PublicReceipt>(&json).unwrap(), r);
+        }
+        // A receipt written before the field existed reads back as not established.
+        let mut value = serde_json::to_value(&r).unwrap();
+        value.as_object_mut().unwrap().remove("funding_source");
+        let old: PublicReceipt = serde_json::from_value(value).unwrap();
+        assert_eq!(old.funding_source, None);
+        // A closed set: nothing else reads.
+        for bad in ["mixed", "Shielded", "", "unknown"] {
+            let mut value = serde_json::to_value(&r).unwrap();
+            value["funding_source"] = serde_json::json!(bad);
+            assert!(
+                serde_json::from_value::<PublicReceipt>(value).is_err(),
+                "{bad:?}"
+            );
+        }
+    }
+
+    // covers: REQ-VER-007
+    #[test]
+    fn where_the_deposit_came_from_is_not_a_finding_and_never_changes_the_phase() {
+        for source in [
+            Some(FundingSource::Transparent),
+            Some(FundingSource::Shielded),
+            None,
+        ] {
+            let r = PublicReceipt::from_chain_facts_with_funding(
+                ChainReceiptInputs {
+                    campaign_id: None,
+                    network: Network::Testnet,
+                    manifest_commitment: ManifestCommitment::from_bytes([0xee; 32]),
+                    declared_total: Zatoshi::new(1_000).unwrap(),
+                    required_depth: 1,
+                    batches: vec![good(0, 1_000, 5)],
+                    findings: vec![],
+                    funding_source: source,
+                },
+                &[Some(ADDRESS_A.to_owned())],
+            )
+            .unwrap();
+            assert_eq!(r.funding_source, source);
+            assert!(r.findings.is_empty(), "{source:?}");
+            assert_eq!(r.phase, CampaignPhase::Settled, "{source:?}");
+        }
+    }
+
+    // covers: REQ-VER-007
+    #[test]
+    fn the_operator_receipt_states_the_source_it_is_given() {
+        let f = fixture();
+        let base = ReceiptInputs {
+            campaign_id: &f.campaign,
+            network: Network::Testnet,
+            manifest_commitment: f.commitment,
+            fee_policy: &FeePolicy::zip317_text(),
+            pool: Pool::Ironwood,
+            batches: &f.batches,
+            fundings: &f.fundings,
+            statuses: &f.statuses,
+            funding_state: FundingState::Funded,
+            required_depth: 1,
+            funding_address: Some(ADDRESS_A),
+            funding_source: None,
+        };
+        for source in [
+            Some(FundingSource::Shielded),
+            Some(FundingSource::Transparent),
+            None,
+        ] {
+            let r = PublicReceipt::assemble(ReceiptInputs {
+                funding_source: source,
+                ..base
+            })
+            .unwrap();
+            assert_eq!(r.funding_source, source);
+        }
     }
 }

@@ -15,13 +15,19 @@
 //! an input cannot be resolved or is not P2PKH. A batch whose inputs come from more than one
 //! address gets a [`Finding::MixedFundingSources`] here; mixing *between* batches is detected
 //! by `PublicReceipt::from_chain_facts_with_funding`.
+//!
+//! Where the deposit came from (REQ-VER-007): the transactions that created a batch's inputs are
+//! its deposits, the same ones loaded to resolve the inputs' values, so this costs no request.
+//! Each is read with [`ParsedTx::deposit_source`] and the answers are combined with
+//! [`FundingSource::combine`], per batch and then for the campaign. Nothing about what a deposit
+//! itself spent reaches the receipt: not its inputs' coins, addresses, values or count.
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use drop_core::{
-    BatchReceipt, CampaignId, ChainReceiptInputs, Finding, ManifestCommitment, Network, Pool,
-    PublicReceipt, ReceiptError, Txid, Zatoshi,
+    BatchReceipt, CampaignId, ChainReceiptInputs, Finding, FundingSource, ManifestCommitment,
+    Network, Pool, PublicReceipt, ReceiptError, Txid, Zatoshi,
 };
 use thiserror::Error;
 use zcash_address::{ToAddress, ZcashAddress};
@@ -110,6 +116,7 @@ pub async fn verify_campaign<S: ChainSource>(
     let mut batches = Vec::with_capacity(request.txids.len());
     let mut findings = Vec::new();
     let mut funding_addresses: Vec<Option<String>> = Vec::with_capacity(request.txids.len());
+    let mut funding_sources: Vec<Option<FundingSource>> = Vec::with_capacity(request.txids.len());
 
     for (position, txid) in request.txids.iter().enumerate() {
         let index = u32::try_from(position).unwrap_or(u32::MAX);
@@ -128,6 +135,7 @@ pub async fn verify_campaign<S: ChainSource>(
             findings.push(Finding::TxNotFound { batch_index: index });
             batches.push(batch);
             funding_addresses.push(None);
+            funding_sources.push(None);
             continue;
         };
         let parsed = match ParsedTx::parse(&fetched.raw) {
@@ -136,6 +144,7 @@ pub async fn verify_campaign<S: ChainSource>(
                 findings.push(Finding::TxUnparseable { batch_index: index });
                 batches.push(batch);
                 funding_addresses.push(None);
+                funding_sources.push(None);
                 continue;
             }
         };
@@ -169,6 +178,13 @@ pub async fn verify_campaign<S: ChainSource>(
                 None
             }
         });
+        // What each input's deposit spent; a deposit that could not be loaded is not established.
+        funding_sources.push(FundingSource::combine(prevouts.iter().map(|p| {
+            funding
+                .get(&core_txid_from_wire(p.hash()))?
+                .as_ref()
+                .map(ParsedTx::deposit_source)
+        })));
 
         let analysis = parsed.analyze(resolve, config.expected_pool);
         batch.funding_input = analysis.funding_input;
@@ -196,6 +212,7 @@ pub async fn verify_campaign<S: ChainSource>(
             required_depth: config.required_depth,
             batches,
             findings,
+            funding_source: FundingSource::combine(funding_sources),
         },
         &funding_addresses,
     )?)

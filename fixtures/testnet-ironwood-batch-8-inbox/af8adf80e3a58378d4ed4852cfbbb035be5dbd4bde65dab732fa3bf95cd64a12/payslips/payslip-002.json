@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "network": "testnet",
+  "txid": "af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12",
+  "action": 7,
+  "receiver": "b5c8abf842cfe7d572c4e92cc98990f02df0793e4eba3e1891a2b1a90bbcbb8a0ba796db80eb4281e8b13c",
+  "value": "40000",
+  "rseed": "3161f8c7c25cf839fdb708cdc64cdf2b638a55731f1b095984664c5044f435f9"
+}

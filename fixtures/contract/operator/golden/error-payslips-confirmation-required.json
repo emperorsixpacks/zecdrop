@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "confirmation_required",
+    "message": "send the header `X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND` after showing the person the warning",
+    "warning": "Each payslip shows one payout's receiver, amount and memo key to whoever holds it, and lets them present it as their own. Send each payslip only to the person it pays."
+  }
+}

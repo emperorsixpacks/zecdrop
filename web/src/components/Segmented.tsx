@@ -20,16 +20,17 @@ interface SegmentedProps<T extends string> {
 
 /** A choice of one among a few, with a thumb that slides to the one chosen. Each option
  * is a radio: the arrow keys move between them, Tab leaves the group, and the thumb is
- * only a picture of what the radios already say. */
+ * only a picture of what the radios already say. The options may sit in more than one row
+ * (a className can make the group a grid); the thumb follows them across and down. */
 export function Segmented<T extends string>({ value, onValueChange, options, label, className }: SegmentedProps<T>) {
   const root = useRef<HTMLDivElement>(null);
-  const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null);
+  const [thumb, setThumb] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   // The thumb is placed without a glide the first time, so it does not slide in from nowhere.
   const [glide, setGlide] = useState(false);
 
   const place = useCallback(() => {
     const on = root.current?.querySelector<HTMLElement>("[data-state='on']");
-    setThumb(on ? { left: on.offsetLeft, width: on.offsetWidth } : null);
+    setThumb(on ? { left: on.offsetLeft, top: on.offsetTop, width: on.offsetWidth, height: on.offsetHeight } : null);
   }, []);
 
   useLayoutEffect(() => {
@@ -64,8 +65,8 @@ export function Segmented<T extends string>({ value, onValueChange, options, lab
         <span
           aria-hidden
           data-slot="segmented-thumb"
-          className={cn("absolute top-[3px] bottom-[3px] left-0 rounded-full bg-primary", glide && "segmented-glide")}
-          style={{ width: thumb.width, transform: `translateX(${String(thumb.left)}px)` }}
+          className={cn("absolute top-0 left-0 rounded-full bg-primary", glide && "segmented-glide")}
+          style={{ width: thumb.width, height: thumb.height, transform: `translate(${String(thumb.left)}px, ${String(thumb.top)}px)` }}
         />
       )}
       {options.map((option) => (

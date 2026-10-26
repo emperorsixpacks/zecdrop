@@ -88,7 +88,7 @@ function Matrix() {
 // The five that matter most, in one short sentence each. The rest are behind the click.
 const KEY_LIMITS: readonly string[] = [
   "Amounts can be worked out: a batch of one, or of equal amounts, shows every amount.",
-  "Funding is public, so it can be linked to the campaign.",
+  "The deposit's amount is public, and so is a transparent payer's address.",
   "The fee and the output count show how big each batch is.",
   "An auditor's viewing key shows everything in that campaign, for good.",
   "The operator sees every address, amount and memo.",
@@ -98,7 +98,7 @@ const ALL_LIMITS: readonly string[] = [
   "Amounts can be derived. A batch of one reveals that recipient's exact amount, and a batch of equal amounts reveals every amount. Amount privacy comes from variation.",
   "In a two-recipient batch each party can infer the other's amount from the public total and their own.",
   "With few recipients the public total bounds every amount tightly.",
-  "Funding is linkable: the funder's transparent address and amount are public.",
+  "The deposit's amount is public. Paid from a transparent address, that address is public and tied to the campaign for good; paid from a shielded balance, the deposit names no address, though its amount and time can still link it.",
   "Fee and action count fingerprint the batch size.",
   "The hosted verifier holds no keys, but it learns which receipts are viewed.",
   "An auditor given a viewing key sees every output of that campaign, including addresses, amounts and memos, permanently. There is no revocation.",
@@ -164,7 +164,8 @@ export default function PrivacyPage() {
                 <strong>Anyone, from chain data alone:</strong> how much transparent value left the funding address, that exactly that
                 amount minus the fee entered the shielded pool in the transaction (the binding signature makes the number
                 unforgeable), how many shielded outputs there are, the fee, and the change. These add up exactly: funded = change +
-                shielded + fee.
+                shielded + fee. And whether the deposit came out of the shielded pool, naming no payer address, or from transparent
+                funds, whose address is public.
               </p>
               <p>
                 <strong>Not the public:</strong> that the shielded value reached distinct third parties matching a payout list. A

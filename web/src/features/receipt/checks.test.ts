@@ -25,6 +25,7 @@ const receipt = (patch: Partial<PublicReceipt> = {}): PublicReceipt => ({
   campaignId: "camp",
   network: "testnet",
   fundingAddress: null,
+  fundingSource: null,
   declaredTotal: "534500000",
   feeTotal: "35000",
   manifestCommitment: COMMITMENT,

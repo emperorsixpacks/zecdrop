@@ -54,6 +54,18 @@ export async function useTheme(page: Page, theme: Theme): Promise<void> {
   }, theme);
 }
 
+/** Choose who payouts are for before any page script runs (src/lib/audience.ts), the way a returning payer who picked it
+ * would have it: the organisation view shows the import, the options, the batches and the auditor's tools. */
+export async function useAudience(page: Page, audience: "personal" | "organisation"): Promise<void> {
+  await page.addInitScript((value) => {
+    try {
+      localStorage.setItem("zd:audience", value);
+    } catch {
+      // A page with no storage (about:blank) has nothing to choose a view for.
+    }
+  }, audience);
+}
+
 /** Open a page and wait until it has finished loading its content. */
 export async function open(page: Page, target: PageUnderTest): Promise<void> {
   await page.goto(target.path);

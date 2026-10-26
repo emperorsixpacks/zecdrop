@@ -12,12 +12,13 @@ P2PKH change of 12,420,000 zat, fee 20,000 zat. V6 transaction.
 | `tx.hex` | the transaction exactly as fetched back from the chain with `GetTransaction` |
 | `prevouts.json` | each spent output (txid, index, value, script), resolved from the chain |
 | `expected.json` | the public facts recomputed from those bytes: `t_in = t_out + net_into_ironwood + fee` |
-| `funding-tx.hex` | the transaction the batch spends (`daa6b06c…8e2e`, mined at 4,478,055), as fetched with `GetTransaction`; its output 0 pays the campaign funding address `tmU6c1aXFGFsnpceD9rX7SaBCodB3nkZGkD` |
+| `funding-tx.hex` | the transaction the batch spends (`daa6b06c…8e2e`, mined at 4,478,055), as fetched with `GetTransaction`; its output 0 pays the campaign funding address `tmU6c1aXFGFsnpceD9rX7SaBCodB3nkZGkD`. It is the testnet faucet's payout and has **no transparent input** (its value came out of the shielded pool), so the receipt says `funding_source: shielded` |
 | `receipt.json` | the public receipt a running `drop-verifier` (endpoint `testnet.zec.rocks:443`) returned for this batch with `declared_total=60000` and commitment `aade9fd1…1491` |
 
-`receipt.json` was captured on 2026-10-08 at 11:27 UTC. **Its `confirmations` (137) is the depth at
-that moment**, not a fixed fact: a fresh request returns a larger number. Every other field is fixed
-by the chain and the request.
+`receipt.json` was first captured on 2026-10-08 at 11:27 UTC, and captured again on 2026-10-23 at 18:49 UTC (tip
+4,533,356) from a freshly started `drop-verifier` that also reports where the deposit came from (`funding_source`,
+REQ-VER-007). **Its `confirmations` (55,292) is the depth at that moment**, not a fixed fact: a fresh request returns a
+larger number. Every other field is fixed by the chain and the request.
 
 No keys, seeds or viewing keys. The recipients are throwaway dev-wallet accounts (the demo
 range), so their amounts and memos are not secret.

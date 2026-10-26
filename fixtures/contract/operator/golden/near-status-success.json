@@ -1,6 +1,6 @@
 {
   "campaign_funded": false,
-  "deposit_address": "docs-example-deposit-address.near",
+  "deposit_address": "utest1FAKEinboxDepositAddressNotARealAddress",
   "expired": false,
   "message": "NEAR Intents reports the ZEC delivered. That is a claim, not funding: the campaign is funded only when the deposit shows on the Zcash chain at the required depth.",
   "status": "success",

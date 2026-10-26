@@ -1,0 +1,53 @@
+{
+  "campaign_id": "c-000000000001",
+  "network": "testnet",
+  "payslips": [
+    {
+      "address": "utest1FAKErecipientAddressNotARealAddress0000",
+      "amount": "150000000",
+      "memo": "hello zero",
+      "number": 1,
+      "payslip": {
+        "action": 0,
+        "network": "testnet",
+        "receiver": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "rseed": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+        "txid": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+        "value": "150000000",
+        "version": 1
+      }
+    },
+    {
+      "address": "utest1FAKErecipientAddressNotARealAddress0000",
+      "amount": "75000000",
+      "memo": null,
+      "number": 2,
+      "payslip": {
+        "action": 0,
+        "network": "testnet",
+        "receiver": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "rseed": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+        "txid": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+        "value": "75000000",
+        "version": 1
+      }
+    },
+    {
+      "address": "utest1FAKErecipientAddressNotARealAddress0000",
+      "amount": "225000000",
+      "memo": "thanks two",
+      "number": 3,
+      "payslip": {
+        "action": 0,
+        "network": "testnet",
+        "receiver": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "rseed": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+        "txid": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+        "value": "225000000",
+        "version": 1
+      }
+    }
+  ],
+  "unmatched_outputs": 0,
+  "warning": "Each payslip shows one payout's receiver, amount and memo key to whoever holds it, and lets them present it as their own. Send each payslip only to the person it pays."
+}

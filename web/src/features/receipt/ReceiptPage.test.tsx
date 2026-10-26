@@ -11,6 +11,7 @@ import mismatch from "../../../../fixtures/contract/public-receipt-declared-mism
 import findings from "../../../../fixtures/contract/public-receipt-findings.json?raw";
 import golden from "../../../../fixtures/contract/public-receipt.json?raw";
 
+import { RECEIPT_SOURCE_WORDING } from "./funding-source-wording";
 import ReceiptPage from "./ReceiptPage";
 
 // ---- Harness ---------------------------------------------------------------
@@ -230,6 +231,8 @@ describe("/r/demo?demo=1", () => {
     expect(proves).toHaveTextContent("binding signature fixes this number");
     expect(proves).toHaveTextContent("In how many shielded outputs it went, at what fee");
     expect(proves).toHaveTextContent("funded = change + shielded + fee");
+    // What the deposit spent is a fact anyone can read; who paid it is not (REQ-VER-007).
+    expect(proves).toHaveTextContent("Whether the deposit came out of the shielded pool, which names no payer address");
     // Three items at most, in each list.
     expect(within(proves).getAllByRole("listitem").length).toBeLessThanOrEqual(3);
 
@@ -243,6 +246,8 @@ describe("/r/demo?demo=1", () => {
       "Only an auditor holding the campaign's viewing key can confirm the count and the sum",
     );
     expect(doesNot).toHaveTextContent("a batch of one, or of equal amounts");
+    expect(doesNot).toHaveTextContent("or who paid the deposit");
+    expect(doesNot).toHaveTextContent("a deposit's amount and time are public even when it names no address");
     expect(doesNot).toHaveTextContent("verifier's source of chain data is dishonest");
     expect(within(doesNot).getAllByRole("listitem").length).toBeLessThanOrEqual(3);
 
@@ -384,8 +389,8 @@ const REAL_SAMPLES = [
     path: "/r/demo?demo=real",
     label: "the 8-output batch (the default sample)",
     txid: "6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955",
-    line: "Real batch on public testnet, captured at height 4,478,307",
-    heights: ["Mined on public testnet at height 4,478,289", "captured at height 4,478,307"],
+    line: "Real batch on public testnet, captured at height 4,533,356",
+    heights: ["Mined on public testnet at height 4,478,289", "captured at height 4,533,356"],
     verdict: "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ",
     declared: "0.005 TAZ",
     outputs: "8",
@@ -394,8 +399,8 @@ const REAL_SAMPLES = [
     path: "/r/demo?demo=real-smoke",
     label: "the first batch, a smaller one",
     txid: "50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3",
-    line: "The first real batch on public testnet, captured at height 4,478,201",
-    heights: ["Mined on public testnet at height 4,478,065", "captured at height 4,478,201"],
+    line: "The first real batch on public testnet, captured at height 4,533,356",
+    heights: ["Mined on public testnet at height 4,478,065", "captured at height 4,533,356"],
     verdict: "Settled: 3 payouts, 0.0006 TAZ, fee 0.0002 TAZ",
     declared: "0.0006 TAZ",
     outputs: "3",
@@ -621,6 +626,67 @@ describe("the funding address", () => {
       expect(document.querySelector("a[href^='javascript:']")).toBeNull();
       expect(document.querySelector(`a[href*='${REAL_ADDRESS}/../']`)).toBeNull();
       view.unmount();
+    }
+  });
+});
+
+// ---- What the deposit spent -----------------------------------------------
+
+// covers: REQ-VER-007
+describe("what the deposit spent", () => {
+  const card = () => screen.getByTestId("funding-section");
+  const strip = () => within(screen.getByRole("list", { name: "Where the funds went" }));
+
+  it("the first real batch: out of the shielded pool, in the strip and in the funding section", async () => {
+    await showReceipt("/r/demo?demo=real-smoke", "Funding address");
+    expect(strip().getByTestId("flow-source")).toHaveTextContent(RECEIPT_SOURCE_WORDING.flowShielded);
+    const spent = within(card()).getByTestId("deposit-spent");
+    expect(spent).toHaveTextContent(RECEIPT_SOURCE_WORDING.heading);
+    expect(spent).toHaveTextContent(RECEIPT_SOURCE_WORDING.shielded);
+    // It names no payer, and says what stays public: never that the payer is hidden.
+    expect(spent).toHaveTextContent(RECEIPT_SOURCE_WORDING.shieldedMore);
+    expect(spent).toHaveTextContent("Its amount and time are public");
+  });
+
+  it("the 8-output batch: from transparent funds, said plainly, and the receipt is still settled", async () => {
+    await showReceipt("/r/demo?demo=real", "Funding address");
+    expect(strip().getByTestId("flow-source")).toHaveTextContent(RECEIPT_SOURCE_WORDING.flowTransparent);
+    const spent = within(card()).getByTestId("deposit-spent");
+    expect(spent).toHaveTextContent(RECEIPT_SOURCE_WORDING.transparent);
+    expect(spent).toHaveTextContent(RECEIPT_SOURCE_WORDING.transparentMore);
+    expect(verdict()).toHaveTextContent("Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ");
+  });
+
+  it("says when the verifier could not establish it, and shows no caption in the strip", async () => {
+    verifierSays(200, { ...wire(), funding_source: null });
+    const user = userEvent.setup();
+    renderAt(GOOD_LINK);
+    await screen.findByRole("heading", { level: 2, name: "Status" });
+    expect(strip().queryByTestId("flow-source")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Funding address" }));
+    expect(within(card()).getByTestId("deposit-spent")).toHaveTextContent(RECEIPT_SOURCE_WORDING.unknown);
+  });
+
+  it("says nothing at all when an older verifier did not report it", async () => {
+    const old = wire();
+    delete old["funding_source"];
+    verifierSays(200, old);
+    const user = userEvent.setup();
+    renderAt(GOOD_LINK);
+    await screen.findByRole("heading", { level: 2, name: "Status" });
+    expect(strip().queryByTestId("flow-source")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Funding address" }));
+    expect(within(card()).queryByTestId("deposit-spent")).toBeNull();
+    // The rest of the receipt is untouched.
+    expect(card()).toHaveTextContent("Every batch on this receipt spends from this address");
+  });
+
+  it("never names an address of what the deposit spent: only the campaign's own address is on the page", async () => {
+    await showReceipt("/r/demo?demo=real", "Funding address");
+    // The sweep behind the 8-output batch spent the first batch's change: 12,420,000 zat at this address, in 50fb88e0….
+    const text = document.body.textContent;
+    for (const needle of ["tmPvSFX6uKbWX6UebNnuiaKmbdtcby9A3kr", "tmPvSFX", "50fb88e0", "0.1242 ", "12420000", "12,420,000"]) {
+      expect(text, needle).not.toContain(needle);
     }
   });
 });

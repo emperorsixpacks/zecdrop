@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hasApiTransport } from "@/api/client";
 import { clearSession } from "@/api/operator/session";
 import "@/test/dom";
+import { AUDIENCE_STORAGE_KEY, useAudience } from "@/lib/audience";
 import { PRACTICE_KEY, stopPractice, usePractice } from "@/lib/practice-mode";
 
 import { PracticeStart } from "./PracticeStart";
@@ -38,6 +39,20 @@ afterEach(() => {
 });
 
 describe("the button that starts practice mode", () => {
+  it("opens the payout in the view it names, for this visit, and stores nothing of it", async () => {
+    localStorage.clear();
+    useAudience.setState({ audience: "personal" });
+    const user = userEvent.setup();
+    show({ label: "Try an organisation payout", audience: "organisation" });
+    await user.click(screen.getByRole("button", { name: "Try an organisation payout" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("where")).toHaveTextContent("/new");
+    });
+    expect(useAudience.getState().audience).toBe("organisation");
+    expect(localStorage.getItem(AUDIENCE_STORAGE_KEY)).toBeNull();
+    useAudience.setState({ audience: "personal" });
+  });
+
   it("is a button with the words it was given, and nothing happens until it is pressed", () => {
     show({ label: "Try a practice payout" });
     expect(screen.getByRole("button", { name: "Try a practice payout" })).toBeEnabled();

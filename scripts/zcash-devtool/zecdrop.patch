@@ -1,0 +1,169 @@
+diff --git a/src/commands/pczt/create.rs b/src/commands/pczt/create.rs
+index 2679a32..7582893 100644
+--- a/src/commands/pczt/create.rs
++++ b/src/commands/pczt/create.rs
+@@ -51,6 +51,10 @@ pub(crate) struct Command {
+     #[arg(long)]
+     memo: Option<String>,
+ 
++    /// Select inputs from Ironwood notes only, never from another pool. (ZecDrop)
++    #[arg(long)]
++    ironwood_only: bool,
++
+     /// Note management: the number of notes to maintain in the wallet
+     #[arg(long)]
+     #[arg(default_value_t = 4)]
+@@ -116,7 +120,11 @@ impl Command {
+             ConfirmationsPolicy::default(),
+             // Preserve the pre-upgrade behavior: transfers never spend
+             // transparent UTXOs; they must be shielded first.
+-            &SpendPolicy::default(),
++            &if self.ironwood_only {
++                SpendPolicy::shielded_pools([ShieldedPool::Ironwood])
++            } else {
++                SpendPolicy::default()
++            },
+             None,
+             None,
+         )
+diff --git a/src/commands/pczt/create_max.rs b/src/commands/pczt/create_max.rs
+index 12c94e1..8ea59b6 100644
+--- a/src/commands/pczt/create_max.rs
++++ b/src/commands/pczt/create_max.rs
+@@ -52,6 +52,10 @@ pub(crate) struct Command {
+     #[arg(long)]
+     only_spendable: bool,
+ 
++    /// Spend Ironwood notes only, never another pool's. (ZecDrop)
++    #[arg(long)]
++    ironwood_only: bool,
++
+     /// Path to a file to which to write the PCZT. If not provided, writes to stdout.
+     #[arg(long)]
+     output: Option<PathBuf>,
+@@ -84,11 +88,15 @@ impl Command {
+             &mut db_data,
+             &params,
+             account.id(),
+-            &[
+-                ShieldedPool::Sapling,
+-                ShieldedPool::Orchard,
+-                ShieldedPool::Ironwood,
+-            ],
++            if self.ironwood_only {
++                &[ShieldedPool::Ironwood]
++            } else {
++                &[
++                    ShieldedPool::Sapling,
++                    ShieldedPool::Orchard,
++                    ShieldedPool::Ironwood,
++                ]
++            },
+             &StandardFeeRule::Zip317,
+             recipient,
+             memo,
+diff --git a/src/commands/pczt/extract.rs b/src/commands/pczt/extract.rs
+index c4d322c..8036290 100644
+--- a/src/commands/pczt/extract.rs
++++ b/src/commands/pczt/extract.rs
+@@ -4,13 +4,23 @@ use pczt::{
+     Pczt,
+     roles::{spend_finalizer::SpendFinalizer, tx_extractor::TransactionExtractor},
+ };
++use std::path::PathBuf;
++
+ use rand::{rand_core::UnwrapErr, rngs::SysRng};
+-use tokio::io::{AsyncReadExt, stdin};
++use tokio::{
++    fs::File,
++    io::{AsyncReadExt, AsyncWriteExt, stdin},
++};
+ use zcash_proofs::prover::LocalTxProver;
+ 
+ // Options accepted for the `pczt extract` command
+ #[derive(Debug, Args)]
+-pub(crate) struct Command {}
++pub(crate) struct Command {
++    /// Also write the extracted transaction's raw bytes to this file, so a caller can check
++    /// exactly what it will broadcast before broadcasting it. (ZecDrop)
++    #[arg(long)]
++    tx_out: Option<PathBuf>,
++}
+ 
+ impl Command {
+     pub(crate) async fn run(self) -> Result<(), anyhow::Error> {
+@@ -30,6 +40,13 @@ impl Command {
+             .with_sapling(&spend_vk, &output_vk)
+             .extract(UnwrapErr(SysRng))
+             .map_err(|e| anyhow!("Failed to extract transaction from PCZT: {e:?}"))?;
++        if let Some(path) = &self.tx_out {
++            let mut raw = vec![];
++            tx.write(&mut raw)?;
++            let mut file = File::create(path).await?;
++            file.write_all(&raw).await?;
++            file.flush().await?;
++        }
+         let txid = tx.txid();
+         println!("{txid}");
+         Ok(())
+diff --git a/src/commands/pczt/sign.rs b/src/commands/pczt/sign.rs
+index 49c13f9..644803e 100644
+--- a/src/commands/pczt/sign.rs
++++ b/src/commands/pczt/sign.rs
+@@ -66,6 +66,10 @@ impl Command {
+             Orchard {
+                 index: usize,
+             },
++            // An Ironwood action spends with the account's Orchard spending key. (ZecDrop)
++            Ironwood {
++                index: usize,
++            },
+             Sapling {
+                 index: usize,
+             },
+@@ -103,6 +107,27 @@ impl Command {
+                 Ok(())
+             })
+             .map_err(|e| anyhow!("Invalid PCZT: {:?}", e))?
++            .with_ironwood::<Infallible, _>(|bundle| {
++                for (index, action) in bundle.actions().iter().enumerate() {
++                    let ours = action
++                        .spend()
++                        .zip32_derivation()
++                        .as_ref()
++                        .and_then(|derivation| {
++                            derivation.extract_account_index(
++                                &seed_fp,
++                                zip32::ChildIndex::hardened(params.network_type().coin_type()),
++                            )
++                        });
++                    if let Some(account_index) = ours {
++                        keys.entry(account_index)
++                            .or_default()
++                            .push(KeyRef::Ironwood { index });
++                    }
++                }
++                Ok(())
++            })
++            .map_err(|e| anyhow!("Invalid PCZT: {:?}", e))?
+             .with_sapling::<Infallible, _>(|bundle| {
+                 for (index, spend) in bundle.spends().iter().enumerate() {
+                     if let Some(account_index) =
+@@ -175,6 +200,17 @@ impl Command {
+                                 anyhow!("Failed to sign Orchard spend {index}: {:?}", e)
+                             })?;
+                     }
++                    KeyRef::Ironwood { index } => {
++                        signer
++                            .sign_ironwood(
++                                UnwrapErr(SysRng),
++                                index,
++                                &orchard::keys::SpendAuthorizingKey::from(usk.orchard()),
++                            )
++                            .map_err(|e| {
++                                anyhow!("Failed to sign Ironwood spend {index}: {:?}", e)
++                            })?;
++                    }
+                     KeyRef::Sapling { index } => {
+                         signer
+                             .sign_sapling(UnwrapErr(SysRng), index, usk.sapling().expsk().ask())

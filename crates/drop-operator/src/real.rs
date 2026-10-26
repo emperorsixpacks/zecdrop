@@ -6,6 +6,8 @@
 //! * Funding is detected by listing the unspent outputs of that address; the operator
 //!   marks a campaign funded only for an output at the required depth (REQ-FUND-002).
 //! * Batches are built and sent by [`drop_zcash::ZcashDistributor`].
+//! * Where a deposit came from is read from the deposit transaction itself, fetched by id and
+//!   used only if its bytes hash to that id (REQ-FUND-004).
 //!
 //! The server connection sits behind [`ZcashConnector`] so the whole path can be tested with
 //! an in-memory chain. [`LightwalletdConnector`] is the real one.
@@ -18,7 +20,8 @@
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use drop_chain::{ChainConfig, ChainError as LwdError, ChainInfo, LightwalletdSource};
-use drop_core::{FailureKind, OutPoint, Zatoshi};
+use drop_core::{FailureKind, FundingSource, OutPoint, Txid, Zatoshi};
+use drop_verify::{ChainSource, ParsedTx};
 use drop_zcash::lightwalletd::{preflight, BackendError, LightwalletdBackend};
 use drop_zcash::{zcash_network, CampaignKeys, MainnetPermit, ZcashDistributor};
 use tokio::runtime::{Builder, Runtime};
@@ -64,6 +67,9 @@ pub trait ZcashConnector: Send + Sync + 'static {
 
     /// The unspent outputs at `address` with their confirmations.
     fn sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError>;
+
+    /// The raw bytes of the transaction `txid`, or `None` if the server does not know it.
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError>;
 }
 
 /// The operator's [`ChainBackend`] over a [`ZcashConnector`].
@@ -132,6 +138,17 @@ impl<C: ZcashConnector> ChainBackend for ZcashBackend<C> {
     fn funding_sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
         self.connector.sightings(address)
     }
+
+    fn deposit_source(&self, deposit: &Txid) -> Result<Option<FundingSource>, ChainError> {
+        let Some(raw) = self.connector.transaction(deposit)? else {
+            return Ok(None);
+        };
+        // Bytes that are not a transaction, or not this one, say nothing about the deposit.
+        Ok(ParsedTx::parse_any_version(&raw)
+            .ok()
+            .filter(|parsed| parsed.txid() == *deposit)
+            .map(|parsed| parsed.deposit_source()))
+    }
 }
 
 /// The scanning half of [`LightwalletdConnector`]: a source and the runtime that drives it.
@@ -144,6 +161,9 @@ struct Scanner {
 pub struct LightwalletdConnector {
     config: ChainConfig,
     scanner: Mutex<Scanner>,
+    /// A connection of its own for reading deposits by id, so that a slow read never holds up the
+    /// look at a funding address that decides whether a campaign is funded.
+    reader: Mutex<Scanner>,
 }
 
 impl LightwalletdConnector {
@@ -163,10 +183,21 @@ impl LightwalletdConnector {
         // could not spend from it: a network upgrade it does not know, or a node without the
         // Ironwood tree state, is found here and not after the deposit.
         let info = runtime.block_on(preflight(&source)).map_err(from_backend)?;
+        let reader_runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|_| permanent("could not start the async runtime"))?;
+        let (reader_source, _) = reader_runtime
+            .block_on(LightwalletdSource::connect(&config))
+            .map_err(from_lwd)?;
         Ok((
             LightwalletdConnector {
                 config,
                 scanner: Mutex::new(Scanner { runtime, source }),
+                reader: Mutex::new(Scanner {
+                    runtime: reader_runtime,
+                    source: reader_source,
+                }),
             },
             info,
         ))
@@ -174,6 +205,10 @@ impl LightwalletdConnector {
 
     fn scanner(&self) -> MutexGuard<'_, Scanner> {
         self.scanner.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn reader(&self) -> MutexGuard<'_, Scanner> {
+        self.reader.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -208,5 +243,14 @@ impl ZcashConnector for LightwalletdConnector {
                 confirmations: u.height.map_or(0, |h| tip.saturating_sub(h) + 1),
             })
             .collect())
+    }
+
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        let reader = self.reader();
+        let fetched = reader
+            .runtime
+            .block_on(reader.source.transaction(txid))
+            .map_err(|_| transient("the chain data source is unavailable"))?;
+        Ok(fetched.map(|f| f.raw))
     }
 }

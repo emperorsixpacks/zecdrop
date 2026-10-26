@@ -15,6 +15,8 @@ import { enterPracticeSession, leavePracticeSession } from "@/api/operator/sessi
 import { useWizardDraft } from "@/features/wizard/draft";
 import type { Practice } from "@/practice/simulation";
 
+import { browserRandom, type RandomBytes } from "./random";
+
 /** The one thing practice mode writes to browser storage: "1" while it is on. */
 export const PRACTICE_KEY = "zecdrop.practice";
 const FLAG_ON = "1";
@@ -33,10 +35,7 @@ export function isPracticeId(hex: string): boolean {
   return /^[0-9a-f]{64}$/u.test(hex) && hex.startsWith(PRACTICE_MARKER);
 }
 
-/** Where practice mode gets its randomness: `length` random bytes. */
-export type RandomBytes = (length: number) => Uint8Array;
-
-export const browserRandom: RandomBytes = (length) => globalThis.crypto.getRandomValues(new Uint8Array(length));
+export { browserRandom, type RandomBytes } from "./random";
 
 /** A 64-hex id that begins with the practice marker: a transaction id or a list fingerprint that is on no chain. */
 export function practiceId(random: RandomBytes = browserRandom): string {

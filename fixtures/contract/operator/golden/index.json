@@ -31,7 +31,7 @@
     {
       "file": "campaign-real-deposit-shallow.json",
       "method": "POST",
-      "note": "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth",
+      "note": "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth; it spent a transparent coin, so funding_source is transparent",
       "path": "/api/campaigns/{id}/check-funding",
       "status": 200
     },
@@ -47,6 +47,13 @@
       "method": "GET",
       "note": "the public receipt on a real chain: funding_address is the campaign's transparent address, the one every batch spends from; null on the mock chain",
       "path": "/api/campaigns/{id}/receipt",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-deposit-shallow-shielded.json",
+      "method": "POST",
+      "note": "a sufficient deposit not deep enough yet that spent no transparent coin: funding_source is shielded",
+      "path": "/api/campaigns/{id}/check-funding",
       "status": 200
     },
     {
@@ -356,6 +363,104 @@
       "note": "a real swap is mainnet money: the operator must be started with --allow-mainnet",
       "path": "/api/campaigns/{id}/funding/near/live-quote",
       "status": 403
+    },
+    {
+      "file": "error-not-settled.json",
+      "method": "GET",
+      "note": "payslips are issued once every batch is confirmed at the required depth; here the campaign is funded and not started",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 409
+    },
+    {
+      "file": "error-payslips-confirmation-required.json",
+      "method": "GET",
+      "note": "the payslips are never released without X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND; the payslip warning is in the error",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 400
+    },
+    {
+      "file": "payslips.json",
+      "method": "GET",
+      "note": "every payslip of a settled campaign, one per payout row in payout-list order with the row's number, address (a placeholder here), amount and memo, and the warning the UI must show; a payslip is null if no output matched its row; receiver, rseed and action are placeholders",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 200
+    },
+    {
+      "file": "error-payslips-not-available.json",
+      "method": "GET",
+      "note": "the mock chain has no real transactions to prove",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 409
+    },
+    {
+      "file": "campaign-real-inbox-waiting.json",
+      "method": "GET",
+      "note": "a shielded deposit address set up and shown: nothing has reached it; the public address stays as the fallback",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-confirming.json",
+      "method": "GET",
+      "note": "a deposit confirming: 1 of the 10 confirmations a move needs",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-short.json",
+      "method": "GET",
+      "note": "spendable, but short of the funding and the move's fee: need says how much more",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-moving.json",
+      "method": "GET",
+      "note": "the move is sent and not mined yet: its txid",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-moved.json",
+      "method": "GET",
+      "note": "the move is mined and the payout funded from it: shielded; what is left in the inbox is left",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "inbox-return-sent.json",
+      "method": "POST",
+      "note": "a send-back checked, stored and sent: its txid",
+      "path": "/api/campaigns/{id}/inbox/return",
+      "status": 202
+    },
+    {
+      "file": "campaign-real-inbox-returning.json",
+      "method": "GET",
+      "note": "a send-back on its way: its txid; nothing is said to be left while it is",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-scheduled.json",
+      "method": "GET",
+      "note": "enough is spendable: the move is due at move_at, a random delay after it could be made",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-unavailable.json",
+      "method": "GET",
+      "note": "the inbox wallet could not be set up: no address is shown; the public address still works",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-inbox-checking.json",
+      "method": "GET",
+      "note": "after a restart, before the wallet is read again: its address and \"checking\", so the page never falls back to the public address alone",
+      "path": "/api/campaigns/{id}",
+      "status": 200
     }
   ],
   "generated_by": "crates/drop-operator/tests/api_contract.rs"

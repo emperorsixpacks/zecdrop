@@ -1,15 +1,16 @@
 import { Link, useNavigate } from "react-router";
 
 import type { OperatorCampaignSummary } from "@/api/operator/schemas";
-import { DropZone } from "@/components/DropZone";
 import { GhostRows } from "@/components/GhostRows";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusDot } from "@/components/StatusDot";
 import { Zec } from "@/components/Zec";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useCampaigns } from "@/features/operator/hooks";
 import { useWizardDraft } from "@/features/wizard/draft";
+import { peopleFromCsv } from "@/features/wizard/people";
 import { usePractice } from "@/lib/practice-mode";
 
 import { sortCampaigns } from "./sort";
@@ -43,7 +44,7 @@ function Row({ campaign }: { campaign: OperatorCampaignSummary }) {
 export default function CampaignsPage() {
   const query = useCampaigns();
   const navigate = useNavigate();
-  const setCsv = useWizardDraft((s) => s.setCsv);
+  const setPeople = useWizardDraft((s) => s.setPeople);
   const exampleList = usePractice((s) => s.exampleList);
 
   return (
@@ -62,24 +63,26 @@ export default function CampaignsPage() {
         <div className="space-y-8" data-testid="payouts-empty">
           <div className="max-w-[64ch] space-y-2">
             <p className="text-[1.75rem] leading-tight font-bold tracking-tight text-balance">No payouts yet</p>
-            <p className="text-base text-muted-foreground">Each run you send shows up here. Drop a list to start the first.</p>
+            <p className="text-base text-muted-foreground">{"Each run you send shows up here. Add the people you're paying to start the first."}</p>
           </div>
           <GhostRows />
-          <DropZone
-            quiet
-            onList={(text, fileName) => {
-              setCsv(text, fileName);
-              void navigate("/new");
-            }}
-            {...(exampleList === null
-              ? {}
-              : {
-                  onExample: () => {
-                    setCsv(exampleList, "demo-recipients.testnet.csv");
-                    void navigate("/new");
-                  },
-                })}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            {exampleList !== null && (
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => {
+                  setPeople(peopleFromCsv(exampleList));
+                  void navigate("/new");
+                }}
+              >
+                Use the example list
+              </Button>
+            )}
+            <Button asChild size="lg" variant={exampleList === null ? "default" : "outline"}>
+              <Link to="/new">Start a payout</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <ul aria-label="Payouts" className="divide-y divide-border border-y border-border">

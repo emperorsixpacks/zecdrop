@@ -2,6 +2,7 @@
   "campaign_id": null,
   "network": "testnet",
   "funding_address": "tmU6c1aXFGFsnpceD9rX7SaBCodB3nkZGkD",
+  "funding_source": "shielded",
   "declared_total": "60000",
   "fee_total": "20000",
   "batches": [
@@ -13,7 +14,7 @@
       "fee": "20000",
       "shielded_actions": 3,
       "pool": "ironwood",
-      "confirmations": 137
+      "confirmations": 55292
     }
   ],
   "manifest_commitment": "aade9fd18f7c48dc3b04ead6a7ee2211640d0fa5948dfd14b5a356463c841491",

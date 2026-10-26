@@ -2,6 +2,7 @@
 //! the real router driven in-process.
 #![allow(dead_code)]
 
+pub mod inbox;
 pub mod near;
 pub mod zcash;
 
@@ -12,7 +13,7 @@ use std::time::Duration;
 use axum::body::Body;
 use axum::http::{header, HeaderMap, Method, Request, StatusCode};
 use axum::Router;
-use drop_core::{AddressCodec, CampaignId, Network, Pool};
+use drop_core::{AddressCodec, CampaignId, FundingSource, Network, Pool, Txid};
 use drop_operator::accounts::{AccountAllocator, FileAccounts};
 use drop_operator::auth::Token;
 use drop_operator::chain::{
@@ -63,6 +64,10 @@ impl ChainBackend for NotMockBackend {
 
     fn funding_sightings(&self, _address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
         Ok(Vec::new())
+    }
+
+    fn deposit_source(&self, _deposit: &Txid) -> Result<Option<FundingSource>, ChainError> {
+        Ok(None)
     }
 }
 

@@ -392,6 +392,7 @@ async function main() {
     await capture("check-funding-mock", "POST", "/api/campaigns/{id}/check-funding", { id }, "the mock chain has no funding address to look at (a real chain answers with the campaign)");
     await capture("export-ufvk-mock", "GET", "/api/campaigns/{id}/audit-ufvk-export", { id, headers: { "X-Zecdrop-Confirm-Disclosure": "I-UNDERSTAND" } }, "the mock chain has no real viewing keys (a real chain answers with warning, campaign_id, network, ufvk)");
     await capture("export-ufvk-mock-unconfirmed", "GET", "/api/campaigns/{id}/audit-ufvk-export", { id }, "without the disclosure header; the mock chain answers not_available first (a real chain answers 400 confirmation_required)");
+    await capture("payslips-mock", "GET", "/api/campaigns/{id}/payslips", { id, headers: { "X-Zecdrop-Confirm-Disclosure": "I-UNDERSTAND" } }, "the mock chain has no real transactions to prove (a settled campaign on a real chain answers with warning, campaign_id, network, payslips, unmatched_outputs)");
     await capture("fund-insufficient", "POST", "/api/campaigns/{id}/fund-observed", { id, body: { outpoint: OUTPOINT(0), amount: "1000" } }, "a deposit that is too small; reports required and observed");
     await capture("fund-invalid-body", "POST", "/api/campaigns/{id}/fund-observed", { id, body: { outpoint: "not-an-outpoint", amount: required } }, "a malformed outpoint");
     await capture("fund-ok", "POST", "/api/campaigns/{id}/fund-observed", { id, body: { outpoint: OUTPOINT(0), amount: required } }, "enough funding: the campaign becomes funded");
@@ -415,6 +416,11 @@ async function main() {
     await capture("campaign-settled", "GET", "/api/campaigns/{id}", { id }, "every batch confirmed at the required depth");
     await capture("receipt-settled", "GET", "/api/campaigns/{id}/receipt", { id }, "the operator-built receipt of a settled campaign");
     await capture("campaigns-list-after", "GET", "/api/campaigns", {}, "the list after one campaign has settled");
+
+    // A pretend deposit that says what it spent: a real chain reads that from the deposit itself (REQ-FUND-004). Its own
+    // txid, so the answers above, where nothing was declared, keep funding_source null.
+    const declared = await call("POST", "/api/campaigns", { body: { name: "Declared source", csv: CSVS["valid.csv"], max_outputs_per_batch: 3, fee_policy: "zip317_text" } });
+    await capture("fund-declared-source", "POST", "/api/campaigns/{id}/fund-observed", { id: declared.body.id, body: { outpoint: `${"5e".repeat(32)}:0`, amount: declared.body.funding_required, source: "shielded" } }, "a pretend deposit said to come from the shielded pool: funding_source is what fund-observed declares, and null when it says nothing");
     await capture("events-not-found", "GET", "/api/campaigns/{id}/events", { id: "c-000000000000" }, "events of a campaign that does not exist");
   } finally {
     await fast.stop();
@@ -519,7 +525,8 @@ chain produces, which is in \`golden/\`: a non-null \`funding_address\` and
 (\`warning\`, \`campaign_id\`, \`network\`, \`ufvk\`), and the errors
 \`needs_funding_split\`, \`wrong_wallet_seed\`, \`chain_unavailable\`,
 \`confirmation_required\` and \`dev_only\`. On the mock chain a campaign always has
-\`wallet_matches: true\`, \`funding_address: null\` and \`funding_progress: null\`.
+\`wallet_matches: true\`, \`funding_address: null\` and \`funding_progress: null\`, and
+\`funding_source\` is null unless \`fund-observed\` declared one (\`fund-declared-source.json\`).
 None of these shapes has been seen from a real node.
 `;
 

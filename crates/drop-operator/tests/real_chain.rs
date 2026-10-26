@@ -10,11 +10,13 @@ use std::sync::Arc;
 use axum::http::StatusCode;
 use common::zcash::*;
 use common::*;
-use drop_core::{CampaignId, PublicReceipt, Zatoshi};
+use drop_core::{CampaignId, FailureKind, Network, PublicReceipt, Txid, Zatoshi};
+use drop_operator::chain::{ChainError, UtxoSighting};
+use drop_operator::real::{ZcashBackend, ZcashConnector};
 use drop_operator::state::{Options, RunState};
 use drop_verify::{verify_campaign, FetchedTx, ParsedTx, VerifyConfig, VerifyRequest};
 use drop_zcash::inspect::{public_totals, recover_with_ufvk};
-use drop_zcash::CampaignKeys;
+use drop_zcash::{CampaignKeys, ZcashAddressCodec};
 use serde_json::{json, Value};
 
 const DEPTH: u32 = 3;
@@ -544,4 +546,364 @@ async fn a_funded_campaign_is_built_sent_and_confirmed_by_the_zcash_distributor(
     for text in texts {
         assert_clean("output", &text, &needles);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Where the deposit came from (REQ-FUND-004)
+// ---------------------------------------------------------------------------
+
+/// The real testnet deposits the fake node serves: the faucet's payout (no transparent input) and
+/// the sweep of the first batch's change (one). The operator reads only their inputs, so it does
+/// not matter that they pay the real campaign address and not the test one.
+const SHIELDED_SET: &str = "testnet-ironwood-batch";
+const TRANSPARENT_SET: &str = "testnet-ironwood-batch-8";
+
+fn deep_enough() -> Options {
+    Options {
+        required_depth: DEPTH,
+        ..Builder::default().options
+    }
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn a_deposit_says_where_it_came_from_while_shallow_and_once_funded() {
+    for (set, expected) in [(SHIELDED_SET, "shielded"), (TRANSPARENT_SET, "transparent")] {
+        let node = SharedNode::default();
+        node.lock().tip = 1_000;
+        let h = real(&node);
+        let (id, view) = create(&h).await;
+        assert!(
+            view["funding_source"].is_null(),
+            "nothing seen, nothing said"
+        );
+        let address = view["funding_address"].as_str().unwrap();
+
+        // In the mempool, then one block short of the depth: already known.
+        put_deposit_tx(&node, address, REQUIRED, None, real_deposit(set));
+        let v = check(&h, &id).await;
+        assert!(v["funding"].is_null());
+        assert_eq!(v["funding_source"], expected, "{set} in the mempool");
+        node.lock().deposits.last_mut().unwrap().height = Some(999);
+        assert_eq!(
+            check(&h, &id).await["funding_source"],
+            expected,
+            "{set} shallow"
+        );
+
+        // Funded: still known once the progress note is gone, and on the operator's receipt.
+        node.lock().tip = 1_001;
+        let v = check(&h, &id).await;
+        assert_eq!(v["phase"]["phase"], "funded");
+        assert_eq!(v["funding_source"], expected, "{set} funded");
+        let receipt = h.get(&format!("/api/campaigns/{id}/receipt")).await.json();
+        assert_eq!(receipt["funding_source"], expected, "{set} receipt");
+
+        // Reading the campaign asks the chain nothing: it shows what is known.
+        node.lock().transactions.clear();
+        let v = h.get(&format!("/api/campaigns/{id}")).await.json();
+        assert_eq!(v["funding_source"], expected, "{set} read from memory");
+    }
+}
+
+/// The fake node, except that it fails every request for a transaction by id.
+struct NoTransactions(FakeConnector);
+
+impl ZcashConnector for NoTransactions {
+    type Backend = FakeZcashChain;
+
+    fn connect(&self, keys: &CampaignKeys) -> Result<FakeZcashChain, ChainError> {
+        self.0.connect(keys)
+    }
+
+    fn sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
+        self.0.sightings(address)
+    }
+
+    fn transaction(&self, _txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        Err(ChainError {
+            message: "node unreachable".into(),
+            kind: FailureKind::Transient,
+        })
+    }
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn a_deposit_that_cannot_be_read_never_holds_up_funding_or_sending() {
+    // The node lists the coin but does not know its transaction.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real(&node);
+    let (id, view) = create(&h).await;
+    let address = view["funding_address"].as_str().unwrap();
+    let op = put_deposit_tx(
+        &node,
+        address,
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+    node.lock().transactions.remove(&op.txid);
+    let v = check(&h, &id).await;
+    assert_eq!(v["phase"]["phase"], "funded");
+    assert!(v["funding_source"].is_null(), "{v}");
+
+    // Another transaction's bytes under the deposit's id say nothing either.
+    node.lock()
+        .transactions
+        .insert(op.txid, real_deposit(TRANSPARENT_SET));
+    assert!(check(&h, &id).await["funding_source"].is_null());
+
+    // The payout starts all the same.
+    let start = h.post_empty(&format!("/api/campaigns/{id}/start")).await;
+    assert_eq!(start.status, StatusCode::ACCEPTED, "{}", start.text());
+
+    // A node that fails every such request: funded and startable, with nothing said.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = Builder {
+        seed: TEST_SEED,
+        backend: Some(Arc::new(ZcashBackend::new(NoTransactions(FakeConnector(
+            node.clone(),
+        ))))),
+        codec: Some(Arc::new(ZcashAddressCodec::new(NETWORK))),
+        options: deep_enough(),
+        ..Builder::default()
+    }
+    .build();
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+    let v = check(&h, &id).await;
+    assert_eq!(v["phase"]["phase"], "funded");
+    assert!(v["funding_source"].is_null());
+    let start = h.post_empty(&format!("/api/campaigns/{id}/start")).await;
+    assert_eq!(start.status, StatusCode::ACCEPTED, "{}", start.text());
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn after_a_restart_the_source_is_read_again() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real(&node);
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+    assert_eq!(check(&h, &id).await["funding_source"], "shielded");
+    let path = format!("/api/campaigns/{id}");
+
+    // Kept in memory only: a restarted operator says nothing until it has looked again, either
+    // when asked to check the funding...
+    let h = h.restart(deep_enough());
+    assert!(h.get(&path).await.json()["funding_source"].is_null());
+    assert_eq!(check(&h, &id).await["funding_source"], "shielded");
+
+    // ...or on its own, from the background poller, which also reads funded campaigns' deposits.
+    let h = h.restart(deep_enough());
+    assert!(h.get(&path).await.json()["funding_source"].is_null());
+    let poller = h
+        .state
+        .spawn_funding_poller(std::time::Duration::from_millis(10));
+    let mut known = false;
+    for _ in 0..200 {
+        if h.get(&path).await.json()["funding_source"] == "shielded" {
+            known = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    poller.abort();
+    assert!(known, "the poller read the funded campaign's deposit again");
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn nothing_the_deposit_spent_reaches_the_answers_or_the_logs() {
+    // The transparent deposit is the sweep of the first batch's change. The coin it spent, the
+    // address that coin paid and its value are all public on the chain, and appear nowhere here.
+    let first_batch = ParsedTx::parse(&real_fixture(SHIELDED_SET, "tx.hex")).unwrap();
+    let coin = first_batch.output(0).unwrap();
+    let needles = vec![
+        first_batch.txid().to_string(),
+        drop_verify::p2pkh_address(&coin, Network::Testnet).unwrap(),
+        u64::from(coin.value()).to_string(),
+    ];
+    let spent = ParsedTx::parse_any_version(&real_deposit(TRANSPARENT_SET)).unwrap();
+    assert_eq!(
+        spent.prevouts()[0].hash(),
+        &{
+            let mut wire = *first_batch.txid().as_bytes();
+            wire.reverse();
+            wire
+        },
+        "the sweep spends the first batch's change"
+    );
+
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real(&node);
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(TRANSPARENT_SET),
+    );
+    let mut texts = vec![h
+        .post_empty(&format!("/api/campaigns/{id}/check-funding"))
+        .await
+        .text()];
+    assert!(
+        texts[0].contains("\"funding_source\":\"transparent\""),
+        "{}",
+        texts[0]
+    );
+    for path in [
+        format!("/api/campaigns/{id}"),
+        format!("/api/campaigns/{id}/receipt"),
+        "/api/campaigns".to_owned(),
+    ] {
+        texts.push(h.get(&path).await.text());
+    }
+    texts.extend(h.logs.lines());
+    for text in texts {
+        assert_clean("output", &text, &needles);
+    }
+}
+
+/// The fake node, slow to serve a transaction by id, and counting how often it is asked.
+struct SlowTransactions {
+    inner: FakeConnector,
+    delay: std::time::Duration,
+    asked: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl ZcashConnector for SlowTransactions {
+    type Backend = FakeZcashChain;
+
+    fn connect(&self, keys: &CampaignKeys) -> Result<FakeZcashChain, ChainError> {
+        self.inner.connect(keys)
+    }
+
+    fn sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
+        self.inner.sightings(address)
+    }
+
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        std::thread::sleep(self.delay);
+        self.inner.transaction(txid)
+    }
+}
+
+fn slow_harness(
+    node: &SharedNode,
+    delay_ms: u64,
+) -> (Harness, Arc<std::sync::atomic::AtomicUsize>) {
+    let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let h = Builder {
+        seed: TEST_SEED,
+        backend: Some(Arc::new(ZcashBackend::new(SlowTransactions {
+            inner: FakeConnector(node.clone()),
+            delay: std::time::Duration::from_millis(delay_ms),
+            asked: Arc::clone(&asked),
+        }))),
+        codec: Some(Arc::new(ZcashAddressCodec::new(NETWORK))),
+        options: deep_enough(),
+        ..Builder::default()
+    }
+    .build();
+    (h, asked)
+}
+
+// covers: REQ-FUND-004
+#[tokio::test(flavor = "multi_thread")]
+async fn a_slow_node_holds_up_no_answer_and_the_source_arrives_later() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let (h, _) = slow_harness(&node, 4_000);
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+
+    // Funded at once; the answer waits for the read a little, never as long as the node takes.
+    let started = std::time::Instant::now();
+    let v = check(&h, &id).await;
+    assert!(
+        started.elapsed() < std::time::Duration::from_millis(3_500),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(v["phase"]["phase"], "funded");
+    assert!(v["funding_source"].is_null());
+
+    // The read goes on in the background, and its answer is there once it ends.
+    let mut known = false;
+    for _ in 0..80 {
+        if h.get(&format!("/api/campaigns/{id}")).await.json()["funding_source"] == "shielded" {
+            known = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(known, "the background read filled in the source");
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn a_deposit_is_read_once_and_one_with_no_answer_is_not_read_again_at_once() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let (h, asked) = slow_harness(&node, 0);
+    let read = || asked.load(std::sync::atomic::Ordering::SeqCst);
+
+    // Known after one read, and never read again.
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+    assert_eq!(check(&h, &id).await["funding_source"], "shielded");
+    assert_eq!(read(), 1);
+    check(&h, &id).await;
+    check(&h, &id).await;
+    assert_eq!(read(), 1, "a known answer is not read again");
+
+    // A deposit the node does not know: one read, then none for a while, however often it is asked.
+    let (other, view) = create(&h).await;
+    let op = put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(TRANSPARENT_SET),
+    );
+    node.lock().transactions.remove(&op.txid);
+    assert!(check(&h, &other).await["funding_source"].is_null());
+    assert_eq!(read(), 2);
+    for _ in 0..3 {
+        assert!(check(&h, &other).await["funding_source"].is_null());
+    }
+    assert_eq!(read(), 2, "no answer is not asked for again at once");
 }

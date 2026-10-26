@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/test/dom";
 
 import { LensList, RedactionLens, type LensMode, type LensRow } from "./Lens";
+import { FOUR_VIEWS } from "./views";
 
 // Strings that stand for a real list. None of them may be in the page while it is hidden.
 const ROWS: LensRow[] = [
@@ -32,6 +33,20 @@ describe("the redaction lens", () => {
     expect(screen.getAllByRole("img", { name: "hidden" })).toHaveLength(ROWS.length * 2);
     // The labels were made for the list and are always readable.
     expect(screen.getByText("Person 2")).toBeInTheDocument();
+  });
+
+  it("shows revealed text as plain ink: nothing is drawn behind the writing", () => {
+    render(<Harness initial="auditor" />);
+    const list = screen.getAllByRole("list")[0] as HTMLElement;
+    expect(within(list).getByText("memo-sentinel-one")).toBeInTheDocument();
+    for (const el of list.querySelectorAll("*")) expect(el.className, el.textContent ?? "").not.toMatch(/marker|highlighter/u);
+  });
+
+  it("puts the switch under the list when asked, so it comes after the list in the tab order", () => {
+    render(<RedactionLens rows={ROWS} mode="public" onModeChange={() => {}} selectedId={null} onSelect={() => {}} unit="TAZ" controls="below" />);
+    const list = screen.getAllByRole("list")[0] as HTMLElement;
+    const radio = screen.getByRole("radio", { name: "Public" });
+    expect(list.compareDocumentPosition(radio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("a hidden bar answers a touch with a picture only: it is named once, and no word of it is in the page", () => {
@@ -93,6 +108,28 @@ describe("the redaction lens", () => {
     expect(screen.getAllByRole("img", { name: "hidden" })).toHaveLength(4);
   });
 
+  it("offers the public, one person and the auditor unless told otherwise (the operator's Check screen)", () => {
+    render(<Harness />);
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["Public", "One person", "Auditor"]);
+  });
+
+  it("with the four views, 'You' (the payer) reveals every row, and going back hides them again", async () => {
+    const user = userEvent.setup();
+    function Four() {
+      const [mode, setMode] = useState<LensMode>("public");
+      const [selected, setSelected] = useState<string | null>("r2");
+      return (
+        <RedactionLens rows={ROWS} mode={mode} onModeChange={setMode} selectedId={selected} onSelect={setSelected} unit="TAZ" views={FOUR_VIEWS} />
+      );
+    }
+    render(<Four />);
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["Everyone", "One person", "Auditor", "You"]);
+    await user.click(screen.getByRole("radio", { name: "You" }));
+    expect(document.body.innerHTML).toMatch(/memo-sentinel-one/u);
+    await user.click(screen.getByRole("radio", { name: "Everyone" }));
+    for (const secret of SECRETS) expect(document.body.innerHTML).not.toMatch(secret);
+  });
+
   it("bars are the same width whatever they hide", () => {
     render(<LensList rows={ROWS} mode="public" selectedId={null} unit="TAZ" />);
     const widths = screen.getAllByRole("img", { name: "hidden" }).map((b) => b.className.split(" ").find((c) => c.startsWith("w-")));
@@ -150,6 +187,33 @@ describe("the wipes", () => {
     lively();
     const { container } = render(<Harness />);
     expect(container.querySelectorAll(".bar-in, .bar-out, .reveal-in")).toHaveLength(0);
+  });
+
+  // covers: REQ-PRIV-002
+  it("a list drawn with intro wipes its bars in once, over cells that never held any text", async () => {
+    lively();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { container } = render(<LensList rows={ROWS} mode="public" selectedId={null} unit="TAZ" intro />);
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(ROWS.length * 2);
+    for (const secret of SECRETS) expect(document.body.innerHTML, String(secret)).not.toMatch(secret);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+    expect(screen.getAllByRole("img", { name: "hidden" })).toHaveLength(ROWS.length * 2);
+  });
+
+  it("intro moves nothing that is revealed, and nothing at all when motion is reduced", () => {
+    lively();
+    const { container, unmount } = render(<LensList rows={ROWS} mode="auditor" selectedId={null} unit="TAZ" intro />);
+    expect(container.querySelectorAll(".bar-in, .bar-out, .reveal-in")).toHaveLength(0);
+    unmount();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    const reduced = render(<LensList rows={ROWS} mode="public" selectedId={null} unit="TAZ" intro />);
+    expect(reduced.container.querySelectorAll(".bar-in")).toHaveLength(0);
   });
 
   it("nothing moves, and no bar is left over the text, when motion is reduced", async () => {

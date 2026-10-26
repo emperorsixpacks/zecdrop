@@ -18,7 +18,8 @@ totals the verifier recomputed from chain data (`fixtures/testnet-ironwood-batch
 **Anyone, from chain data alone:** how much transparent value left the funding address, that exactly that
 amount minus the fee entered the shielded pool in this transaction (the binding signature makes the number
 unforgeable), how many shielded outputs there are, the fee, and the change. These add up exactly:
-`t_in = t_out + net_into_pool + fee`.
+`t_in = t_out + net_into_pool + fee`. And whether the deposit came out of the shielded pool, naming no payer address,
+or from transparent funds, whose address is public (see "Where the deposit came from"); not who paid it.
 
 **Not the public:** that the shielded value reached *N distinct third parties* matching a payout list. A
 payout to the operator's own address, an output built without the campaign's outgoing viewing key, or a
@@ -31,6 +32,79 @@ away.
 
 **Possible hardening (not built):** setting `enableSpendsIronwood = 0` would let consensus *prove* a batch has no
 shielded spends. It needs custom transaction assembly.
+
+## Where the deposit came from
+
+The campaign's deposit address is transparent, and the deposit's amount is public: that is the public total. What the deposit
+*spends* is the payer's choice, and it decides whether the payer is on the chain (REQ-VER-007, REQ-FUND-004).
+
+- **From a shielded balance:** the deposit transaction has no transparent input. Its value comes out of a shielded pool and the
+  transaction names no address it came from. The receipt says `funding_source: shielded`.
+- **From transparent funds:** the deposit spends at least one transparent coin (a coinbase input counts as one). Where that coin
+  came from is public, and the chain now ties it to the campaign for good. The receipt says `transparent`. The address may be the
+  payer's, a swap service's (a NEAR Intents deposit always is, see leak 4) or the campaign's own change; the receipt never names
+  it, and neither does the operator.
+- **Not established** (`null`): the deposit transaction could not be fetched or read, or there is none (the mock chain).
+
+The verifier reads this from the deposit transaction it already fetches to resolve the inputs' values; the operator fetches the
+deposit by id from the node it already uses, which already knows the funding address it watches. Both use the bytes only if they
+hash to the deposit's id. It is not a finding and does not change the phase: a campaign funded from a transparent address is still
+a valid campaign.
+
+**What "shielded" does not mean.** It says only that the transaction names no address. The amount and the time are public, so a
+payer who shields coins just before paying, or pays an amount nobody else moves, can still be linked by amount and timing: coins
+that are transparent should be shielded well before the payout, not on the way to it. It does not say who paid.
+
+**One step back.** The deposit is the transaction that created the batch's input. When that is one of the campaign's own
+transactions (a sweep of its change back to the funding address, which is a testnet tool, or the funding split, which is not
+built), it spends the campaign's own transparent coins, so the receipt says `transparent` even when the money first came in
+from a shielded balance: that link between the campaign's addresses is public. Our 8-recipient testnet batch is such a case.
+A funding split, once built, would have to look one step further for its batches.
+
+**Only the deposit the batch spends is described.** Anything else sent to the funding address stays on the chain there. A small
+test payment from a transparent address before the real deposit ties that address to the campaign even though the batch never
+spends it and the receipt says `shielded`. Pay in one deposit, as the funding screen asks. Our own testnet runs show both kinds: the 3-person batch of 2026-10-08 was funded straight from the faucet's
+shielded wallet (shielded); the 8-person batch from a sweep of that run's change (transparent, tied to that change address).
+
+## The shielded deposit address ("the inbox")
+
+When the operator runs with zcash-devtool (testnet only; docs/ADR/0006-shielded-inbox.md), each payout also gets a shielded
+deposit address of its own, in front of the transparent one: a Unified Address with only an Orchard receiver, of a wallet whose
+seed the operator derives from its own (REQ-FUND-005). The payer pays it from a shielded wallet, in one payment or several. Once
+the notes are confirmed (10 blocks) and after a random wait, the operator moves exactly the funding to the payout's transparent
+funding address, in one transaction it checks before sending (REQ-FUND-006). From there the payout runs as before.
+
+- **What the chain shows.** The payment into the inbox is an ordinary shielded transaction. The move is public like any deposit:
+  an amount leaving the shielded pool for the payout's funding address, at a time. It names no address it came from, so the
+  receipt says `funding_source: shielded`. The public total is exactly what it was.
+- **What changes for the payer.** Their wallet never pays a transparent address, and the public deposit is built by the operator
+  at a random moment, not by their wallet when they pay. Several payments add up, and what is left over can go back to a shielded
+  address (REQ-FUND-007).
+- **What `shielded` now describes.** For a payout funded through its inbox, `shielded` describes the operator's move, always.
+  How the payer filled the inbox is not on the receipt: one who filled it from a transparent address (an exchange's, say) is
+  public in that shielding transaction, and its amount and time can still tie it to the payout. The funding screen asks for a
+  shielded wallet for that reason.
+- **What it does not hide.** The total is public by design. A payer who shields exactly that amount just before paying can still
+  be matched by amount and time; the random wait helps, it does not hide.
+- **Who can see the inbox.** Only the operator's own computer. The inbox is a different seed from the payout's account, so the
+  payout's viewing key (what an auditor gets) sees none of it: not the deposits, not their memos, not where a send-back goes
+  (REQ-PRIV-004). The receipt and the operator's logs carry nothing of it.
+- **What the node learns.** Setting an inbox up tells the light wallet server the height it scans from; each sync asks about the
+  inbox account's (unused) transparent addresses; the move is sent over the same server that watches the funding address. The
+  operator never fetches the payer's payment by id, which would tell the server which payment fed which payout.
+- **On disk.** zcash-devtool's wallet database (the inbox's viewing keys, notes and amounts) is not encrypted; its spending keys
+  are, to an identity derived from the operator's seed. The inbox directory is 0700, and the PCZT files a transaction is built
+  from are deleted after use.
+
+## A list built in the page
+
+The operator's page can build the payout list one person at a time instead of reading a file (REQ-IMP-002): an address, an
+amount and the note they will see. It is the same list as a file's, held the same way: in the page's memory while it is made,
+sent once to the operator on the same computer as the `address,amount,memo` text a file would hold, and then dropped. It is not
+stored, put in the address bar, written to the console or sent anywhere else. A total can be split two ways. **Evenly**: every
+share is exactly the same, so every amount is the public total divided by the count (leak 1 below); the page says so where the
+split is made, and the review warns. **Lucky split**: random shares from the browser's cryptographic random numbers, which keep
+any one share from being worked out from the total and the count. The payer still knows every share, and each recipient their own.
 
 ## Payslips: one recipient's proof of one output
 
@@ -64,6 +138,18 @@ syncs its history may keep what was sent or opened. The page's own history entry
 visit is outside the page's control and may keep the full link. The page says all this where a link is made and where one is
 opened. Send a link only to the person the payment is to be proved to.
 
+**From the payer's screen** (REQ-PAY-005). Once every batch of a campaign is confirmed, the operator gives its own page every
+payslip of the campaign, with each payout's address, amount and memo as the payer listed them, so the payer can send each person
+theirs as a link or a QR code (the screens above). The operator issues them from the transaction bytes it stored before
+broadcast, which are the bytes the chain mined, and checks each against its output before it answers. It refuses on the mock
+chain and before the campaign is settled, logs nothing but the route, and answers only a request that carries the disclosure
+header the viewing-key export also needs: this is the second answer of its API that names payouts, after that export. The page
+asks only when the payer presses Show payslips, keeps the answer in its memory only (no cache, no storage), hides it after ten
+minutes or when the page is left, and makes one person's link only when asked. The page runs on the payer's computer, which
+holds the list anyway, so no new party learns anything until a link is sent; each link is then a bearer document, as above. A
+link made there points at the public site when the operator's page was built with its address
+(`VITE_PUBLIC_RECEIPT_BASE_URL`), and otherwise at the payer's own computer, which nobody else can open; the page says so.
+
 ## Practice mode: a simulation, not a payout
 
 The site's "Try a practice payout" runs the operator's own screens against a simulation inside the page (REQ-DEMO-001). It reads no
@@ -78,7 +164,8 @@ reads no chain it cannot check a payslip, or show a receipt it did not make.
 
 | Item | Why it is public |
 |---|---|
-| Campaign funding address (transparent), funding amount, funder's inputs | Transparent by design: this *is* the public total |
+| Campaign funding address (transparent), funding amount | Transparent by design: this *is* the public total |
+| What the deposit spent: transparent coins name where they came from; a deposit from a shielded balance names nothing | On the chain either way; the receipt says which kind it was, never the address ("Where the deposit came from") |
 | Per-batch net value into the pool, fee, txid, timing | Balance rule of the protocol |
 | Shielded action count per batch | Visible in the tx; ≈ recipient count (padded to ≥ 2) |
 | Transparent change outputs | Visible; shows remaining balance |
@@ -93,23 +180,29 @@ Recipient addresses · per-recipient amounts · memos · which output belongs to
 1. **Derivable amounts.** A batch's public net value equals the sum of its outputs. A batch of **one** reveals
    that recipient's exact amount. A batch of N **equal** amounts reveals every amount (total ÷ N). Amount
    privacy therefore comes from *variation*; uniform airdrops get no amount privacy. The planner avoids
-   singleton batches (REQ-PLAN-003) and the review step warns (REQ-PRIV-003).
+   singleton batches (REQ-PLAN-003) and the review step warns (REQ-PRIV-003). Splitting a total evenly in the page gives
+   exactly this, and the page says so; a lucky split gives the variation.
 2. **Two-recipient batches.** Each party can infer the other's amount from the public total and their own.
 3. **Small anonymity set.** With few recipients the public total bounds every amount tightly.
-4. **Funding is linkable.** The funder's transparent address and amount are public. Swapping funds in via NEAR
-   Intents adds a public, transparent leg (NEAR lists ZEC as transparent-address-only).
+4. **The deposit's amount is public, and so is a transparent payer.** A deposit paid from a transparent address puts that
+   address on the chain, tied to the campaign for good; one paid from a shielded balance names no address (see "Where the
+   deposit came from", including what that does not hide). The funding screen asks for a shielded deposit and says which kind
+   arrived. Swapping funds in via NEAR Intents adds a public, transparent leg (NEAR lists ZEC as transparent-address-only), so
+   such a deposit is always `transparent`: the swap's address, not the payer's, but public.
 5. **Fee and action count fingerprint the batch size** even if the receipt omitted it. The action count equals the
    recipient count exactly for batches of two or more. Padding to a fixed bucket hides it, at the cost of one
    fee and about 1.25 s of proving per padding action (an option, not built).
 6. **Network metadata.** The node/indexer the operator talks to learns which transactions are fetched and
-   broadcast; the hosted verifier learns which receipts are viewed. Mitigation: self-host, or Tor (planned, optional).
+   broadcast (the deposit among them, which it can already tell from the funding address the operator watches); the hosted
+   verifier learns which receipts are viewed. Mitigation: self-host, or Tor (planned, optional).
 7. **Viewing-key disclosure is irreversible and total for that account.** An auditor with the campaign UFVK sees
    every output of that account, **including recipient addresses, amounts and memos**, forever. Scoping is per
    campaign (one ZIP-32 account per campaign); there is no revocation.
 8. **The operator sees everything** (recipient list, amounts, memos) and holds the spend key.
 9. **Recipients' later behaviour** (spending, exchange deposits) is out of scope.
 10. **A payslip discloses its output's receiver, amount and memo to whoever holds it** (and to a hosted verifier that checks
-    it, and to anything that carries a link or QR code of it). See "Payslips" above.
+    it, and to anything that carries a link or QR code of it). The payer's page holds every payslip of a campaign while they
+    are shown. See "Payslips" above.
 
 ## Trust assumptions
 
@@ -120,5 +213,6 @@ Recipient addresses · per-recipient amounts · memos · which output belongs to
 
 ## Non-goals
 
-Hiding that a campaign exists · hiding the funder · mixing/anonymity-set growth beyond the Zcash pool ·
+Hiding that a campaign exists · hiding the funder beyond what a shielded deposit gives (amount and timing stay public) ·
+mixing/anonymity-set growth beyond the Zcash pool ·
 custodial hosting of user keys (the hosted sandbox uses a throwaway testnet key and says so).

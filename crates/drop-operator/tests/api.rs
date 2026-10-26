@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-const PROTECTED_ROUTES: [(&str, &str); 9] = [
+const PROTECTED_ROUTES: [(&str, &str); 11] = [
     ("GET", "/api/campaigns"),
     ("POST", "/api/campaigns"),
     ("GET", "/api/campaigns/c-000000000000"),
@@ -21,6 +21,8 @@ const PROTECTED_ROUTES: [(&str, &str); 9] = [
     ("GET", "/api/campaigns/c-000000000000/events"),
     ("POST", "/api/campaigns/c-000000000000/check-funding"),
     ("GET", "/api/campaigns/c-000000000000/audit-ufvk-export"),
+    ("GET", "/api/campaigns/c-000000000000/payslips"),
+    ("POST", "/api/campaigns/c-000000000000/inbox/return"),
 ];
 
 fn method(name: &str) -> Method {
@@ -1070,4 +1072,60 @@ async fn without_a_web_dir_the_root_explains_and_the_api_still_works() {
 
 fn h_missing_dir() -> std::path::PathBuf {
     std::path::PathBuf::from("/nonexistent/zecdrop-web-dir")
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn the_mock_chain_says_only_what_fund_observed_declares() {
+    let h = Harness::new();
+    for (source, byte) in [
+        (Some("shielded"), "d2"),
+        (Some("transparent"), "d3"),
+        (None, "d4"),
+    ] {
+        let (id, view) = h.create().await;
+        let mut body = json!({
+            "outpoint": format!("{}:0", byte.repeat(32)),
+            "amount": view["funding_required"],
+        });
+        if let Some(source) = source {
+            body["source"] = json!(source);
+        }
+        let reply = h
+            .post(&format!("/api/campaigns/{id}/fund-observed"), body)
+            .await;
+        assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
+        let expected = source.map_or(Value::Null, |s| json!(s));
+        assert_eq!(reply.json()["funding_source"], expected, "{source:?}");
+        let got = h.get(&format!("/api/campaigns/{id}")).await.json();
+        assert_eq!(got["funding_source"], expected, "{source:?}");
+    }
+    // Only the two kinds are read.
+    let (id, view) = h.create().await;
+    let reply = h
+        .post(
+            &format!("/api/campaigns/{id}/fund-observed"),
+            json!({
+                "outpoint": format!("{}:0", "d5".repeat(32)),
+                "amount": view["funding_required"],
+                "source": "mixed",
+            }),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::BAD_REQUEST, "{}", reply.text());
+    assert_eq!(reply.json()["error"]["code"], "invalid_body");
+    assert!(h.get(&format!("/api/campaigns/{id}")).await.json()["funding"].is_null());
+    // A null source says nothing, like a missing one.
+    let reply = h
+        .post(
+            &format!("/api/campaigns/{id}/fund-observed"),
+            json!({
+                "outpoint": format!("{}:0", "d6".repeat(32)),
+                "amount": view["funding_required"],
+                "source": null,
+            }),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
+    assert!(reply.json()["funding_source"].is_null());
 }

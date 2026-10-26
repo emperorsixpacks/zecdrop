@@ -2,6 +2,17 @@
 
 Four ways, from least to most effort. Everything is on **Zcash testnet**; nothing here moves real money.
 
+## What to look for: one payout, four views
+
+ZecDrop pays many people in one transaction and gives each party its own view of it. Where to see each one:
+
+| View | What it sees | Where to see it |
+|---|---|---|
+| **Everyone** | the total, the fee, how many were paid, whether the deposit came out of the shielded pool | the live receipt link in path 1, or your own verifier in path 2 |
+| **Each person paid** | their own payout, proved to anyone with a payslip | "Check a payslip" in path 1, or offline in path 4 |
+| **An auditor** | the whole list of that payout, reconciled against the public total | the home page's sheet, *Auditor* (the public demo list); the real audit of the 8-recipient run reconciled 8 of 8 outputs (`docs/LEARNINGS.md`, 2026-10-08; how to run it: `docs/runbooks/testnet-demo.md`, step 7) |
+| **You, the payer** | every address, amount and note, on your own computer | practice mode in path 1, or the operator itself in path 3 |
+
 ## 1. Look (no install)
 
 Open <https://zecdrop-site.vercel.app>.
@@ -12,13 +23,35 @@ Open <https://zecdrop-site.vercel.app>.
   so this is a live check, not a stored page. Expect "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ". The verifier runs on a
   teammate's server; if the page says it cannot reach it, use path 2, which needs only Docker.
 - **See a real receipt** opens `/r/demo?demo=real`, a saved copy of the same answer that works even when the verifier is down.
+- **What the deposit spent:** every receipt says whether its deposit came out of the shielded pool (it then names no payer
+  address) or from transparent funds, whose address is public; never the address itself, and the amount and time are public
+  either way. The 8-recipient batch says *transparent*: its deposit was a sweep of the first batch's change. [The first real
+  batch, 3 recipients](https://zecdrop-site.vercel.app/r/first-batch?network=testnet&tx=50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3&commitment=aade9fd18f7c48dc3b04ead6a7ee2211640d0fa5948dfd14b5a356463c841491&declared_total=60000)
+  says *shielded*: it was funded straight from the testnet faucet's shielded wallet. The operator's funding screen asks the
+  payer to pay from a shielded balance and says which kind arrived.
+- **A payout funded through its own shielded address:** [the same 8 recipients, paid on 2026-10-24](https://zecdrop-site.vercel.app/r/c-6207fac6674f?network=testnet&tx=af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12&commitment=ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f&declared_total=500000)
+  (txid `af8adf80e3a58378…`). The payer paid the payout's own shielded address from a shielded wallet; the operator moved
+  exactly the funding to the public address and checked that move before sending it. Its deposit is that move, which spends
+  only shielded notes, so the receipt says *shielded* (a verifier running this repository's code; path 2 shows it).
 - **Check a payslip:** [the Check a payslip page](https://zecdrop-site.vercel.app/payslip) loads a real payslip of that batch (one
   recipient's proof of one payout) and checks it through the hosted verifier; a second button loads a copy with the amount changed
   so you can watch it fail. Checking here shows the verifier the payslip's receiver, amount and the key to its memo; path 4
   checks one offline.
+- **Try a practice payout:** press "Try a personal payout" or "Try an organisation payout" on the home page (it works on a phone).
+  The operator's own screens run against a simulation inside the page: add the example list (in the personal view, try *Even* or
+  *Lucky* to split a total), check the payouts, record a pretend deposit (say it was paid from your shielded balance or from a
+  transparent address, to see both answers), send, and open a simulated public receipt. Nothing is sent anywhere, a banner on every screen says it is a simulation, and its ids begin with
+  the bytes of "practice". It is not evidence about any chain; paths 2 and 4 are.
+- **Being paid?** [The Get paid page](https://zecdrop-site.vercel.app/get-paid) is for a recipient: it checks the shape of a
+  receiving address and offers to share it, entirely in the browser (no request, nothing stored).
+- **Send a payslip:** on the payslip page, once the page can read the payslip in the box, it can be made into a link or a QR code. The payslip sits after the
+  `#`, which a browser never sends to a server; opening such a link loads it into the box and checks nothing until you ask.
+- **Payslips from the payer's screen:** on a settled campaign the operator's page has *Send payslips*: every person, and a link or
+  a QR code of their own payslip. It needs a real chain (the mock chain and practice mode have no real transaction to prove),
+  so on the fake chain the section says so; the payslip page above checks one of the real batch's.
 - **A tour** of the operator's screens, with what the public sees and what stays hidden at each step, is on the home page.
-- The site cannot run a payout, because the operator holds the keys and runs on your own computer (there is no wallet to
-  connect).
+- The site cannot run a real payout, because the operator holds the keys and runs on your own computer (there is no wallet to
+  connect); the practice mode above simulates one.
 
 ## 2. Check the real payout yourself (Docker, no keys, no coins)
 
@@ -37,6 +70,13 @@ curl -s 'http://127.0.0.1:8080/v1/receipt?network=testnet&tx=6e2359182d1dc77253e
 
 Expect `"phase":{"phase":"settled"}`, `"shielded_actions":8`, `"net_into_pool":"500000"`, `"fee":"45000"` (zatoshi) and
 `"findings":[]`. Change `declared_total` to `499999` and it answers `failed` with `declared_total_mismatch`.
+
+The payout funded through its own shielded address (2026-10-24) answers the same, with its own funding address and
+`"funding_source":"shielded"`:
+
+```bash
+curl -s 'http://127.0.0.1:8080/v1/receipt?network=testnet&tx=af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12&declared_total=500000&commitment=ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f'
+```
 
 What this proves: how much entered the shielded pool, in how many outputs, at what fee, from which funding address. What
 it cannot prove: who received what. That needs the auditor's viewing key; the real campaign's audit is in
@@ -83,5 +123,7 @@ the offline command does not. What a payslip proves and does not prove: [`PRIVAC
 ## Not available to judges
 
 - A hosted operator or sandbox (see [ADR 0002](ADR/0002-local-operator-and-keyless-verifier.md) for why).
-- A real testnet run needs a testnet seed and coins: [`runbooks/testnet-demo.md`](runbooks/testnet-demo.md).
-- Mainnet: untested.
+- A real testnet run needs a testnet seed and coins: [`runbooks/testnet-demo.md`](runbooks/testnet-demo.md). Funding through a
+  payout's shielded address also needs zcash-devtool (built by `scripts/zcash-devtool/build.sh`) and a shielded wallet that
+  can send on current testnet; the same runbook, "Funding through the shielded deposit address", has both real runs.
+- Mainnet: the code is ready and tested offline, but no real mainnet payout has been run yet ([`runbooks/mainnet-run.md`](runbooks/mainnet-run.md)).

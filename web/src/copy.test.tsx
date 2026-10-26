@@ -303,7 +303,7 @@ describe("the get-paid page, after an address is pasted", () => {
 // The operator pages as a signed-in person sees them, with real captured responses.
 const OPERATOR_PAGES: [name: string, path: string, campaign: string, settle: () => Promise<unknown>][] = [
   ["the payouts list", "/campaigns", "campaign-settled.json", () => screen.findByRole("list", { name: "Payouts" })],
-  ["stage 1: payouts", "/new", "campaign-settled.json", () => screen.findByText("Drop a CSV here")],
+  ["stage 1: payouts", "/new", "campaign-settled.json", () => screen.findByTestId("people-list")],
   ["stage 2 without payouts", "/new/check", "campaign-settled.json", () => screen.findByRole("heading", { name: "Add the payouts first" })],
   ["stage 2: check", "/new/check", "create-valid.json", () => screen.findByRole("heading", { name: "Check the payouts" })],
   ["stage 3: send", "/new/send", "create-valid.json", () => screen.findByRole("button", { name: "Record mock deposit" })],

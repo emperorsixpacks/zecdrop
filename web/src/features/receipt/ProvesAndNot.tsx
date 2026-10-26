@@ -14,8 +14,8 @@ import { Link } from "react-router";
 
 const CAN_CHECK: readonly ReactNode[] = [
   "How much transparent value left the funding address. That exactly that amount, minus the fee, entered the shielded pool in each batch transaction. The transaction's binding signature fixes this number, so it cannot be faked.",
-  "In how many shielded outputs it went, at what fee, and how much was left as change.",
-  "That these add up exactly: funded = change + shielded + fee.",
+  "In how many shielded outputs it went, at what fee, and how much was left as change, and that these add up exactly: funded = change + shielded + fee.",
+  "Whether the deposit came out of the shielded pool, which names no payer address, or from transparent funds, whose address is public.",
 ];
 
 const CANNOT_PROVE: readonly ReactNode[] = [
@@ -29,7 +29,7 @@ const CANNOT_PROVE: readonly ReactNode[] = [
     </Link>
     .
   </>,
-  "Who was paid, or how much each person got. Those stay hidden, but a batch of one, or of equal amounts, lets anyone work the amounts out.",
+  "Who was paid, how much each person got, or who paid the deposit. Those stay hidden, but a batch of one, or of equal amounts, lets anyone work the amounts out, and a deposit's amount and time are public even when it names no address.",
   "That the figures are right if the verifier's source of chain data is dishonest. Compare the transaction ids with an independent explorer.",
 ];
 

@@ -366,7 +366,8 @@ html[data-motion="calm"] { --motion: 0.35; }
 .segmented-glide {
   transition:
     transform calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1),
-    width calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1);
+    width calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1),
+    height calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1);
 }
 
 /* Everything that can be pressed answers at once (.press-only: a thing that gives under a press but has no lift of its own, like a row
@@ -426,6 +427,37 @@ html[data-motion="calm"] { --motion: 0.35; }
 }
 :root[data-theme="dark"] .slip {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--p-ink) 13%, transparent);
+}
+
+/* ---- The home page ---------------------------------------------------------------------------
+ * Its sheet's public figures are plain ink and its hidden ones are bars; nothing is highlighted on the writing (the owner,
+ * 2026-10-20). */
+
+/* A band across the whole screen in the redaction bar's own colours (the header capsule's pair, held to contrast by
+ * src/colours.test.ts). The colour reaches the screen's edges by a shadow clipped to the band's height, so the page is no wider. */
+.band {
+  background-color: var(--island);
+  color: var(--island-ink);
+  box-shadow: 0 0 0 100vmax var(--island);
+  clip-path: inset(0 -100vmax);
+}
+
+/* A line of a printed receipt: the name, a dotted leader, the figure. */
+.leader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5ch;
+}
+.leader::after {
+  content: "";
+  order: 1;
+  flex: 1;
+  min-width: 2ch;
+  border-bottom: 1px dotted var(--p-control);
+  transform: translateY(-0.3em);
+}
+.leader > :last-child {
+  order: 2;
 }
 
 /* The screen: a fixed frame on top of the page, drawn as a ring of the bezel colour around a window with rounded corners. It

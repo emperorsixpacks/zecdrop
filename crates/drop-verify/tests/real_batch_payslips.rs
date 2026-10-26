@@ -4,6 +4,10 @@
 //!
 //! This needs no key and no network: it is the check anyone can run. It is the positive proof on real
 //! chain data that `src/payslip.rs`'s unit tests cannot give (they hold no payslip for it).
+//!
+//! The same 8 recipients were paid again by a batch funded through a shielded deposit address
+//! (`fixtures/testnet-ironwood-batch-8-inbox/`), whose payslips the operator's own `payslips` command
+//! wrote: how a payout was funded changes nothing for its payslips.
 
 use drop_core::Zatoshi;
 use drop_verify::{verify_payslip, Payslip, PayslipError};
@@ -90,4 +94,32 @@ fn a_demo_payslip_opens_no_other_output_and_no_changed_one() {
         borrowed.rseed = slips[(i + 1) % 8].rseed;
         assert!(verify_payslip(&raw, &borrowed).is_err());
     }
+}
+
+/// The batch funded through the shielded deposit address, and the folder of its payslips.
+const INBOX_BATCH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../fixtures/testnet-ironwood-batch-8-inbox/af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12"
+);
+
+// covers: REQ-PAY-001
+#[test]
+fn the_payslips_of_the_batch_funded_through_a_shielded_deposit_address_open_their_outputs_with_no_key(
+) {
+    let dir = std::path::Path::new(INBOX_BATCH);
+    let raw = hex::decode(std::fs::read_to_string(dir.join("tx.hex")).unwrap().trim()).unwrap();
+    let mut actions = Vec::new();
+    for (i, amount) in AMOUNTS.iter().enumerate() {
+        let name = format!("payslip-{:03}.json", i + 1);
+        let text = std::fs::read_to_string(dir.join("payslips").join(&name)).unwrap();
+        let slip: Payslip = serde_json::from_str(&text).unwrap();
+        assert_eq!(slip.value, Zatoshi::new(*amount).unwrap(), "{name}");
+        let proof = verify_payslip(&raw, &slip).unwrap_or_else(|e| panic!("{name}: {e}"));
+        assert_eq!(proof.ironwood_actions, 8);
+        actions.push(proof.action);
+        // Against the other real batch, which paid the same recipients the same amounts, it fails.
+        assert!(verify_payslip(&self::raw(), &slip).is_err(), "{name}");
+    }
+    actions.sort_unstable();
+    assert_eq!(actions, (0..8).collect::<Vec<u32>>());
 }

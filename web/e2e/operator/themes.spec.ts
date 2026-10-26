@@ -51,6 +51,7 @@ for (const viewport of VIEWPORTS) {
           await check(page, "payouts", problems);
 
           await page.getByRole("link", { name: "New payout" }).click();
+          await page.getByRole("radio", { name: "Organisation" }).click();
           await page.getByRole("button", { name: "or paste it" }).click();
           await page.getByLabel("Paste your list").fill(loadDemoCsv());
           await page.getByRole("button", { name: "Use this list" }).click();

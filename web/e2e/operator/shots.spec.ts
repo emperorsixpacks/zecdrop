@@ -107,6 +107,7 @@ for (const viewport of VIEWPORTS) {
         await shoot(page, "stage1-empty", w, name);
 
         // Stage 1 with the real demo list pasted in.
+        await page.getByRole("radio", { name: "Organisation" }).click();
         await page.getByRole("button", { name: "or paste it" }).click();
         await page.getByLabel("Paste your list").fill(loadDemoCsv());
         await page.getByRole("button", { name: "Use this list" }).click();
@@ -119,6 +120,7 @@ for (const viewport of VIEWPORTS) {
 
         // Stage 1 with a mistake in one amount: the row says so at once, and the total leaves it out.
         await page.getByRole("button", { name: "Use a different list" }).click();
+        await page.getByRole("radio", { name: "Organisation" }).click();
         await page.getByRole("button", { name: "or paste it" }).click();
         await page.getByLabel("Paste your list").fill(demoWithMistake());
         await page.getByRole("button", { name: "Use this list" }).click();
@@ -244,6 +246,7 @@ for (const viewport of VIEWPORTS) {
 
         // The three stages, with the real demo list.
         await load(page, operatorUrl("/new", { token: true }));
+        await page.getByRole("radio", { name: "Organisation" }).click();
         await page.getByRole("button", { name: "or paste it" }).click();
         await page.getByLabel("Paste your list").fill(loadDemoCsv());
         await page.getByRole("button", { name: "Use this list" }).click();

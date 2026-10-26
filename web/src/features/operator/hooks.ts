@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkFunding,
   createCampaign,
+  exportPayslips,
   exportViewingKey,
   getCampaign,
   getCampaignReceipt,
@@ -13,13 +14,14 @@ import {
   listCampaigns,
   OperatorApiError,
   recordFunding,
+  returnInbox,
   startCampaign,
   type CreateCampaignInput,
 } from "@/api/operator/client";
 import { subscribeToEvents, type StreamStatus } from "@/api/operator/events";
-import type { OperatorCampaign, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
+import type { InboxState, OperatorCampaign, PayslipsExport, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
 import { getToken, rejectToken, useSession } from "@/api/operator/session";
-import type { OutPointView } from "@/api/types";
+import type { FundingSource, OutPointView } from "@/api/types";
 
 export const operatorKeys = {
   health: ["operator", "health"] as const,
@@ -61,9 +63,25 @@ export function useCampaigns() {
  * operator polls the chain itself; this only picks up what it found. */
 const FUNDING_REFRESH_MS = 5_000;
 
+/** The inbox states in which something is still to happen. */
+const INBOX_IN_PROGRESS: ReadonlySet<InboxState> = new Set<InboxState>([
+  "preparing",
+  "checking",
+  "unavailable",
+  "waiting",
+  "confirming",
+  "short",
+  "dust",
+  "scheduled",
+  "moving",
+  "returning",
+]);
+
 /** One campaign. While a run is going, also looks again every two seconds as a
- * safety net beside the event stream, and every few seconds while a real-chain
- * campaign waits for its deposit. */
+ * safety net beside the event stream; every few seconds while a real-chain
+ * campaign waits for its deposit; and every few seconds while a real-chain
+ * deposit is recorded but what it spent is not known yet (the operator reads
+ * it in the background, and again after a restart). */
 export function useCampaign(id: string) {
   const ready = useReady();
   return useQuery({
@@ -76,6 +94,9 @@ export function useCampaign(id: string) {
       if (campaign === undefined) return false;
       if (campaign.run.state === "running") return 2_000;
       if (campaign.funding === null && campaign.fundingAddress !== null) return FUNDING_REFRESH_MS;
+      if (campaign.funding !== null && campaign.fundingSource === null && campaign.fundingAddress !== null) return FUNDING_REFRESH_MS;
+      // A shielded deposit address that is still being set up, filled, or moved from (REQ-FUND-008).
+      if (campaign.inbox !== null && INBOX_IN_PROGRESS.has(campaign.inbox.state)) return FUNDING_REFRESH_MS;
       return false;
     },
   });
@@ -125,10 +146,19 @@ export function useCheckFunding(id: string) {
   });
 }
 
+/** Sends what is left in the payout's shielded deposit address back to a shielded address (REQ-FUND-007). */
+export function useReturnInbox(id: string) {
+  const refresh = useRefreshCampaign();
+  return useMutation({
+    mutationFn: (to: string) => returnInbox(id, to),
+    onSettled: () => refresh(id),
+  });
+}
+
 export function useRecordFunding(id: string) {
   const refresh = useRefreshCampaign();
   return useMutation({
-    mutationFn: (deposit: { outpoint: OutPointView; amount: string }) => recordFunding(id, deposit),
+    mutationFn: (deposit: { outpoint: OutPointView; amount: string; source?: FundingSource }) => recordFunding(id, deposit),
     onSettled: () => refresh(id),
   });
 }
@@ -214,6 +244,50 @@ export function useViewingKey(id: string) {
 
   // A key fetched for another campaign is never shown for this one.
   const state: ViewingKeyState = held.id === id ? held.state : { status: "idle" };
+  return { state, request, clear };
+}
+
+// ---- the payslips ------------------------------------------------------------------------
+
+export type PayslipsState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; payslips: PayslipsExport }
+  | { status: "failed"; error: unknown };
+
+/** Fetches a settled campaign's payslips (REQ-PAY-005) the way `useViewingKey` fetches the key, and for the same
+ * reason: without React Query, so they are never in a cache. They live in this component's state only, and go on
+ * `clear()`, on a change of campaign, and when the component goes away. */
+export function usePayslips(id: string) {
+  const [held, setHeld] = useState<{ id: string; state: PayslipsState }>({ id, state: { status: "idle" } });
+  const generation = useRef(0);
+
+  // Answers still on their way are ignored once the page is left or the campaign changes.
+  useEffect(
+    () => () => {
+      generation.current += 1;
+    },
+    [id],
+  );
+
+  const clear = useCallback(() => {
+    generation.current += 1;
+    setHeld({ id, state: { status: "idle" } });
+  }, [id]);
+
+  const request = useCallback(async () => {
+    const mine = ++generation.current;
+    setHeld({ id, state: { status: "loading" } });
+    try {
+      const payslips = await exportPayslips(id);
+      if (generation.current === mine) setHeld({ id, state: { status: "ready", payslips } });
+    } catch (error) {
+      if (generation.current === mine) setHeld({ id, state: { status: "failed", error } });
+    }
+  }, [id]);
+
+  // Payslips fetched for another campaign are never shown for this one.
+  const state: PayslipsState = held.id === id ? held.state : { status: "idle" };
   return { state, request, clear };
 }
 

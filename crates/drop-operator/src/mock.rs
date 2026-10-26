@@ -17,7 +17,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use drop_core::{Batch, BuiltBatch, Distributor, FailureKind, FundingRef, OutPoint, Txid};
+use drop_core::{
+    Batch, BuiltBatch, Distributor, FailureKind, FundingRef, FundingSource, OutPoint, Txid,
+};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -232,6 +234,11 @@ impl ChainBackend for MockBackend {
 
     fn funding_sightings(&self, _address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
         Ok(Vec::new())
+    }
+
+    /// The mock chain holds no deposit transaction; `fund-observed` may declare a source instead.
+    fn deposit_source(&self, _deposit: &Txid) -> Result<Option<FundingSource>, ChainError> {
+        Ok(None)
     }
 }
 

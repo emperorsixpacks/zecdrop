@@ -44,11 +44,13 @@ import f_export_ufvk_mock_unconfirmed from "../../../fixtures/contract/operator/
 import f_export_ufvk_mock from "../../../fixtures/contract/operator/export-ufvk-mock.json?raw";
 import f_fund_campaign_not_found from "../../../fixtures/contract/operator/fund-campaign-not-found.json?raw";
 import f_fund_conflict from "../../../fixtures/contract/operator/fund-conflict.json?raw";
+import f_fund_declared_source from "../../../fixtures/contract/operator/fund-declared-source.json?raw";
 import f_fund_insufficient from "../../../fixtures/contract/operator/fund-insufficient.json?raw";
 import f_fund_invalid_body from "../../../fixtures/contract/operator/fund-invalid-body.json?raw";
 import f_fund_ok from "../../../fixtures/contract/operator/fund-ok.json?raw";
 import f_fund_same_again from "../../../fixtures/contract/operator/fund-same-again.json?raw";
 import f_health from "../../../fixtures/contract/operator/health.json?raw";
+import f_payslips_mock from "../../../fixtures/contract/operator/payslips-mock.json?raw";
 import f_receipt_funded from "../../../fixtures/contract/operator/receipt-funded.json?raw";
 import f_receipt_not_funded from "../../../fixtures/contract/operator/receipt-not-funded.json?raw";
 import f_receipt_running from "../../../fixtures/contract/operator/receipt-running.json?raw";
@@ -76,9 +78,19 @@ import goldenIndexText from "../../../fixtures/contract/operator/golden/index.js
 import g_audit_ufvk_export from "../../../fixtures/contract/operator/golden/audit-ufvk-export.json?raw";
 import g_campaign_real_awaiting_deposit from "../../../fixtures/contract/operator/golden/campaign-real-awaiting-deposit.json?raw";
 import g_campaign_real_batch_failed from "../../../fixtures/contract/operator/golden/campaign-real-batch-failed.json?raw";
+import g_campaign_real_deposit_shallow_shielded from "../../../fixtures/contract/operator/golden/campaign-real-deposit-shallow-shielded.json?raw";
 import g_campaign_real_deposit_shallow from "../../../fixtures/contract/operator/golden/campaign-real-deposit-shallow.json?raw";
 import g_campaign_real_deposit_too_small from "../../../fixtures/contract/operator/golden/campaign-real-deposit-too-small.json?raw";
 import g_campaign_real_funded from "../../../fixtures/contract/operator/golden/campaign-real-funded.json?raw";
+import g_campaign_real_inbox_checking from "../../../fixtures/contract/operator/golden/campaign-real-inbox-checking.json?raw";
+import g_campaign_real_inbox_confirming from "../../../fixtures/contract/operator/golden/campaign-real-inbox-confirming.json?raw";
+import g_campaign_real_inbox_moved from "../../../fixtures/contract/operator/golden/campaign-real-inbox-moved.json?raw";
+import g_campaign_real_inbox_moving from "../../../fixtures/contract/operator/golden/campaign-real-inbox-moving.json?raw";
+import g_campaign_real_inbox_returning from "../../../fixtures/contract/operator/golden/campaign-real-inbox-returning.json?raw";
+import g_campaign_real_inbox_scheduled from "../../../fixtures/contract/operator/golden/campaign-real-inbox-scheduled.json?raw";
+import g_campaign_real_inbox_short from "../../../fixtures/contract/operator/golden/campaign-real-inbox-short.json?raw";
+import g_campaign_real_inbox_unavailable from "../../../fixtures/contract/operator/golden/campaign-real-inbox-unavailable.json?raw";
+import g_campaign_real_inbox_waiting from "../../../fixtures/contract/operator/golden/campaign-real-inbox-waiting.json?raw";
 import g_campaign_real_wrong_wallet from "../../../fixtures/contract/operator/golden/campaign-real-wrong-wallet.json?raw";
 import g_create_real from "../../../fixtures/contract/operator/golden/create-real.json?raw";
 import g_error_account_registry from "../../../fixtures/contract/operator/golden/error-account-registry.json?raw";
@@ -108,9 +120,13 @@ import g_error_near_zec_origin_not_allowed from "../../../fixtures/contract/oper
 import g_error_needs_funding_split from "../../../fixtures/contract/operator/golden/error-needs-funding-split.json?raw";
 import g_error_not_applicable from "../../../fixtures/contract/operator/golden/error-not-applicable.json?raw";
 import g_error_not_available from "../../../fixtures/contract/operator/golden/error-not-available.json?raw";
+import g_error_not_settled from "../../../fixtures/contract/operator/golden/error-not-settled.json?raw";
+import g_error_payslips_confirmation_required from "../../../fixtures/contract/operator/golden/error-payslips-confirmation-required.json?raw";
+import g_error_payslips_not_available from "../../../fixtures/contract/operator/golden/error-payslips-not-available.json?raw";
 import g_error_store_corrupt from "../../../fixtures/contract/operator/golden/error-store-corrupt.json?raw";
 import g_error_wrong_wallet_seed from "../../../fixtures/contract/operator/golden/error-wrong-wallet-seed.json?raw";
 import g_health_real from "../../../fixtures/contract/operator/golden/health-real.json?raw";
+import g_inbox_return_sent from "../../../fixtures/contract/operator/golden/inbox-return-sent.json?raw";
 import g_near_dry_quote from "../../../fixtures/contract/operator/golden/near-dry-quote.json?raw";
 import g_near_live_quote from "../../../fixtures/contract/operator/golden/near-live-quote.json?raw";
 import g_near_preview from "../../../fixtures/contract/operator/golden/near-preview.json?raw";
@@ -123,6 +139,7 @@ import g_near_status_processing from "../../../fixtures/contract/operator/golden
 import g_near_status_refunded from "../../../fixtures/contract/operator/golden/near-status-refunded.json?raw";
 import g_near_status_success from "../../../fixtures/contract/operator/golden/near-status-success.json?raw";
 import g_near_tokens from "../../../fixtures/contract/operator/golden/near-tokens.json?raw";
+import g_payslips from "../../../fixtures/contract/operator/golden/payslips.json?raw";
 import g_receipt_real from "../../../fixtures/contract/operator/golden/receipt-real.json?raw";
 
 /** Response files by name (e.g. "create-valid.json"), as text. */
@@ -163,11 +180,13 @@ export const FIXTURES: Readonly<Record<string, string>> = {
   "export-ufvk-mock.json": f_export_ufvk_mock,
   "fund-campaign-not-found.json": f_fund_campaign_not_found,
   "fund-conflict.json": f_fund_conflict,
+  "fund-declared-source.json": f_fund_declared_source,
   "fund-insufficient.json": f_fund_insufficient,
   "fund-invalid-body.json": f_fund_invalid_body,
   "fund-ok.json": f_fund_ok,
   "fund-same-again.json": f_fund_same_again,
   "health.json": f_health,
+  "payslips-mock.json": f_payslips_mock,
   "receipt-funded.json": f_receipt_funded,
   "receipt-not-funded.json": f_receipt_not_funded,
   "receipt-running.json": f_receipt_running,
@@ -227,9 +246,19 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "audit-ufvk-export.json": g_audit_ufvk_export,
   "campaign-real-awaiting-deposit.json": g_campaign_real_awaiting_deposit,
   "campaign-real-batch-failed.json": g_campaign_real_batch_failed,
+  "campaign-real-deposit-shallow-shielded.json": g_campaign_real_deposit_shallow_shielded,
   "campaign-real-deposit-shallow.json": g_campaign_real_deposit_shallow,
   "campaign-real-deposit-too-small.json": g_campaign_real_deposit_too_small,
   "campaign-real-funded.json": g_campaign_real_funded,
+  "campaign-real-inbox-checking.json": g_campaign_real_inbox_checking,
+  "campaign-real-inbox-confirming.json": g_campaign_real_inbox_confirming,
+  "campaign-real-inbox-moved.json": g_campaign_real_inbox_moved,
+  "campaign-real-inbox-moving.json": g_campaign_real_inbox_moving,
+  "campaign-real-inbox-returning.json": g_campaign_real_inbox_returning,
+  "campaign-real-inbox-scheduled.json": g_campaign_real_inbox_scheduled,
+  "campaign-real-inbox-short.json": g_campaign_real_inbox_short,
+  "campaign-real-inbox-unavailable.json": g_campaign_real_inbox_unavailable,
+  "campaign-real-inbox-waiting.json": g_campaign_real_inbox_waiting,
   "campaign-real-wrong-wallet.json": g_campaign_real_wrong_wallet,
   "create-real.json": g_create_real,
   "error-account-registry.json": g_error_account_registry,
@@ -259,9 +288,13 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "error-needs-funding-split.json": g_error_needs_funding_split,
   "error-not-applicable.json": g_error_not_applicable,
   "error-not-available.json": g_error_not_available,
+  "error-not-settled.json": g_error_not_settled,
+  "error-payslips-confirmation-required.json": g_error_payslips_confirmation_required,
+  "error-payslips-not-available.json": g_error_payslips_not_available,
   "error-store-corrupt.json": g_error_store_corrupt,
   "error-wrong-wallet-seed.json": g_error_wrong_wallet_seed,
   "health-real.json": g_health_real,
+  "inbox-return-sent.json": g_inbox_return_sent,
   "near-dry-quote.json": g_near_dry_quote,
   "near-live-quote.json": g_near_live_quote,
   "near-preview.json": g_near_preview,
@@ -274,6 +307,7 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "near-status-refunded.json": g_near_status_refunded,
   "near-status-success.json": g_near_status_success,
   "near-tokens.json": g_near_tokens,
+  "payslips.json": g_payslips,
   "receipt-real.json": g_receipt_real,
 };
 

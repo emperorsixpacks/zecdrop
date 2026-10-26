@@ -18,8 +18,13 @@ import {
   type FakeOperator,
   type RouteHandler,
 } from "@/test/fake-operator";
+import { FUNDING_SOURCE_WORDING } from "@/features/operator/funding-source-wording";
+import { INBOX_WORDING } from "@/features/operator/inbox-wording";
+import { fundingPaymentUri } from "@/lib/payment-uri";
+import { BANNED } from "@/test/banned-phrases";
 import { fixtureJson, goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
+import { useAudience } from "@/lib/audience";
 
 const ID = FIXTURE_CAMPAIGN_ID;
 const PATH = `/campaign/${ID}`;
@@ -47,6 +52,8 @@ afterEach(() => {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  // Most of what this file checks is the whole page, an organisation's; the personal view has its own block below.
+  useAudience.setState({ audience: "organisation" });
 });
 
 /** The parts of the page behind a click open on request. */
@@ -112,12 +119,60 @@ describe("a campaign waiting for funding", () => {
     await user.click(await screen.findByRole("button", { name: "Record mock deposit" }));
 
     const call = operator.to("POST", /fund-observed$/u)[0];
-    expect(call?.body).toMatchObject({ amount: "1162535000" });
+    // A pretend deposit from a shielded balance unless told otherwise.
+    expect(call?.body).toMatchObject({ amount: "1162535000", source: "shielded" });
     expect((call?.body as { outpoint: string }).outpoint).toMatch(/^[0-9a-f]{64}:0$/u);
 
     expect(await screen.findByRole("button", { name: "Send 5 payouts" })).toBeEnabled();
     expect(screen.getByText(/in deposit/u)).toBeInTheDocument();
     expect(screen.getByText("Funded.")).toBeInTheDocument();
+  });
+
+  // covers: REQ-FUND-004
+  it("lets the pretend deposit come from a transparent address, and says so once funded, as pretend", async () => {
+    let funded = false;
+    const user = userEvent.setup();
+    open({
+      "GET /api/campaigns/:id": () =>
+        funded ? { status: 200, body: campaignWith("campaign-funded.json", { funding_source: "transparent" }) } : replyWith("campaign-awaiting-funding.json"),
+      "POST /api/campaigns/:id/fund-observed": () => {
+        funded = true;
+        return { status: 200, body: campaignWith("fund-ok.json", { funding_source: "transparent" }) };
+      },
+      "GET /api/campaigns/:id/events": quietStream,
+    });
+    const paidFrom = await screen.findByRole("group", { name: "Paid from" });
+    expect(within(paidFrom).getByRole("radio", { name: /Your shielded balance/u })).toBeChecked();
+    await user.click(within(paidFrom).getByRole("radio", { name: /A transparent address/u }));
+    await user.click(screen.getByRole("button", { name: "Record mock deposit" }));
+    expect(operator.to("POST", /fund-observed$/u)[0]?.body).toMatchObject({ source: "transparent" });
+
+    const warning = await screen.findByTestId("deposit-source");
+    expect(warning).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentTitle);
+    expect(warning).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentPretend);
+    expect(screen.getByRole("button", { name: "Send 5 payouts" })).toBeEnabled();
+  });
+
+  // covers: REQ-FUND-004
+  it("says a pretend shielded deposit would name no address", async () => {
+    open({ "GET /api/campaigns/:id": () => ({ status: 200, body: campaignWith("campaign-funded.json", { funding_source: "shielded" }) }), "GET /api/campaigns/:id/events": quietStream });
+    expect(await screen.findByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.shieldedPretend);
+  });
+
+  // covers: REQ-FUND-004
+  it("calls a deposit pretend from the campaign itself, before the operator has said it is the mock chain", async () => {
+    open({
+      "GET /api/health": () => new Promise(() => undefined),
+      "GET /api/campaigns/:id": () => ({ status: 200, body: campaignWith("campaign-funded.json", { funding_source: "transparent" }) }),
+      "GET /api/campaigns/:id/events": quietStream,
+    });
+    expect(await screen.findByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentPretend);
+  });
+
+  it("says nothing about where a pretend deposit came from when it did not say", async () => {
+    open({ "GET /api/campaigns/:id": () => replyWith("campaign-funded.json"), "GET /api/campaigns/:id/events": quietStream });
+    expect(await screen.findByText("Funded.")).toBeInTheDocument();
+    expect(screen.queryByTestId("deposit-source")).toBeNull();
   });
 
   it("explains an insufficient deposit with both figures", async () => {
@@ -435,6 +490,20 @@ describe("a settled campaign", () => {
     });
   }
 
+  // covers: REQ-FUND-004
+  it("says in the share panel that a pretend deposit's source is pretend", async () => {
+    const user = userEvent.setup();
+    open({
+      "GET /api/campaigns/:id": () => ({ status: 200, body: campaignWith("campaign-settled.json", { funding_source: "shielded" }) }),
+      "GET /api/campaigns/:id/events": () => replyWithStream("events-settled.sse.txt"),
+      "GET /api/campaigns/:id/receipt": () => replyWith("receipt-settled.json"),
+    });
+    await openSection(user, "Share the receipt");
+    await screen.findByTestId("receipt-link");
+    expect(screen.getByText(/This deposit is pretend; a real one from the shielded pool would name no address of yours/u)).toBeInTheDocument();
+    expect(screen.queryByText(/The deposit came from the shielded pool, so it names no address of yours/u)).toBeNull();
+  });
+
   it("seals it: the stamp, every batch confirmed, and the status sentence", async () => {
     const user = userEvent.setup();
     openSettled();
@@ -501,7 +570,8 @@ describe("a settled campaign", () => {
     expect(screen.getByText(/verifier that answers the link learns which receipt was viewed/u)).toBeInTheDocument();
     expect(screen.getByText(/Recipient addresses, per-recipient amounts and memos are not in the link/u)).toBeInTheDocument();
     expect(screen.getByText(/a batch of equal amounts, lets the amounts be worked out/u)).toBeInTheDocument();
-    expect(screen.getByText(/funding address and amount are public and can be linked/u)).toBeInTheDocument();
+    // What the deposit spent is not known on the mock chain unless the pretend deposit said.
+    expect(screen.getByText(/funding address and amount are public, and so is any transparent address the deposit came from/u)).toBeInTheDocument();
     expect(within(screen.getByRole("main")).getByRole("link", { name: "How privacy works" })).toHaveAttribute("href", "/privacy");
   });
 
@@ -540,6 +610,33 @@ describe("a settled campaign", () => {
     expect(screen.queryByTestId("receipt-link")).toBeNull();
     expect(screen.getByRole("button", { name: "Copy receipt link" })).toBeDisabled();
     expect(screen.queryByRole("link", { name: "Open public receipt" })).toBeNull();
+  });
+});
+
+describe("a personal payout's page", () => {
+  beforeEach(() => {
+    useAudience.setState({ audience: "personal" });
+  });
+
+  it("leaves out the batches and the auditor's tools, and shows them on one tap", async () => {
+    const user = userEvent.setup();
+    open({
+      "GET /api/campaigns/:id": () => replyWith("campaign-settled.json"),
+      "GET /api/campaigns/:id/events": () => replyWithStream("events-settled.sse.txt"),
+      "GET /api/campaigns/:id/receipt": () => replyWith("receipt-settled.json"),
+    });
+    expect(await screen.findByRole("link", { name: "Open public receipt" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send payslips" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Give an auditor access" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Auditor access" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Batches" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Share the receipt" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show them" }));
+    expect(screen.getByRole("button", { name: "Give an auditor access" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Auditor access" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Batches" })).toBeInTheDocument();
+    expect(useAudience.getState().audience).toBe("organisation");
   });
 });
 
@@ -584,9 +681,9 @@ describe("a real chain", () => {
     expect(screen.getByText("Waiting for funds")).toBeInTheDocument();
     expect(screen.getByText("No deposit seen yet. This page checks again every few seconds.")).toBeInTheDocument();
     // What is public about the deposit is one tap away, not a paragraph on the page.
-    expect(screen.queryByText(/The funding address, the amount and the address you send from are public/u)).toBeNull();
+    expect(screen.queryByText(/The funding address and the amount are public/u)).toBeNull();
     await user.click(screen.getByRole("button", { name: "About the deposit" }));
-    expect(await screen.findByText(/The funding address, the amount and the address you send from are public/u)).toBeInTheDocument();
+    expect(await screen.findByText(/The funding address and the amount are public/u)).toBeInTheDocument();
     // Not the mock chain: no pretend deposit.
     expect(screen.queryByRole("heading", { name: "Practice mode: record a pretend deposit" })).toBeNull();
     expect(screen.queryByText("Mock chain:")).toBeNull();
@@ -690,6 +787,240 @@ describe("a real chain", () => {
     expect(await screen.findByText(/has 2 of 3 confirmations/u)).toBeInTheDocument();
     expect(screen.queryByText(/does not count/u)).toBeNull();
     expect(screen.getByRole("button", { name: /^Send \d+ payouts?$/u })).toBeDisabled();
+  });
+
+  // covers: REQ-FUND-008
+  describe("the shielded deposit address", () => {
+    it("leads with the payout's shielded address, says why one tap away, and keeps the public address as the fallback", async () => {
+      const user = userEvent.setup();
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-waiting.json") }, realHealth);
+      const ask = await screen.findByTestId("inbox-ask");
+      expect(ask).toHaveTextContent(INBOX_WORDING.ask);
+      expect(screen.getByTestId("inbox-address")).toHaveTextContent("utest1FAKEinboxDepositAddressNotARealAddress");
+      expect(screen.getByRole("button", { name: INBOX_WORDING.copyLabel })).toBeInTheDocument();
+      expect(screen.getByTestId("inbox-status")).toHaveTextContent(INBOX_WORDING.waiting);
+      await user.click(screen.getByRole("button", { name: INBOX_WORDING.whyLabel }));
+      for (const line of INBOX_WORDING.why) expect(await screen.findByText(line)).toBeInTheDocument();
+      // The public address is one tap away, not the lead.
+      const fallback = screen.getByTestId("public-instead");
+      expect(within(fallback).queryByTestId("funding-address")).toBeNull();
+      await user.click(within(fallback).getByRole("button", { name: INBOX_WORDING.publicInstead }));
+      expect(await within(fallback).findByTestId("funding-address")).toHaveTextContent("tFAKEfundingAddressNotARealAddress0000");
+      expect(screen.getAllByRole("heading", { name: "Is it funded?" })).toHaveLength(1);
+    });
+
+    it("says how far a deposit has got, and closes the public fallback once anything has arrived", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-confirming.json") }, realHealth);
+      expect(await screen.findByText(/has 1 of 10 confirmations/u)).toBeInTheDocument();
+      expect(screen.queryByTestId("public-instead")).toBeNull();
+    });
+
+    it("says how much more is needed when short", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-short.json") }, realHealth);
+      const status = await screen.findByTestId("inbox-status");
+      expect(status).toHaveTextContent(/has arrived\. Send .+ more\./u);
+      expect(status).toHaveTextContent(INBOX_WORDING.shortTail);
+    });
+
+    it("when short, asks for what is missing, and its wallet link pays that, not the whole again", async () => {
+      const short = goldenJson("campaign-real-inbox-short.json") as { inbox: { need: string; asked: string } };
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-short.json") }, realHealth);
+      await screen.findByTestId("inbox-ask");
+      expect(screen.getByRole("link", { name: "Open in wallet" })).toHaveAttribute(
+        "href",
+        fundingPaymentUri("utest1FAKEinboxDepositAddressNotARealAddress", short.inbox.need),
+      );
+      expect(short.inbox.need).not.toBe(short.inbox.asked);
+    });
+
+    it("once a deposit has arrived and is enough, asks for no other: no ask, no address to pay", async () => {
+      for (const file of ["campaign-real-inbox-confirming.json", "campaign-real-inbox-scheduled.json", "campaign-real-inbox-moving.json"]) {
+        const { unmount } = open({ "GET /api/campaigns/:id": campaign(file) }, realHealth);
+        await screen.findByTestId("inbox-status");
+        expect(screen.queryByTestId("inbox-ask"), file).toBeNull();
+        expect(screen.queryByTestId("inbox-address"), file).toBeNull();
+        unmount();
+      }
+    });
+
+    it("after the operator restarts, says it is checking, and offers neither the public address nor a way to pay again", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-checking.json") }, realHealth);
+      expect(await screen.findByTestId("inbox-status")).toHaveTextContent(INBOX_WORDING.checking);
+      expect(screen.queryByTestId("public-instead")).toBeNull();
+      expect(screen.queryByTestId("funding-address")).toBeNull();
+      expect(screen.queryByTestId("inbox-ask")).toBeNull();
+    });
+
+    it("says when the move is due, and why it waits", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-scheduled.json") }, realHealth);
+      const status = await screen.findByTestId("inbox-status");
+      expect(status).toHaveTextContent(/is ready\. At about .+, ZecDrop moves .+ to the payout's public address\./u);
+      expect(status).toHaveTextContent(INBOX_WORDING.scheduledWhy);
+      expect(screen.queryByTestId("public-instead")).toBeNull();
+    });
+
+    it("names the move's transaction while it confirms", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-moving.json") }, realHealth);
+      const status = await screen.findByTestId("inbox-status");
+      expect(status).toHaveTextContent(/Moving .+ to the payout's public address, in transaction a0a0a0/u);
+      expect(status).toHaveTextContent(INBOX_WORDING.movingTail);
+    });
+
+    it("once funded from it: says so, that the deposit came out of the shielded pool, and what is left", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-moved.json") }, realHealth);
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.getByText(INBOX_WORDING.movedFrom)).toBeInTheDocument();
+      expect(screen.getByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.shielded);
+      expect(screen.getByTestId("inbox-left")).toHaveTextContent(INBOX_WORDING.leftTail);
+    });
+
+    it("says plainly when the address can't be used, shows none, and leaves the public address open", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-unavailable.json") }, realHealth);
+      expect(await screen.findByText(INBOX_WORDING.unavailable)).toBeInTheDocument();
+      expect(screen.queryByTestId("inbox-address")).toBeNull();
+      expect(screen.getByTestId("public-instead")).toBeInTheDocument();
+    });
+
+    // covers: REQ-FUND-007
+    it("sends what is left back to a shielded address, only after the person confirms, with the operator's confirmation header", async () => {
+      const user = userEvent.setup();
+      const txid = "b1".repeat(32);
+      open(
+        {
+          "GET /api/campaigns/:id": campaign("campaign-real-inbox-moved.json"),
+          "POST /api/campaigns/:id/inbox/return": () => ({ status: 202, body: { txid } }),
+        },
+        realHealth,
+      );
+      const form = await screen.findByTestId("inbox-return");
+      const button = within(form).getByRole("button", { name: INBOX_WORDING.returnButton });
+      expect(button).toBeDisabled();
+      await user.type(within(form).getByLabelText(INBOX_WORDING.returnLabel), "tmFAKEtransparentAddressNotOne0000");
+      expect(button).toBeDisabled();
+      await user.clear(within(form).getByLabelText(INBOX_WORDING.returnLabel));
+      const to = "utest1returnherefakeaddressnotarealone0000000";
+      await user.type(within(form).getByLabelText(INBOX_WORDING.returnLabel), to);
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnButton }));
+      // Nothing is sent before the person confirms.
+      expect(operator.to("POST", /\/inbox\/return$/u)).toHaveLength(0);
+      expect(within(form).getByText(INBOX_WORDING.returnConfirm)).toBeInTheDocument();
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnYes }));
+      expect(await screen.findByTestId("inbox-return-sent")).toHaveTextContent(INBOX_WORDING.returnSent);
+      const calls = operator.to("POST", /\/inbox\/return$/u);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.body).toEqual({ to });
+      expect(calls[0]?.headers.get("X-Zecdrop-Confirm-Send")).toBe("I-UNDERSTAND");
+    });
+
+    // covers: REQ-FUND-007
+    it("says plainly why the operator refused a send-back", async () => {
+      const user = userEvent.setup();
+      open(
+        {
+          "GET /api/campaigns/:id": campaign("campaign-real-inbox-moved.json"),
+          "POST /api/campaigns/:id/inbox/return": () => ({
+            status: 400,
+            body: { error: { code: "inbox_return_refused", message: "x" } },
+          }),
+        },
+        realHealth,
+      );
+      const form = await screen.findByTestId("inbox-return");
+      await user.type(within(form).getByLabelText(INBOX_WORDING.returnLabel), "utest1returnherefakeaddressnotarealone0000000");
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnButton }));
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnYes }));
+      expect(await within(form).findByText("That address can't be used")).toBeInTheDocument();
+    });
+
+    // covers: REQ-FUND-007, REQ-FUND-008
+    it("says a send-back is on its way once funded, and offers no second one", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-returning.json") }, realHealth);
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.getByTestId("inbox-returning")).toHaveTextContent(/^Sending what is left back, in transaction a0a0a0.*\.$/u);
+      expect(screen.queryByTestId("inbox-left")).toBeNull();
+      expect(screen.queryByTestId("inbox-return")).toBeNull();
+    });
+
+    it("offers no send-back while a move may still happen", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-scheduled.json") }, realHealth);
+      await screen.findByTestId("inbox-status");
+      expect(screen.queryByTestId("inbox-return")).toBeNull();
+    });
+
+    it("claims nothing the privacy boundary does not", () => {
+      const texts = Object.values(INBOX_WORDING).flatMap((value) => (typeof value === "string" ? [value] : [...value]));
+      for (const text of texts) for (const [label, pattern] of BANNED) expect(text, label).not.toMatch(pattern);
+    });
+  });
+
+  // covers: REQ-FUND-004
+  describe("what the deposit spent", () => {
+    it("asks for a shielded deposit before any is seen, and says why one tap away", async () => {
+      const user = userEvent.setup();
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json") }, realHealth);
+      const ask = await screen.findByTestId("funding-ask");
+      expect(ask).toHaveTextContent(FUNDING_SOURCE_WORDING.ask);
+      expect(ask).toHaveTextContent(FUNDING_SOURCE_WORDING.askWhy);
+      expect(screen.queryByTestId("deposit-source")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "About paying from a shielded balance" }));
+      for (const line of FUNDING_SOURCE_WORDING.askMore) expect(await screen.findByText(line)).toBeInTheDocument();
+    });
+
+    it("says a shielded deposit names no address of the payer's while it is still confirming", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-deposit-shallow-shielded.json") }, realHealth);
+      expect(await screen.findByText(/has 1 of 3 confirmations/u)).toBeInTheDocument();
+      expect(screen.getByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.shielded);
+      // The ask stays: the next deposit could come from anywhere.
+      expect(screen.getByTestId("funding-ask")).toBeInTheDocument();
+    });
+
+    it("states a transparent deposit plainly while it is still confirming", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-deposit-shallow.json") }, realHealth);
+      expect(await screen.findByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentTitle);
+    });
+
+    it("states it once funded too, and the payout can still be sent: a warning, not a stop", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-funded.json"), "GET /api/campaigns/:id/events": quietStream }, realHealth);
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      const warning = screen.getByTestId("deposit-source");
+      expect(within(warning).getByText(FUNDING_SOURCE_WORDING.transparentTitle)).toBeInTheDocument();
+      expect(warning).toHaveTextContent(FUNDING_SOURCE_WORDING.transparent);
+      expect(screen.getByRole("button", { name: /^Send \d+ payouts?$/u })).toBeEnabled();
+    });
+
+    it("keeps looking until the operator has read the deposit, then says what it spent", async () => {
+      let reads = 0;
+      open(
+        {
+          "GET /api/campaigns/:id": () => {
+            reads += 1;
+            const body = goldenJson("campaign-real-funded.json") as Json;
+            // The first answer comes before the operator has read the deposit (it reads it just after, or after a restart).
+            return { status: 200, body: reads === 1 ? { ...body, funding_source: null } : body };
+          },
+          "GET /api/campaigns/:id/events": quietStream,
+        },
+        realHealth,
+      );
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.queryByTestId("deposit-source")).toBeNull();
+      const warning = await screen.findByTestId("deposit-source", {}, { timeout: 8_000 });
+      expect(warning).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentTitle);
+      expect(reads).toBeGreaterThan(1);
+    }, 15_000);
+
+    it("says nothing until the operator has read the deposit", async () => {
+      open(
+        {
+          "GET /api/campaigns/:id": () => ({ status: 200, body: { ...(goldenJson("campaign-real-funded.json") as Json), funding_source: null } }),
+          "GET /api/campaigns/:id/events": quietStream,
+        },
+        realHealth,
+      );
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.queryByTestId("deposit-source")).toBeNull();
+      expect(screen.getByRole("button", { name: /^Send \d+ payouts?$/u })).toBeEnabled();
+    });
   });
 
   it("says a too-small deposit does not count", async () => {

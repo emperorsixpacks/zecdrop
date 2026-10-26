@@ -7,8 +7,8 @@
 //! with no other change to this crate.
 
 use drop_core::{
-    Batch, BuiltBatch, CampaignId, Distributor, FailureKind, FeePolicy, FundingRef, Network,
-    OutPoint, Txid, Zatoshi,
+    Batch, BuiltBatch, CampaignId, Distributor, FailureKind, FeePolicy, FundingRef, FundingSource,
+    Network, OutPoint, Txid, Zatoshi,
 };
 use thiserror::Error;
 
@@ -157,4 +157,9 @@ pub trait ChainBackend: Send + Sync {
 
     /// The unspent outputs currently seen at `address`, with their confirmations.
     fn funding_sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError>;
+
+    /// What the transaction `deposit` spent, read from its own bytes (REQ-FUND-004): `None` when
+    /// there is nothing to read (the mock chain, a transaction the node does not know) or the
+    /// bytes do not hash to `deposit`. It informs the page and never decides anything.
+    fn deposit_source(&self, deposit: &Txid) -> Result<Option<FundingSource>, ChainError>;
 }

@@ -25,7 +25,7 @@
 
 use std::io::Cursor;
 
-use drop_core::{OutPoint, Pool, Txid, Zatoshi};
+use drop_core::{FundingSource, OutPoint, Pool, Txid, Zatoshi};
 use zcash_primitives::transaction::{
     sighash::{signature_hash, SignableInput},
     txid::TxIdDigester,
@@ -161,6 +161,19 @@ impl ParsedTx {
     pub fn output(&self, index: u32) -> Option<TxOut> {
         let index = usize::try_from(index).ok()?;
         self.tx.transparent_bundle()?.vout.get(index).cloned()
+    }
+
+    /// What this transaction spent, read as a campaign's deposit (REQ-VER-007): `Shielded` when
+    /// it has no transparent input, so its value came out of a shielded pool and it names no
+    /// address it came from; `Transparent` when it has at least one. A coinbase input counts as
+    /// one: it is not a shielded spend.
+    pub fn deposit_source(&self) -> FundingSource {
+        let transparent_inputs = self.tx.transparent_bundle().map_or(0, |b| b.vin.len());
+        if transparent_inputs == 0 {
+            FundingSource::Shielded
+        } else {
+            FundingSource::Transparent
+        }
     }
 
     /// Establishes the public facts, given a way to look up spent outputs and the

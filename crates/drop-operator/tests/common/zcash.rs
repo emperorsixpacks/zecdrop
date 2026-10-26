@@ -250,6 +250,8 @@ pub struct FakeNode {
     pub mainnet: bool,
     /// The consensus branch id the node reports, if it reports one.
     pub branch: Option<u32>,
+    /// Raw transactions the node serves by id: each deposit's own bytes.
+    pub transactions: HashMap<Txid, Vec<u8>>,
 }
 
 #[derive(Clone, Default)]
@@ -349,6 +351,10 @@ impl ZcashConnector for FakeConnector {
             })
             .collect())
     }
+
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        Ok(self.0.lock().transactions.get(txid).cloned())
+    }
 }
 
 /// A harness running the real Zcash backend over `node`, with TEST-ONLY wallet keys.
@@ -382,11 +388,57 @@ pub fn put_deposit(
     };
     let (txid, raw) = funding_tx_on(&network, address, value, salt);
     let outpoint = OutPoint { txid, vout: 0 };
-    node.lock().deposits.push(Deposit {
+    let mut locked = node.lock();
+    locked.deposits.push(Deposit {
         address: address.to_owned(),
         outpoint,
         value,
         height,
     });
+    locked.transactions.insert(txid, raw.clone());
     (outpoint, raw)
+}
+
+/// A file of a real testnet batch's fixture (`fixtures/<set>/<txid>/<name>`, hex): public chain data.
+pub fn real_fixture(set: &str, name: &str) -> Vec<u8> {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures")
+        .join(set);
+    let batch = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| path.is_dir())
+        .unwrap();
+    hex::decode(std::fs::read_to_string(batch.join(name)).unwrap().trim()).unwrap()
+}
+
+/// The deposit a real testnet batch spent: `testnet-ironwood-batch`'s is the faucet's payout (no
+/// transparent input), `testnet-ironwood-batch-8`'s the sweep of the first batch's change (one).
+pub fn real_deposit(set: &str) -> Vec<u8> {
+    real_fixture(set, "funding-tx.hex")
+}
+
+/// Puts a deposit of `value` at `address` whose transaction is `raw`, served under its own id:
+/// for deposits that must be real transactions of a given kind (say, one with no transparent
+/// input). Only the deposit's inputs are read from it, so `raw` may pay another address.
+pub fn put_deposit_tx(
+    node: &SharedNode,
+    address: &str,
+    value: u64,
+    height: Option<u32>,
+    raw: Vec<u8>,
+) -> OutPoint {
+    let txid = drop_verify::ParsedTx::parse_any_version(&raw)
+        .unwrap()
+        .txid();
+    let outpoint = OutPoint { txid, vout: 0 };
+    let mut locked = node.lock();
+    locked.deposits.push(Deposit {
+        address: address.to_owned(),
+        outpoint,
+        value,
+        height,
+    });
+    locked.transactions.insert(txid, raw);
+    outpoint
 }

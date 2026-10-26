@@ -4,10 +4,12 @@
 // (fixtures/contract/operator, produced by scripts/capture-operator-fixtures.mjs)
 // and from the serde types in crates/drop-operator and crates/drop-core. Every
 // object is `.strict()`: a field the schema does not know about is an error,
-// never silently dropped. In particular there is NO field anywhere here for a
-// recipient's address, amount or memo, so none can be accepted or rendered
-// (REQ-PRIV-001, REQ-PRIV-002). The operator's own responses carry counts,
-// batch totals, txids, warnings and the commitment only.
+// never silently dropped. In particular there is no field for a recipient's
+// address, amount or memo (REQ-PRIV-001, REQ-PRIV-002): the operator's own
+// responses carry counts, batch totals, txids, warnings and the commitment only.
+// Two answers are the deliberate exceptions, each asked for with a disclosure
+// header and kept out of the query cache: the viewing-key export, and the
+// payslips of a settled campaign (REQ-PAY-005), which name every payout.
 //
 // Wire is snake_case; the exported view types are camelCase.
 
@@ -15,15 +17,18 @@ import { z } from "zod";
 
 import { parseWarningViews, type PrivacyWarning } from "@/api/warnings";
 import {
+  FUNDING_SOURCES,
   hex32Wire,
   outPointWire,
   phaseWire,
   RECEIPT_POOLS,
   u32Wire,
   zatoshiWire,
+  type FundingSource,
   type OutPointView,
   type ReceiptPool,
 } from "@/api/types";
+import { readPayslip, type Payslip } from "@/api/payslip-input";
 import type { PhaseState } from "@/lib/phase";
 
 // ---- small pieces ----------------------------------------------------------
@@ -227,6 +232,7 @@ export const KNOWN_ERROR_CODES = [
   "not_applicable",
   "not_available",
   "confirmation_required",
+  "not_settled",
   "account_registry_error",
   "host_not_allowed",
   "store_corrupt",
@@ -249,6 +255,13 @@ export const KNOWN_ERROR_CODES = [
   "unknown_origin_asset",
   "zec_origin_not_allowed",
   "invalid_refund_address",
+  // The shielded deposit address's send-back (REQ-FUND-007).
+  "inbox_not_found",
+  "inbox_return_refused",
+  "inbox_busy",
+  "inbox_nothing_to_return",
+  "inbox_check_failed",
+  "inbox_unavailable",
 ] as const;
 
 const KNOWN = new Set<string>(KNOWN_ERROR_CODES);
@@ -385,6 +398,84 @@ const fundingProgressWire = z
 /** An address the server produced. Bounded and free of whitespace. */
 const addressText = z.string().min(1).max(512).regex(/^\S+$/u, "address contains whitespace");
 
+/** Where a payout's shielded deposit address stands (REQ-FUND-008): `InboxState` in
+ * crates/drop-operator/src/inbox/engine.rs. */
+export const INBOX_STATES = [
+  "preparing",
+  "checking",
+  "unavailable",
+  "waiting",
+  "confirming",
+  "short",
+  "dust",
+  "scheduled",
+  "moving",
+  "moved",
+  "unused",
+  "returning",
+] as const;
+export type InboxState = (typeof INBOX_STATES)[number];
+
+/** A payout's shielded deposit address and what it holds (docs/ADR/0006-shielded-inbox.md). Only on a real testnet
+ * chain with zcash-devtool; the mock chain and practice mode answer `null`. Amounts are zatoshi. */
+export interface InboxView {
+  state: InboxState;
+  /** Its address, where the payer deposits, once the wallet is set up and checked; `null` before. */
+  depositAddress: string | null;
+  /** What the payer is asked to send: the funding and the move's fee. */
+  asked: string;
+  /** Everything unspent that has arrived, confirmed or not. */
+  received: string;
+  /** What the wallet can spend now. */
+  spendable: string;
+  /** The fewest confirmations of a deposit still confirming. */
+  confirmations: number | null;
+  requiredConfirmations: number;
+  /** How much more is needed when short (or to lift the change over the dust limit). */
+  need: string | null;
+  /** Seconds since the Unix epoch, when the move is due. */
+  moveAt: number | null;
+  /** The move's (or send-back's) transaction id, once sent. */
+  txid: string | null;
+  /** What is left in the inbox once the payout is funded. */
+  left: string;
+  /** Orchard (not Ironwood) value that reached the inbox, which a move never spends. */
+  orchard: string;
+}
+
+const inboxWire = z
+  .object({
+    state: z.enum(INBOX_STATES),
+    deposit_address: addressText.nullable(),
+    asked: zatoshiWire,
+    received: zatoshiWire,
+    spendable: zatoshiWire,
+    confirmations: u32Wire.nullable(),
+    required_confirmations: u32Wire,
+    need: zatoshiWire.nullable(),
+    move_at: unixSeconds.nullable(),
+    txid: hex32Wire.nullable(),
+    left: zatoshiWire,
+    orchard: zatoshiWire,
+  })
+  .strict()
+  .transform(
+    (i): InboxView => ({
+      state: i.state,
+      depositAddress: i.deposit_address,
+      asked: i.asked,
+      received: i.received,
+      spendable: i.spendable,
+      confirmations: i.confirmations,
+      requiredConfirmations: i.required_confirmations,
+      need: i.need,
+      moveAt: i.move_at,
+      txid: i.txid,
+      left: i.left,
+      orchard: i.orchard,
+    }),
+  );
+
 export interface OperatorCampaign {
   id: string;
   name: string;
@@ -409,6 +500,12 @@ export interface OperatorCampaign {
   funding: { outpoint: OutPointView; amount: string } | null;
   /** The best candidate deposit seen so far, while the campaign is unfunded. */
   fundingProgress: FundingProgressView | null;
+  /** What the deposit (recorded, or still short of the depth) spent, once the
+   * operator has read it (REQ-FUND-004); `null` until then, and on the mock
+   * chain unless the pretend deposit said. It never blocks anything. */
+  fundingSource: FundingSource | null;
+  /** The payout's shielded deposit address, when the operator has one for it (REQ-FUND-008). */
+  inbox: InboxView | null;
   batches: OperatorBatch[];
   warnings: PrivacyWarning[];
   run: RunState;
@@ -435,6 +532,8 @@ const campaignWire = z
     funding_address: addressText.nullable(),
     funding: fundingWire.nullable(),
     funding_progress: fundingProgressWire.nullable(),
+    funding_source: z.enum(FUNDING_SOURCES).nullable(),
+    inbox: inboxWire.nullable(),
     batches: z.array(batchWire).max(10_000),
     warnings: z.unknown().transform((value, ctx) => {
       try {
@@ -467,6 +566,8 @@ const campaignWire = z
       fundingAddress: c.funding_address,
       funding: c.funding,
       fundingProgress: c.funding_progress,
+      fundingSource: c.funding_source,
+      inbox: c.inbox,
       batches: c.batches,
       warnings: c.warnings,
       run: c.run,
@@ -554,6 +655,73 @@ export function parseViewingKeyExport(input: unknown): ViewingKeyExport {
   return viewingKeyWire.parse(input);
 }
 
+// ---- the payslips of a settled campaign (REQ-PAY-005) ----------------------------------------
+// Every payout of the campaign as the payer listed it (address, amount, note) with its payslip, so the payer's page
+// can give each person theirs. Only the operator's own page asks, after showing the warning, and it keeps the answer in
+// its memory only (usePayslips). A payslip is read by the same strict reader as one pasted on the payslip page.
+
+export interface PayslipRow {
+  /** The payout's place in the list, from 1: the number the payslips command puts in its file names. */
+  number: number;
+  address: string;
+  /** Zatoshi. */
+  amount: bigint;
+  memo: string | null;
+  /** Null when the transaction holds no output for this payout (the audit says why). */
+  payslip: Payslip | null;
+}
+
+export interface PayslipsExport {
+  /** The operator's warning about what a payslip discloses. Shown to the person. */
+  warning: string;
+  campaignId: string;
+  network: "testnet" | "mainnet";
+  payslips: PayslipRow[];
+  /** Outputs the campaign's key opened that match no payout: should be 0. */
+  unmatchedOutputs: number;
+}
+
+const payslipWire = z.unknown().transform((value, ctx): Payslip => {
+  const read = readPayslip(JSON.stringify(value) ?? "");
+  if (read.ok) return read.payslip;
+  ctx.addIssue({ code: "custom", message: `not a payslip (${read.problem})` });
+  return z.NEVER;
+});
+
+const payslipRowWire = z
+  .object({
+    number: z.number().int().min(1).max(1_000_000),
+    address: z.string().min(1).max(1_024),
+    amount: zatoshiWire,
+    memo: z.string().max(2_048).nullable(),
+    payslip: payslipWire.nullable(),
+  })
+  .strict()
+  .transform((r): PayslipRow => ({ number: r.number, address: r.address, amount: BigInt(r.amount), memo: r.memo, payslip: r.payslip }));
+
+const payslipsWire = z
+  .object({
+    warning: z.string().min(1).max(2_000),
+    campaign_id: campaignId,
+    network,
+    payslips: z.array(payslipRowWire).max(1_000_000),
+    unmatched_outputs: smallCount,
+  })
+  .strict()
+  .transform(
+    (p): PayslipsExport => ({
+      warning: p.warning,
+      campaignId: p.campaign_id,
+      network: p.network,
+      payslips: p.payslips,
+      unmatchedOutputs: p.unmatched_outputs,
+    }),
+  );
+
+export function parsePayslipsExport(input: unknown): PayslipsExport {
+  return payslipsWire.parse(input);
+}
+
 // ---- starting a run ------------------------------------------------------------
 
 export interface StartResponse {
@@ -569,6 +737,17 @@ const startWire = z
 
 export function parseStartResponse(input: unknown): StartResponse {
   return startWire.parse(input);
+}
+
+/** What a send-back answers (REQ-FUND-007): the transaction that carries it, stored and sent. */
+export interface InboxReturnResponse {
+  txid: string;
+}
+
+const inboxReturnWire = z.object({ txid: hex32Wire }).strict();
+
+export function parseInboxReturn(input: unknown): InboxReturnResponse {
+  return inboxReturnWire.parse(input);
 }
 
 // ---- progress events (the SSE stream) ------------------------------------------

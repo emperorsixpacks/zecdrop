@@ -2,6 +2,7 @@
   "campaign_id": "c-000000000001",
   "network": "testnet",
   "funding_address": null,
+  "funding_source": null,
   "declared_total": "1162500000",
   "fee_total": "35000",
   "batches": [

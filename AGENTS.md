@@ -12,7 +12,8 @@ net value entering the pool public and every output amount hidden, so anyone can
 shielded (and the fee) from chain data, while only the recipient (and an auditor with a viewing key) can read an
 amount. Only the auditor can confirm the outputs match the payout list (`docs/PRIVACY_BOUNDARY.md`).
 
-Built for ZECATHON, track **Shielded Payments**. Status: under construction (see `openspec/changes/`).
+Built for ZECATHON, track **Shielded Payments**. Status: works end to end on public testnet, no mainnet payout, not audited;
+each part's state is in `openspec/changes/` and the README's "Status".
 
 ## Hackathon constraints (these are rules, not preferences)
 
@@ -35,6 +36,8 @@ cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run bui
 # on the mock chain) and, once per machine, `npx playwright install chromium`:
 node scripts/capture-operator-fixtures.mjs --check   # fixtures/contract/operator still match the binary
 cd web && npm run e2e                                # builds web/dist, then Playwright (public and operator)
+# Only for the shielded deposit address (--zcash-devtool, testnet; docs/ADR/0006): zcash-devtool from upstream with our patch.
+scripts/zcash-devtool/build.sh
 ```
 
 `npm run e2e` is not in the CI job yet: it needs the built operator binary and a browser. Run it before
@@ -61,12 +64,15 @@ Dependency rules (enforced in review): `drop-core` imports nothing chain-specifi
 ## Invariants — read before changing batch, key or receipt code
 
 1. A batch tx has transparent inputs and Ironwood **outputs only**, never Orchard (ZIP-258). No real shielded spends. This is what
-   makes `t_in = t_out + net_into_pool + fee` publicly checkable (REQ-TX-001).
+   makes `t_in = t_out + net_into_pool + fee` publicly checkable (REQ-TX-001). (ADR 0006: a payout's shielded deposit address
+   moves and sends back in transactions of their own, which spend that payout's inbox notes only; batches are unchanged.)
 2. Outputs are sent with the campaign account's **OVK**; `None` makes outputs unrecoverable (REQ-TX-002).
 3. A built tx (txid + raw bytes) is written to the ledger **before** broadcast. Resume re-broadcasts the
-   stored bytes and never rebuilds (REQ-RES-001, REQ-LED-001).
+   stored bytes and never rebuilds (REQ-RES-001, REQ-LED-001). (ADR 0006: an inbox move is stored the same way, and is rebuilt
+   only after its wallet has scanned past its expiry with its notes unspent, so the first can never be mined.)
 4. Spend keys never leave the operator process; the hosted verifier never receives a viewing key
-   (REQ-SEC-001, REQ-VER-002). Audit decryption runs locally.
+   (REQ-SEC-001, REQ-VER-002). Audit decryption runs locally. (ADR 0006: each inbox's own seed, derived from the operator's,
+   goes to the pinned zcash-devtool on the same machine, on stdin, and is kept encrypted to an identity derived the same way.)
 5. Manifest commitments are salted (REQ-MAN-001). Amounts are zatoshi `u64`, never floats (REQ-AMT-001).
 6. The public receipt type has no recipient/amount/memo fields (REQ-PRIV-001). Logs, errors and `Debug`
    redact them (REQ-PRIV-002).

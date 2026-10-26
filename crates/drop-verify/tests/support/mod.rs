@@ -5,6 +5,8 @@ pub mod builder;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use drop_core::Txid;
 use drop_verify::{ChainSource, FetchedTx, SourceError};
@@ -78,6 +80,8 @@ pub struct FakeChain {
     pub down: bool,
     /// Lie about transaction ids: answer every lookup with this raw transaction.
     pub always_answer_with: Option<Vec<u8>>,
+    /// How many transactions have been asked for (shared by clones).
+    pub lookups: Arc<AtomicUsize>,
 }
 
 impl FakeChain {
@@ -106,6 +110,7 @@ impl FakeChain {
 
 impl ChainSource for FakeChain {
     async fn transaction(&self, txid: &Txid) -> Result<Option<FetchedTx>, SourceError> {
+        self.lookups.fetch_add(1, Ordering::SeqCst);
         if self.down {
             return Err(SourceError::Unavailable);
         }

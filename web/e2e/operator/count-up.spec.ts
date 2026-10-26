@@ -42,6 +42,7 @@ for (const viewport of VIEWPORTS) {
         await page.clock.install();
         await page.goto(operatorUrl("/new", { token: true }));
         await page.getByLabel("Name this payout run").fill("Layout check");
+        await page.getByRole("radio", { name: "Organisation" }).click();
         await page.getByRole("button", { name: "or paste it" }).click();
         await page.getByLabel("Paste your list").fill(loadDemoCsv());
         await page.getByRole("button", { name: "Use this list" }).click();

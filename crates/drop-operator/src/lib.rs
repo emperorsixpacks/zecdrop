@@ -26,6 +26,18 @@
 //!   only when it is on the chain at the required depth and covers the declared total plus fees.
 //!   `fund-observed` is refused on a real chain. Progress (`funding_progress`) is reported while
 //!   a deposit is still shallow.
+//! * **What the deposit spent.** Once a deposit is seen, at any depth, the operator reads its
+//!   transaction by id (used only if the bytes hash to it) and reports `funding_source`:
+//!   `shielded` when it had no transparent input, `transparent` otherwise (REQ-FUND-004). The
+//!   answer is public chain data, kept in memory and read again after a restart; the mock chain
+//!   reports only what `fund-observed` declares. It never refuses or delays anything.
+//! * **A shielded deposit address** (testnet, `--zcash-devtool`; [`inbox`], docs/ADR/0006-shielded-inbox.md). Each unfunded
+//!   campaign also gets an Orchard-only Unified Address of a zcash-devtool wallet of its own, set up from a phrase derived
+//!   from the operator's seed. Once a payer's notes there are spendable, and after a random delay, the operator moves exactly
+//!   the funding to the campaign's funding address in one transaction it checks from its raw bytes before storing and
+//!   sending it; the funding poller then sees it like any deposit (`funding_source: shielded`). What is left can be sent
+//!   back to a shielded address (`POST /api/campaigns/{id}/inbox/return`). The campaign answer's `inbox` says where it
+//!   stands, read from memory.
 //! * **One batch per campaign.** The deposit is the batch's funding input and the change returns
 //!   to the campaign's change address. A campaign that needs several batches is refused with
 //!   `needs_funding_split`: a funding-split transaction (a transparent transaction creating one
@@ -131,6 +143,26 @@
 //! Orchard batch transactions built with test-only keys and an in-memory chain source; a live
 //! fixture (a real testnet batch transaction with its campaign key) does not exist yet.
 //!
+//! ## Payslips
+//!
+//! A payslip is one recipient's proof that one output of a batch pays them a stated amount
+//! ([`payslips`]). `drop-operator FLAGS payslips --campaign <id> --out-dir <dir>` writes one
+//! owner-only file per payout row of a settled campaign, from the batches it fetches from the
+//! node; `verify-payslip` checks one with no key.
+//!
+//! | Route | What it does |
+//! |---|---|
+//! | `GET /api/campaigns/{id}/payslips` | a `warning`, and every payslip of a settled campaign: one per payout row in payout-list order, each with its row's `number`, `address`, `amount` and `memo` |
+//!
+//! The route gives the operator's own page the same payslips, issued from the transaction bytes
+//! stored before broadcast (no node is asked) once every batch is confirmed at the required depth.
+//! It is the second deliberate exception to "no response carries an address, an amount or a memo",
+//! after the viewing-key export, and is held to the same rules: it needs the header
+//! `X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND` (a request without it is refused with the
+//! `warning` in the error), it logs nothing but the route, and its answer is `no-store`. It
+//! answers 409 `not_available` on the mock chain, whose transactions are not real, and 409
+//! `not_settled` until the campaign is settled.
+//!
 //! ## Funding from other assets (NEAR Intents)
 //!
 //! Manual funding always works; this is a convenience (REQ-FUND-001, ADR 0004, `drop-near`).
@@ -211,6 +243,7 @@
 //! | REQ-AUD-003 | Manifest commitment recomputed from recovered outputs | [`audit`] |
 //! | REQ-FUND-001 | Optional funding through NEAR Intents: dry before live, mainnet only, never "funded" | [`near`], [`store`] |
 //! | REQ-PLAN-001 | A batch never exceeds what one transaction can pay | [`api`] |
+//! | REQ-PAY-005 | The payer's page gets a settled campaign's payslips, from the stored transactions | [`payslips`], [`api`] |
 //!
 //! ## Where secrets are
 //!
@@ -240,6 +273,7 @@ pub mod events;
 pub mod funding;
 pub mod guard;
 pub mod http;
+pub mod inbox;
 pub mod logging;
 pub mod mock;
 pub mod near;

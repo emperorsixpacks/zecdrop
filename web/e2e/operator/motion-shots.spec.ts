@@ -109,6 +109,7 @@ async function toTheCheck(page: Page, options: { perBatch?: string } = {}): Prom
   await page.goto(operatorUrl("/new", { token: true }));
   await page.getByRole("heading", { level: 1, name: "Add the payouts" }).waitFor();
   await page.getByLabel("Name this payout run").fill("Motion proof");
+  await page.getByRole("radio", { name: "Organisation" }).click();
   await page.getByRole("button", { name: "or paste it" }).click();
   await page.getByLabel("Paste your list").fill(loadDemoCsv());
   await page.getByRole("button", { name: "Use this list" }).click();

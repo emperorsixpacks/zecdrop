@@ -5,6 +5,7 @@
 // What is held per campaign is what the public chain would show and the operator's API already carries: counts, batch
 // totals, fees, ids and the order things happened in. Not an address, an amount of a person, or a memo.
 
+import type { FundingSource } from "@/api/types";
 import { FEE_POLICIES, type FeePolicyName } from "@/lib/fees";
 
 import type { Plan } from "./plan";
@@ -23,6 +24,8 @@ export interface Funding {
   vout: number;
   /** Zatoshi. */
   amount: bigint;
+  /** What the pretend deposit was said to spend (`fund-observed`'s `source`), or null when it was not said. */
+  source: FundingSource | null;
 }
 
 export type RunName = "idle" | "running" | "settled";
@@ -121,6 +124,10 @@ export function campaignView(campaign: Campaign) {
         ? null
         : { outpoint: `${campaign.funding.txid}:${String(campaign.funding.vout)}`, amount: campaign.funding.amount.toString() },
     funding_progress: null,
+    // Only what the pretend deposit declared: the practice chain has no deposit transaction to read.
+    funding_source: campaign.funding?.source ?? null,
+    // Practice mode has no shielded deposit address (REQ-FUND-008): the pretend deposit stands in for it.
+    inbox: null,
     batches: plan.batches.map((batch, index) => {
       const state = campaign.states[index];
       return {
@@ -182,6 +189,7 @@ export function operatorReceiptView(campaign: Campaign, funding: Funding) {
     campaign_id: campaign.id,
     network: "testnet" as const,
     funding_address: null,
+    funding_source: funding.source,
     declared_total: campaign.plan.declaredTotal.toString(),
     fee_total: campaign.plan.feeTotal.toString(),
     batches: campaign.plan.batches.map((_, index) => receiptBatch(campaign, index, funding)),

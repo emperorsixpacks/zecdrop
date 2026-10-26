@@ -19,7 +19,7 @@ import apiSource from "../../../../crates/drop-operator/src/api.rs?raw";
 
 import { OperatorApiError } from "./client";
 import { parseNearDryQuote, parseNearLiveQuote, parseNearPreview, parseNearStatus, parseNearTokens } from "./near-schemas";
-import { parseCampaign, parseHealth, parseOperatorError, parseViewingKeyExport } from "./schemas";
+import { parseCampaign, parseHealth, parseInboxReturn, parseOperatorError, parsePayslipsExport, parseViewingKeyExport } from "./schemas";
 
 const names = GOLDEN_INDEX.map((e) => e.file);
 
@@ -137,7 +137,9 @@ describe("every other golden response parses with the strict schemas", () => {
       }
       if (entry.path === "/api/health") expect(parseHealth(body).mock).toBe(false);
       else if (entry.path.endsWith("/audit-ufvk-export")) expect(parseViewingKeyExport(body).ufvk.length).toBeGreaterThan(0);
+      else if (entry.path.endsWith("/payslips")) expect(parsePayslipsExport(body).payslips.length).toBeGreaterThan(0);
       else if (entry.path.endsWith("/receipt")) expect(parsePublicReceipt(body).network).toBe("testnet");
+      else if (entry.path.endsWith("/inbox/return")) expect(parseInboxReturn(body).txid).toMatch(/^[0-9a-f]{64}$/u);
       else expect(parseCampaign(body).id).toMatch(/^c-/u);
     });
   }
@@ -208,6 +210,36 @@ describe("what each real-chain state says", () => {
   });
 });
 
+describe("the payslips of a settled campaign", () => {
+  // covers: REQ-PAY-005
+  it("parse strictly: one row per payout, in list order, each payslip read by the payslip page's own reader", () => {
+    const answer = parsePayslipsExport(goldenJson("payslips.json"));
+    expect(answer.network).toBe("testnet");
+    expect(answer.campaignId).toMatch(/^c-/u);
+    expect(answer.unmatchedOutputs).toBe(0);
+    expect(answer.payslips.map((row) => row.number)).toEqual(answer.payslips.map((_, i) => i + 1));
+    for (const row of answer.payslips) {
+      expect(row.payslip).not.toBeNull();
+      // A payslip proves its own row's amount.
+      expect(row.payslip?.value).toBe(row.amount.toString());
+    }
+  });
+
+  it("an extra field anywhere in the answer is refused, never trimmed", () => {
+    const body = goldenJson("payslips.json") as { payslips: Record<string, unknown>[] } & Record<string, unknown>;
+    const [first, ...rest] = body.payslips;
+    expect(() => parsePayslipsExport({ ...body, seed: "x" })).toThrow(ZodError);
+    expect(() => parsePayslipsExport({ ...body, payslips: [{ ...first, name: "x" }, ...rest] })).toThrow(ZodError);
+    expect(() => parsePayslipsExport({ ...body, payslips: [{ ...first, payslip: { ...(first?.["payslip"] as object), extra: 1 } }, ...rest] })).toThrow(ZodError);
+  });
+
+  it("is refused before every batch is final, with a sentence for the page", () => {
+    const error = parseOperatorError(goldenJson("error-not-settled.json"));
+    expect(error.code).toBe("not_settled");
+    expect(explainFailure(new OperatorApiError("api", 409, error)).title).toBe("Not settled yet");
+  });
+});
+
 describe("the viewing key", () => {
   it("comes with the operator's disclosure warning, word for word", () => {
     const key = parseViewingKeyExport(goldenJson("audit-ufvk-export.json"));
@@ -228,10 +260,21 @@ describe("the viewing key", () => {
 });
 
 describe("no recipient data in any golden response", () => {
-  it("has no address, amount-per-recipient or memo field anywhere", () => {
-    for (const file of Object.keys(GOLDEN)) {
+  // The payslips of a settled campaign are the one answer that names payouts on purpose (REQ-PAY-005); the viewing-key
+  // export carries a key, not a field. Every other answer must have no such field.
+  const EXCEPTIONS = ["payslips.json"];
+
+  it("has no address, amount-per-recipient or memo field anywhere but in the payslips", () => {
+    for (const file of Object.keys(GOLDEN).filter((name) => !EXCEPTIONS.includes(name))) {
       const text = GOLDEN[file] ?? "";
       expect(text, file).not.toMatch(/"(recipients?|memo|memos|address|addresses|rows|csv)"\s*:\s*(\[|"|\{)/u);
     }
+  });
+
+  // covers: REQ-PAY-005
+  it("the payslips golden holds only labelled stand-ins, never a real address", () => {
+    const answer = goldenJson("payslips.json") as { payslips: { address: string }[] };
+    expect(answer.payslips.length).toBeGreaterThan(0);
+    for (const row of answer.payslips) expect(row.address).toMatch(/FAKE/u);
   });
 });

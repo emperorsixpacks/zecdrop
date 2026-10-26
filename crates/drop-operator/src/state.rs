@@ -6,13 +6,14 @@
 //! killed, or the `--mock-crash-after-steps` simulation) is continued by starting
 //! it again: stored transactions are re-broadcast, never rebuilt (REQ-RES-001).
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::time::{Duration, Instant};
 
 use drop_core::{
     derive_phase, plan_batches, AddressCodec, Batch, CampaignId, CampaignPhase, Engine, FeePolicy,
-    FundingRef, FundingState, Ledger, Network, OutPoint, Pool, ProgressEvent, Zatoshi,
+    FundingRef, FundingSource, FundingState, Ledger, Network, OutPoint, Pool, ProgressEvent, Txid,
+    Zatoshi,
 };
 use serde::Serialize;
 use tokio::sync::watch;
@@ -133,8 +134,26 @@ struct Inner {
     hubs: Mutex<HashMap<CampaignId, Arc<EventHub>>>,
     addresses: Mutex<HashMap<CampaignId, String>>,
     progress: Mutex<HashMap<CampaignId, FundingProgress>>,
+    /// What each deposit seen so far spent, by its txid (REQ-FUND-004). Public chain data, read
+    /// from the deposit's own bytes and kept for the life of the process. On the mock chain it holds
+    /// what `fund-observed` declared, by the declared deposit's txid, until the operator stops.
+    sources: Mutex<HashMap<Txid, FundingSource>>,
+    /// Deposits being read right now: one read per deposit at a time.
+    reading: Mutex<HashSet<Txid>>,
+    /// When a deposit's last read gave no answer (the node did not know it, its bytes were not it, or
+    /// the node failed): it is not read again before [`DEPOSIT_RETRY_AFTER`].
+    unanswered: Mutex<HashMap<Txid, Instant>>,
     near: crate::near::NearState,
+    /// The shielded deposit addresses (REQ-FUND-005), when the operator was started with zcash-devtool.
+    inboxes: OnceLock<Arc<crate::inbox::engine::Inboxes>>,
 }
+
+/// How long an answer waits for a deposit's read before going without it. The read goes on in
+/// the background and the page picks its result up, so a slow node delays no answer by more.
+const DEPOSIT_READ_WAIT: Duration = Duration::from_secs(2);
+
+/// How long after a read that gave no answer the same deposit is read again.
+const DEPOSIT_RETRY_AFTER: Duration = Duration::from_secs(60);
 
 /// The handle shared by every request handler and run.
 #[derive(Clone)]
@@ -206,8 +225,22 @@ impl AppState {
             hubs: Mutex::new(HashMap::new()),
             addresses: Mutex::new(HashMap::new()),
             progress: Mutex::new(HashMap::new()),
+            sources: Mutex::new(HashMap::new()),
+            reading: Mutex::new(HashSet::new()),
+            unanswered: Mutex::new(HashMap::new()),
             near: crate::near::NearState::new(parts.near),
+            inboxes: OnceLock::new(),
         }))
+    }
+
+    /// Gives the operator its shielded deposit addresses (REQ-FUND-005), once. A second call is ignored.
+    pub fn attach_inboxes(&self, inboxes: Arc<crate::inbox::engine::Inboxes>) {
+        let _ = self.0.inboxes.set(inboxes);
+    }
+
+    /// The shielded deposit addresses, when the operator has them.
+    pub fn inboxes(&self) -> Option<&Arc<crate::inbox::engine::Inboxes>> {
+        self.0.inboxes.get()
     }
 
     /// The NEAR Intents funding state (token cache, pending dry quotes) and its parts.
@@ -348,6 +381,59 @@ impl AppState {
         lock(&self.0.progress).get(id).cloned()
     }
 
+    /// What the campaign's deposit spent, if that is known (REQ-FUND-004): the recorded deposit's,
+    /// or else that of the deposit the last poll saw. Read from memory only, never from the chain.
+    pub fn funding_source(&self, record: &CampaignRecord) -> Option<FundingSource> {
+        let deposit = match record.funding {
+            Some(funding) => funding.outpoint.txid,
+            None => self.funding_progress(&record.id)?.outpoint.txid,
+        };
+        lock(&self.0.sources).get(&deposit).copied()
+    }
+
+    /// What a deposit declared to the mock chain's `fund-observed` spent: kept by the deposit's txid
+    /// until the operator stops, like a real answer, so two pretend deposits with one txid share it.
+    pub fn declare_deposit_source(&self, deposit: Txid, source: FundingSource) {
+        lock(&self.0.sources).insert(deposit, source);
+    }
+
+    /// Reads what `deposit` spent, from its own bytes, in a background task: at most one read of it at
+    /// a time, none while its answer is known, and none for [`DEPOSIT_RETRY_AFTER`] after a read that
+    /// gave no answer. Waits for the read [`DEPOSIT_READ_WAIT`] at most, so a slow node delays no
+    /// answer by more: where a deposit came from informs the page and decides nothing.
+    async fn learn_deposit_source(&self, deposit: Txid) {
+        if lock(&self.0.sources).contains_key(&deposit) {
+            return;
+        }
+        if lock(&self.0.unanswered)
+            .get(&deposit)
+            .is_some_and(|at| at.elapsed() < DEPOSIT_RETRY_AFTER)
+        {
+            return;
+        }
+        if !lock(&self.0.reading).insert(deposit) {
+            return;
+        }
+        let state = self.clone();
+        let read = tokio::spawn(async move {
+            let backend = Arc::clone(&state.0.backend);
+            let answer =
+                tokio::task::spawn_blocking(move || backend.deposit_source(&deposit)).await;
+            match answer {
+                Ok(Ok(Some(source))) => {
+                    lock(&state.0.sources).insert(deposit, source);
+                    lock(&state.0.unanswered).remove(&deposit);
+                }
+                _ => {
+                    lock(&state.0.unanswered).insert(deposit, Instant::now());
+                }
+            }
+            lock(&state.0.reading).remove(&deposit);
+        });
+        // A read still going on after the wait is not cancelled: it fills the cache when it ends.
+        let _ = tokio::time::timeout(DEPOSIT_READ_WAIT, read).await;
+    }
+
     /// Looks at the campaign's funding address once.
     ///
     /// A deposit counts only when it is on the chain at the required depth and covers the
@@ -360,7 +446,9 @@ impl AppState {
             .load_campaign(id)
             .map_err(|e| self.internal(&e))?
             .ok_or_else(|| ApiError::not_found("campaign"))?;
-        if record.funding.is_some() {
+        if let Some(funding) = record.funding {
+            // After a restart, what the deposit spent is read again (it is kept in memory only).
+            self.learn_deposit_source(funding.outpoint.txid).await;
             return Ok(PollOutcome::AlreadyFunded);
         }
         let Some(address) = self.funding_address(&record)? else {
@@ -397,6 +485,8 @@ impl AppState {
                         "funding confirmed campaign={id} confirmations={}",
                         sighting.confirmations
                     ));
+                    // Recorded first: reading where it came from never holds funding up.
+                    self.learn_deposit_source(deposit.outpoint.txid).await;
                     Ok(PollOutcome::Funded(deposit))
                 }
                 Ok(FundingOutcome::Conflict(_)) => Ok(PollOutcome::AlreadyFunded),
@@ -420,23 +510,32 @@ impl AppState {
                 lock(&self.0.progress).remove(id);
             }
         }
+        // A deposit still short of the depth can already say where it came from.
+        if let Some(p) = &progress {
+            self.learn_deposit_source(p.outpoint.txid).await;
+        }
         Ok(PollOutcome::Waiting(progress))
     }
 
-    /// Polls every unfunded campaign now and then, forever. Start it only for backends
-    /// with funding addresses.
+    /// Polls every unfunded campaign now and then, forever, and reads again what the funded ones'
+    /// deposits spent when that is not known (after a restart). Start it only for backends with
+    /// funding addresses.
     pub fn spawn_funding_poller(&self, interval: Duration) -> tokio::task::JoinHandle<()> {
         let state = self.clone();
         tokio::spawn(async move {
             loop {
-                match state.0.store.unfunded_campaigns() {
-                    Ok(ids) => {
-                        for id in ids {
-                            if state.poll_funding(&id).await.is_err() {
-                                state
-                                    .0
-                                    .logger
-                                    .warn(format_args!("funding poll failed campaign={id}"));
+                match state.0.store.campaign_deposits() {
+                    Ok(campaigns) => {
+                        for (id, deposit) in campaigns {
+                            match deposit {
+                                None => {
+                                    if state.poll_funding(&id).await.is_err() {
+                                        state.0.logger.warn(format_args!(
+                                            "funding poll failed campaign={id}"
+                                        ));
+                                    }
+                                }
+                                Some(deposit) => state.learn_deposit_source(deposit.txid).await,
                             }
                         }
                     }
@@ -627,6 +726,10 @@ impl AppState {
         // The live NEAR quotes are read too: a deposit address that was edited is found now.
         for id in self.0.store.near_quote_campaigns()? {
             self.0.store.load_near_quote(&id)?;
+        }
+        // And every payout's shielded deposit address, with any transaction in flight.
+        for id in self.0.store.inbox_campaigns()? {
+            self.0.store.load_inbox(&id)?;
         }
         Ok(headers.len())
     }

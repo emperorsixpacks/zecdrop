@@ -14,6 +14,7 @@ import { clearSession } from "@/api/operator/session";
 import { installFakeOperator, replyWith, replyWithGolden, type FakeOperator, type RouteHandler } from "@/test/fake-operator";
 import { goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
+import { useAudience } from "@/lib/audience";
 import cardSource from "./ViewingKeyCard.tsx?raw";
 import hooksSource from "../operator/hooks.ts?raw";
 import { between } from "@/test/rust-source";
@@ -44,6 +45,8 @@ let fake: FakeOperator;
 let consoleText: string[];
 
 beforeEach(() => {
+  // The auditor's key is one of an organisation's tools (lib/audience.ts).
+  useAudience.setState({ audience: "organisation" });
   localStorage.clear();
   sessionStorage.clear();
   consoleText = [];

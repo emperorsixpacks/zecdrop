@@ -6,6 +6,7 @@
 // What is kept is in state.ts: counts, batch totals, fees, ids. A list is read once, in `create`, and dropped.
 
 import { PRACTICE_REFUSAL } from "@/api/client";
+import { FUNDING_SOURCES, type FundingSource } from "@/api/types";
 import { PRACTICE_TOKEN } from "@/api/operator/session";
 import { parseReceiptLink } from "@/api/receipt-query";
 
@@ -47,6 +48,9 @@ const hasExactlyKeys = (value: Record<string, unknown>, keys: readonly string[])
   Object.keys(value).length === keys.length && keys.every((key) => key in value);
 
 const BAD_BODY = failure(400, "invalid_body", "the request body has missing, extra or mistyped fields");
+
+const isFundingSource = (value: unknown): value is FundingSource =>
+  typeof value === "string" && (FUNDING_SOURCES as readonly string[]).includes(value);
 
 type Body = { ok: true; value: unknown } | { ok: false; reply: Reply };
 
@@ -123,6 +127,7 @@ export class PracticeServer {
         if (method === "GET" && action === "receipt") return this.#withCampaign(second, (campaign) => this.#receipt(campaign));
         if (method === "GET" && action === "events") return this.#events(second, init);
         if (method === "GET" && action === "audit-ufvk-export") return failure(409, "not_available", "the mock chain has no real viewing keys");
+        if (method === "GET" && action === "payslips") return failure(409, "not_available", "the mock chain has no real transactions to prove");
         if (method === "POST" && action === "fund-observed") return this.#withCampaign(second, (campaign) => this.#fund(campaign, init));
         if (method === "POST" && action === "check-funding") {
           return CAMPAIGN_ID.test(decode(second)) ? failure(409, "not_applicable", "this chain backend has no funding addresses; declare the deposit with fund-observed") : notFound("campaign");
@@ -200,9 +205,12 @@ export class PracticeServer {
     const read = readBody(init);
     if (!read.ok) return read.reply;
     const body = read.value;
-    if (!isPlainObject(body) || !hasExactlyKeys(body, ["outpoint", "amount"])) return BAD_BODY;
-    const { outpoint, amount } = body;
+    if (!isPlainObject(body)) return BAD_BODY;
+    if (!hasExactlyKeys(body, ["outpoint", "amount"]) && !hasExactlyKeys(body, ["outpoint", "amount", "source"])) return BAD_BODY;
+    const { outpoint, amount, source } = body;
     if (typeof outpoint !== "string" || typeof amount !== "string") return BAD_BODY;
+    // Like the operator's `Option`: a null source is a deposit that says nothing.
+    if (source !== undefined && source !== null && !isFundingSource(source)) return BAD_BODY;
     const at = OUTPOINT.exec(outpoint);
     if (at === null || !ZATOSHI.test(amount)) return BAD_BODY;
     const txid = at[1] ?? "";
@@ -227,7 +235,9 @@ export class PracticeServer {
         recorded: { outpoint: `${recorded.txid}:${String(recorded.vout)}`, amount: recorded.amount.toString() },
       });
     }
-    campaign.funding ??= { txid, vout, amount: zatoshi };
+    campaign.funding ??= { txid, vout, amount: zatoshi, source: null };
+    // Like the operator, a declared source is taken (again) for the deposit on record.
+    if (isFundingSource(source)) campaign.funding.source = source;
     return reply(200, campaignView(campaign));
   }
 

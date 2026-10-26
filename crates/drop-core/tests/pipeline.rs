@@ -154,6 +154,7 @@ fn csv_to_settled_receipt() {
         funding_state: FundingState::Funded,
         required_depth: 2,
         funding_address: None,
+        funding_source: None,
     })
     .unwrap();
     assert_eq!(receipt.declared_total, total);

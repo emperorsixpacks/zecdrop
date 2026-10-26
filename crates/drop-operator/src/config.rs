@@ -126,6 +126,20 @@ pub struct Cli {
     /// Milliseconds between confirmation polls.
     #[arg(long, default_value_t = 1000)]
     pub poll_interval_ms: u64,
+
+    /// TESTNET ONLY: give every unfunded payout a shielded deposit address of its own, using this zcash-devtool (built by
+    /// scripts/zcash-devtool/build.sh). See docs/ADR/0006-shielded-inbox.md.
+    #[arg(long)]
+    pub zcash_devtool: Option<PathBuf>,
+
+    /// Seconds between looks at the shielded deposit addresses.
+    #[arg(long, default_value_t = 20)]
+    pub inbox_poll_secs: u64,
+
+    /// How long, in seconds, a move from a shielded deposit address waits once it could be made: a random time in
+    /// `MIN..MAX`, so it does not line up in time with the deposit.
+    #[arg(long, default_value = "60..600")]
+    pub inbox_move_delay: String,
 }
 
 /// Things the binary can do besides serving.
@@ -309,6 +323,28 @@ pub struct Config {
     pub crash_after_steps: Option<u32>,
     /// Pause between confirmation polls.
     pub poll_interval: Duration,
+    /// The shielded deposit addresses, when `--zcash-devtool` was given.
+    pub inbox: Option<InboxConfig>,
+}
+
+/// What the shielded deposit addresses need (docs/ADR/0006-shielded-inbox.md).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InboxConfig {
+    /// The zcash-devtool binary.
+    pub devtool: PathBuf,
+    /// Pause between looks at the inboxes.
+    pub poll: Duration,
+    /// The shortest wait before a move.
+    pub delay_min: Duration,
+    /// The longest.
+    pub delay_max: Duration,
+}
+
+/// `MIN..MAX` seconds, MIN at most MAX.
+fn delay_range(text: &str) -> Option<(Duration, Duration)> {
+    let (min, max) = text.split_once("..")?;
+    let (min, max): (u64, u64) = (min.trim().parse().ok()?, max.trim().parse().ok()?);
+    (min <= max).then(|| (Duration::from_secs(min), Duration::from_secs(max)))
 }
 
 /// REQ-OPS-001: testnet needs nothing; mainnet needs `--allow-mainnet` **and**
@@ -444,6 +480,36 @@ impl Config {
                 "--mainnet-max-funding-zat must be at least 1",
             ));
         }
+        let inbox = match &cli.zcash_devtool {
+            None => None,
+            Some(devtool) => {
+                if network == Network::Mainnet {
+                    return Err(ConfigError::BadOption(
+                        "--zcash-devtool is for testnet only",
+                    ));
+                }
+                if chain == ChainMode::Mock {
+                    return Err(ConfigError::BadOption(
+                        "--zcash-devtool needs a real chain (--lightwalletd-url)",
+                    ));
+                }
+                if cli.inbox_poll_secs == 0 {
+                    return Err(ConfigError::BadOption(
+                        "--inbox-poll-secs must be at least 1",
+                    ));
+                }
+                let (delay_min, delay_max) =
+                    delay_range(&cli.inbox_move_delay).ok_or(ConfigError::BadOption(
+                        "--inbox-move-delay must be MIN..MAX seconds, MIN at most MAX",
+                    ))?;
+                Some(InboxConfig {
+                    devtool: devtool.clone(),
+                    poll: Duration::from_secs(cli.inbox_poll_secs),
+                    delay_min,
+                    delay_max,
+                })
+            }
+        };
         Ok(Config {
             network,
             bind,
@@ -464,6 +530,7 @@ impl Config {
             },
             crash_after_steps: cli.mock_crash_after_steps,
             poll_interval: Duration::from_millis(cli.poll_interval_ms),
+            inbox,
         })
     }
 }
@@ -895,6 +962,59 @@ mod tests {
         ));
         assert!(matches!(
             Config::from_cli(cli(&["--mock-chain", "--poll-interval-ms", "0"]), None),
+            Err(ConfigError::BadOption(_))
+        ));
+    }
+
+    // covers: REQ-FUND-005
+    #[test]
+    fn the_shielded_deposit_address_is_for_a_real_testnet_chain_only() {
+        let lwd = ["--lightwalletd-url", "https://testnet.example:443"];
+        let on = |extra: &[&str]| {
+            let mut args = vec!["--zcash-devtool", "/opt/zcash-devtool"];
+            args.extend_from_slice(extra);
+            Config::from_cli(cli(&args), Some("I-UNDERSTAND"))
+        };
+        let config = on(&lwd).unwrap();
+        let inbox = config.inbox.unwrap();
+        assert_eq!(
+            inbox.devtool,
+            std::path::PathBuf::from("/opt/zcash-devtool")
+        );
+        assert_eq!(
+            (inbox.delay_min, inbox.delay_max),
+            (Duration::from_secs(60), Duration::from_secs(600))
+        );
+        assert_eq!(inbox.poll, Duration::from_secs(20));
+        // Without the flag there is none.
+        assert!(Config::from_cli(cli(&lwd), None).unwrap().inbox.is_none());
+        // Never on mainnet, never on the mock chain.
+        let mainnet = [&lwd[..], &["--network", "mainnet", "--allow-mainnet"]].concat();
+        assert!(matches!(on(&mainnet), Err(ConfigError::BadOption(_))));
+        assert!(matches!(
+            on(&["--mock-chain"]),
+            Err(ConfigError::BadOption(_))
+        ));
+        // A delay range is MIN..MAX seconds, MIN at most MAX; the poll is at least a second.
+        assert_eq!(
+            on(&[&lwd[..], &["--inbox-move-delay", "5..5"]].concat())
+                .unwrap()
+                .inbox
+                .unwrap()
+                .delay_max,
+            Duration::from_secs(5)
+        );
+        for bad in ["600..60", "60", "a..b", "..9"] {
+            assert!(
+                matches!(
+                    on(&[&lwd[..], &["--inbox-move-delay", bad]].concat()),
+                    Err(ConfigError::BadOption(_))
+                ),
+                "{bad}"
+            );
+        }
+        assert!(matches!(
+            on(&[&lwd[..], &["--inbox-poll-secs", "0"]].concat()),
             Err(ConfigError::BadOption(_))
         ));
     }
