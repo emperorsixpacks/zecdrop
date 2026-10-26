@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+# ZecDrop on your own computer: the operator, in Docker, on Zcash testnet. Your wallet and your payout lists stay on this
+# computer, and only this computer can open its page (http://127.0.0.1:8787).
+#
+#   ./zecdrop up       start it, and open its page (the first time: builds ZecDrop, about 15 to 30 minutes)
+#   ./zecdrop open     open its page again (its link changes every time it starts)
+#   ./zecdrop status   whether it runs, and where your wallet and payouts are
+#   ./zecdrop logs     follow its log (Ctrl-C stops following)
+#   ./zecdrop down     stop it (your wallet and payouts stay)
+#   ./zecdrop update   get the latest ZecDrop, rebuild, and start it again
+#
+# Options: --port N (default 8787), --no-open.
+# Environment: ZECDROP_HOME (where your wallet and payouts live; default ~/.zecdrop-app), ZECDROP_IMAGE (a prebuilt image to
+# run instead of building one).
+set -euo pipefail
+umask 077
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DATA="${ZECDROP_HOME:-$HOME/.zecdrop-app}"
+IMAGE="${ZECDROP_IMAGE:-zecdrop-operator:local}"
+NAME="zecdrop"
+ENDPOINT="https://testnet.zec.rocks:443"
+PORT=""
+NO_OPEN=""
+
+say() { printf '%s\n' "$*"; }
+fail() { printf 'zecdrop: %s\n' "$*" >&2; exit 1; }
+
+# The comment at the top of this file, without its leading "# ".
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; }
+
+COMMAND="${1:-help}"
+[ $# -gt 0 ] && shift
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --port) PORT="${2:?--port needs a number, such as 8790}"; shift ;;
+    --port=*) PORT="${1#--port=}" ;;
+    --no-open) NO_OPEN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) fail "unknown option $1 (./zecdrop help)" ;;
+  esac
+  shift
+done
+
+# The port: the one asked for, else the one it last started on, else 8787.
+port() {
+  if [ -n "$PORT" ]; then
+    printf '%s' "$PORT"
+  elif [ -s "$DATA/port" ]; then
+    cat "$DATA/port"
+  else
+    printf '8787'
+  fi
+}
+
+need_docker() {
+  command -v docker >/dev/null 2>&1 \
+    || fail "ZecDrop runs in Docker. Install Docker Desktop (https://www.docker.com/products/docker-desktop/), start it, and run ./zecdrop up again."
+  docker info >/dev/null 2>&1 || fail "Docker is installed but not running. Start Docker Desktop, then run ./zecdrop up again."
+}
+
+running() { [ -n "$(docker ps -q --filter "name=^${NAME}$" 2>/dev/null)" ]; }
+
+build_image() {
+  say "Building ZecDrop. The first time takes about 15 to 30 minutes; after that, a few minutes at most."
+  docker build -f "$ROOT/deploy/operator.Dockerfile" -t "$IMAGE" "$ROOT"
+}
+
+ensure_image() {
+  if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    if [ -n "${ZECDROP_IMAGE:-}" ]; then
+      docker pull "$IMAGE" || fail "could not get the image $IMAGE"
+    else
+      build_image
+    fi
+  fi
+}
+
+# Your folder: only you can read it. The store's passphrase is random and kept in a file only you can read, which Docker
+# passes to the operator (--env-file), so it never appears on a command line. The wallet is made once.
+prepare() {
+  mkdir -p "$DATA"
+  chmod 700 "$DATA"
+  if [ ! -s "$DATA/env" ]; then
+    printf 'ZECDROP_PASSPHRASE=%s\n' "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')" > "$DATA/env"
+    chmod 600 "$DATA/env"
+  fi
+  if [ ! -f "$DATA/zecdrop.sqlite" ]; then
+    say "Creating your wallet (it stays in $DATA)."
+    docker run --rm --user "$(id -u):$(id -g)" -v "$DATA:/data" --env-file "$DATA/env" "$IMAGE" \
+      init-wallet --db /data/zecdrop.sqlite >/dev/null
+  fi
+}
+
+# The page's link, from the operator's log: it carries a token that is new on every start.
+link() {
+  docker logs "$NAME" 2>&1 | grep -o "http://127\.0\.0\.1:[0-9]*/#token=[0-9a-f]\{64\}" | tail -1 || true
+}
+
+open_page() {
+  local url
+  url="$(link)"
+  [ -n "$url" ] || fail "ZecDrop is running but has not printed its link yet. Try ./zecdrop open in a moment."
+  say "ZecDrop: $url"
+  [ -n "$NO_OPEN" ] && return 0
+  if command -v open >/dev/null 2>&1; then
+    open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url" >/dev/null 2>&1 &
+  elif command -v wslview >/dev/null 2>&1; then
+    wslview "$url"
+  else
+    say "Open that link in your browser."
+  fi
+}
+
+up() {
+  need_docker
+  ensure_image
+  prepare
+  if running; then
+    say "ZecDrop is already running."
+    open_page
+    return 0
+  fi
+  docker rm "$NAME" >/dev/null 2>&1 || true
+  local p
+  p="$(port)"
+  # The operator listens inside the container (--container), and the page is published on this computer's loopback
+  # address only: nothing else on your network can reach it.
+  docker run -d --name "$NAME" --user "$(id -u):$(id -g)" \
+    -p "127.0.0.1:${p}:${p}" \
+    -v "$DATA:/data" --env-file "$DATA/env" \
+    "$IMAGE" --container --bind "0.0.0.0:${p}" \
+    --db /data/zecdrop.sqlite --state-dir /data/state --web-dir /app/web \
+    --lightwalletd-url "$ENDPOINT" >/dev/null \
+    || fail "could not start ZecDrop. If port ${p} is in use, try ./zecdrop up --port 8790."
+  printf '%s' "$p" > "$DATA/port"
+  say "Starting ZecDrop on Zcash testnet…"
+  for _ in $(seq 1 90); do
+    if ! running; then
+      docker logs "$NAME" 2>&1 | grep -v "token=" | tail -20 >&2 || true
+      fail "ZecDrop stopped while starting: its last lines are above."
+    fi
+    [ -n "$(link)" ] && break
+    sleep 2
+  done
+  [ -n "$(link)" ] || fail "ZecDrop is taking long to start (it reaches the testnet server first). Try ./zecdrop open in a minute."
+  open_page
+  say "Your wallet and payouts stay in $DATA. Stop it with ./zecdrop down."
+}
+
+case "$COMMAND" in
+  up) up ;;
+  open)
+    need_docker
+    running || fail "ZecDrop is not running: ./zecdrop up starts it."
+    open_page
+    ;;
+  status)
+    need_docker
+    if running; then
+      say "ZecDrop is running at http://127.0.0.1:$(port) (./zecdrop open opens it)."
+    else
+      say "ZecDrop is not running (./zecdrop up starts it)."
+    fi
+    say "Your wallet and payouts: $DATA"
+    ;;
+  logs)
+    need_docker
+    docker logs -f "$NAME"
+    ;;
+  down)
+    need_docker
+    docker stop "$NAME" >/dev/null 2>&1 || true
+    docker rm "$NAME" >/dev/null 2>&1 || true
+    say "ZecDrop is stopped. Your wallet and payouts stay in $DATA."
+    ;;
+  update)
+    need_docker
+    git -C "$ROOT" pull --ff-only
+    build_image
+    if running; then
+      docker stop "$NAME" >/dev/null && docker rm "$NAME" >/dev/null
+    fi
+    up
+    ;;
+  help|-h|--help) usage ;;
+  *) fail "unknown command $COMMAND (./zecdrop help)" ;;
+esac

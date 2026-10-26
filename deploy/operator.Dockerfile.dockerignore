@@ -1,0 +1,18 @@
+# What the operator image's build sees (BuildKit uses this file, not the root .dockerignore, for operator.Dockerfile).
+# Unlike the verifier's build it needs web/, and the examples and fixtures the web app bundles.
+**/target
+**/node_modules
+web/dist
+web/dist-*
+web/test-results
+web/playwright-report
+spikes
+docs
+openspec
+.git
+.github
+.private
+*.sqlite
+*.seed
+.env
+.env.*

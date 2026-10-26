@@ -25,6 +25,16 @@ pub async fn serve(
         .await
 }
 
+/// The address the startup link names. Inside a container the operator listens on the container's own network, and the
+/// person opens the port the host publishes on its loopback address: `127.0.0.1` with the same port.
+pub fn link_address(bound: SocketAddr, container: bool) -> SocketAddr {
+    if container {
+        SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, bound.port()))
+    } else {
+        bound
+    }
+}
+
 /// The text printed once at startup. The token is in the URL *fragment*, so
 /// browsers keep it out of requests, server logs and `Referer` headers.
 pub fn startup_banner(address: SocketAddr, token: &Token, network: Network, mock: bool) -> String {
@@ -67,5 +77,14 @@ mod tests {
         assert_eq!(banner.matches(token.reveal()).count(), 1, "printed once");
         assert!(banner.contains("MOCK"));
         assert!(banner.contains("testnet"));
+    }
+
+    // covers: REQ-RUN-001
+    #[test]
+    fn inside_a_container_the_link_names_the_hosts_loopback_with_the_same_port() {
+        let bound: SocketAddr = "0.0.0.0:8790".parse().unwrap();
+        assert_eq!(link_address(bound, true).to_string(), "127.0.0.1:8790");
+        let local: SocketAddr = "127.0.0.1:8787".parse().unwrap();
+        assert_eq!(link_address(local, false), local);
     }
 }
