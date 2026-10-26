@@ -60,8 +60,9 @@ listed in the table below; no transaction has been sent to mainnet.
 | NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |
 | Security review | one independent review done; fixes in progress ([`docs/SECURITY.md`](docs/SECURITY.md)) |
 
-Scale: one batch carries up to 330 payouts. Building and proving 330 payouts took 2 minutes 22 seconds on a laptop, the
-transaction is 1 MB, and the network fee is 0.01655 ZEC ([`docs/BENCHMARKS.md`](docs/BENCHMARKS.md)).
+Scale: one batch carries up to 330 payouts. Creating the transaction for 330 payouts, including the zero-knowledge proof that
+lets the network check it without seeing who gets what, took 2 minutes 22 seconds on a laptop. The transaction is 1 MB and the
+network fee is 0.01655 ZEC ([`docs/BENCHMARKS.md`](docs/BENCHMARKS.md)).
 
 Known limits: campaigns larger than one batch need a funding-split step that is not built; released wallets probably
 cannot sync current testnet (NU7), so the recipient side is shown with our own tooling.

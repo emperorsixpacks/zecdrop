@@ -3,7 +3,7 @@
 One ZecDrop batch is one Zcash transaction. This page says what that costs in size, fee and time, measured offline with the
 repository's own builder. Nothing here is sent anywhere.
 
-| Payouts in the batch | Transaction size | Network fee | Time to prove and sign | Time to verify |
+| Payouts in the batch | Transaction size | Network fee | Time to create it (proof and signature) | Time to check it |
 |---:|---:|---:|---:|---:|
 | 2 | 9.3 KB | 0.00015 ZEC | 0.9 s | 0.01 s |
 | 10 | 34.6 KB | 0.00055 ZEC | 3.9 s | 0.02 s |
@@ -11,6 +11,9 @@ repository's own builder. Nothing here is sent anywhere.
 | 100 | 318.6 KB | 0.00505 ZEC | 43 s | 0.16 s |
 | 330 | 1,044.5 KB | 0.01655 ZEC | 142 s | 0.52 s |
 
+- **What "proving" is:** a shielded payment carries a zero-knowledge proof, which lets every node check that the transaction is
+  valid (the amounts add up and nothing is created from nothing) without seeing who gets what. Making it is the slow step. It
+  happens once per batch, on the operator's own computer, just before sending; checking it afterwards takes a fraction of a second.
 - **Size** is about 3 KB plus 3.16 KB per payout (each payout carries a 512-byte memo and its proof share).
 - **Fee** is the ZIP-317 conventional fee at 5,000 zat per logical action: one per payout plus one for the transparent side. The
   fee a recipient pays for being in a batch is about 0.00005 ZEC. It is paid once, by the campaign, from the deposit.

@@ -51,7 +51,8 @@ verifier, run locally against public testnet, answered one as verified and a cop
 is a bearer document and also opens its output's memo, so a hosted check shows the verifier the receiver, the amount and the memo's
 key; the offline command does not.
 
-**Scale.** One batch carries up to 330 payouts. Building and proving 330 payouts took 142 seconds on a laptop; the transaction is 1 MB and
+**Scale.** One batch carries up to 330 payouts. Creating the transaction for 330 payouts, including the zero-knowledge proof that
+lets the network check it without seeing who gets what, took 142 seconds on a laptop; the transaction is 1 MB and
 the network fee is 0.01655 ZEC (`docs/BENCHMARKS.md`).
 
 **Honest limits.** Not audited (one independent code review was done; see `docs/SECURITY.md`). Testnet-first; no transaction has been
