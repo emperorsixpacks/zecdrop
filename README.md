@@ -1,13 +1,22 @@
 # ZecDrop
 
-**Private amounts. Public accountability.** Confidential batch payouts on Zcash.
+**Pay many people. Keep who got what private. Prove the total.** Confidential batch payouts on Zcash.
 
-Pay many people from one funded campaign. Anyone can verify, from chain data alone, how much was funded, how much
-entered the shielded pool, in how many outputs, and what it cost. Nobody but each recipient (and an auditor
-holding a viewing key) can see who got what, and only the auditor can confirm the outputs match the payout list.
+One Zcash transaction pays up to 330 people. Then each party sees what they should, and no more: **one payout, four
+views.**
 
-> Built for **ZECATHON**, track **Shielded Payments**. **Status: under construction.** Nothing below is a
-> finished feature unless it is marked *works today*.
+| Who | What they see | How |
+|---|---|---|
+| **Everyone** | the total, the fee, how many were paid, and whether the deposit came out of the shielded pool | the receipt link, checked from chain data by a verifier that holds no key |
+| **Each person paid** | their own payout, and nobody else's | their payslip, which anyone can check against the chain |
+| **An auditor you choose** | the whole list of this payout, reconciled against the public total | this payout's viewing key, which opens no other payout |
+| **You, the payer** | every address, amount and note | the operator on your own computer, which holds the keys |
+
+A public payout list shows everyone everything; paying from a shielded wallet hides the amounts, and the total with them.
+ZecDrop keeps the amounts private and the total accountable.
+
+> Built for **ZECATHON**, track **Shielded Payments**. Works end to end on Zcash public testnet (a real 8-person payout,
+> 2026-10-08); no mainnet payout has been made, and it has not been audited. The state of each part is in "Status" below.
 
 **Live demo:** <https://zecdrop-site.vercel.app> is the public site. It checks receipts (the real 8-recipient testnet
 receipt is bundled as a sample), checks a recipient's payslip, helps a recipient share their address, and has a

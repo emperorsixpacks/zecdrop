@@ -12,7 +12,8 @@ net value entering the pool public and every output amount hidden, so anyone can
 shielded (and the fee) from chain data, while only the recipient (and an auditor with a viewing key) can read an
 amount. Only the auditor can confirm the outputs match the payout list (`docs/PRIVACY_BOUNDARY.md`).
 
-Built for ZECATHON, track **Shielded Payments**. Status: under construction (see `openspec/changes/`).
+Built for ZECATHON, track **Shielded Payments**. Status: works end to end on public testnet, no mainnet payout, not audited;
+each part's state is in `openspec/changes/` and the README's "Status".
 
 ## Hackathon constraints (these are rules, not preferences)
 

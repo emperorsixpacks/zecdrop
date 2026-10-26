@@ -4,19 +4,27 @@
 
 ## One-line
 
-Confidential batch payouts on Zcash: private amounts, public accountability.
+Confidential batch payouts on Zcash: everyone can check the total, each person can prove their own payout, and only the
+auditor you choose sees the list.
 
 ## Short (about 600 characters)
 
-ZecDrop pays many people from one funded campaign in a single shielded transaction per batch. Anyone can verify from
-chain data how much entered the shielded pool, in how many outputs, and at what fee. Only each recipient, and an
-auditor holding a per-campaign viewing key, can see who got what. The operator runs locally and holds the keys; a
-separate key-less verifier serves a public receipt page. Built in Rust on librustzcash with a React interface.
+ZecDrop pays many people in one shielded Zcash transaction, then gives each party its own view of it. Everyone can check
+the total, the fee and the count from chain data, with a verifier that holds no key, and can see whether the deposit came
+out of the shielded pool. Each person paid can prove their own payout with a payslip, and nobody else's. An auditor you
+choose gets that payout's viewing key and reconciles the whole list. Only the payer's own computer holds the keys. Built in
+Rust on librustzcash with a React interface; runs end to end on public testnet.
 
 ## Long
 
 **The problem.** A public airdrop or payout publishes its allocation list. Sorting it by amount gives attackers a
 ready-made target list. Existing private payment tools hide everything, which makes a payout impossible to account for.
+
+**One payout, four views.** ZecDrop gives every party exactly the view it needs of the same transaction. *Everyone*: the
+total, the fee, how many were paid and whether the deposit came out of the shielded pool, from the receipt link, with no key.
+*Each person paid*: their own payout, proved to anyone with a payslip that says nothing about the others. *An auditor you
+choose*: the whole list of that payout, with its viewing key, which opens no other payout. *You, the payer*: everything, on
+your own computer, where the keys stay.
 
 **What ZecDrop does.** One transaction per batch spends transparent funds into shielded outputs with memos. The
 protocol makes the net value entering the shielded pool public and every output amount hidden, so a key-less

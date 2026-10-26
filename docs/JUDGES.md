@@ -2,6 +2,17 @@
 
 Four ways, from least to most effort. Everything is on **Zcash testnet**; nothing here moves real money.
 
+## What to look for: one payout, four views
+
+ZecDrop pays many people in one transaction and gives each party its own view of it. Where to see each one:
+
+| View | What it sees | Where to see it |
+|---|---|---|
+| **Everyone** | the total, the fee, how many were paid, whether the deposit came out of the shielded pool | the live receipt link in path 1, or your own verifier in path 2 |
+| **Each person paid** | their own payout, proved to anyone with a payslip | "Check a payslip" in path 1, or offline in path 4 |
+| **An auditor** | the whole list of that payout, reconciled against the public total | the home page's sheet, *Auditor* (the public demo list); the real audit of the 8-recipient run reconciled 8 of 8 outputs (`docs/LEARNINGS.md`, 2026-10-08; how to run it: `docs/runbooks/testnet-demo.md`, step 7) |
+| **You, the payer** | every address, amount and note, on your own computer | practice mode in path 1, or the operator itself in path 3 |
+
 ## 1. Look (no install)
 
 Open <https://zecdrop-site.vercel.app>.
