@@ -11,7 +11,7 @@ const alertVariants = cva(
         default: "border-foreground text-card-foreground",
         destructive: "border-problem text-card-foreground",
         info: "border-foreground/40 text-card-foreground",
-        warning: "border-highlighter text-card-foreground",
+        warning: "border-l-[6px] border-double border-foreground text-card-foreground",
       },
     },
     defaultVariants: {

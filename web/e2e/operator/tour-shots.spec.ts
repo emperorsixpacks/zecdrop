@@ -108,11 +108,20 @@ async function shoot(page: Page, id: string, look: TourLook, options: { viewport
   // No row under the pointer, so none is tinted.
   await page.mouse.move(2, 2);
   await page.waitForTimeout(400);
+  // Nothing half-way: the capsule's width follows the page's name, and a picture taken while it moves shows it cut. Every
+  // animation that ends is waited for (one that never ends, a pulse, would never be done).
+  await page.evaluate(async () => {
+    const ending = document.getAnimations().filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)));
+    await Promise.all(ending.map(async (a) => a.finished.catch(() => undefined)));
+  });
   await expectNothingSecret(page, id);
+  // A picture that fits in the window is taken from it. Taking the whole page resizes the window for a moment, and a picture
+  // taken that way once drew the header capsule cut short although the page's own measure of it was right.
+  const fits = shot.height <= (page.viewportSize()?.height ?? 0);
   const png =
     options.viewport === true
       ? await page.screenshot()
-      : await page.screenshot({ fullPage: true, clip: { x: 0, y: 0, width: TOUR_WIDTH, height: shot.height } });
+      : await page.screenshot({ fullPage: !fits, clip: { x: 0, y: 0, width: TOUR_WIDTH, height: shot.height } });
   expect(pngSize(png), `${id}: the picture is not the size tour-steps.ts says`).toEqual({ width: TOUR_WIDTH, height: shot.height });
   const file = join(outputDir(), `${id}-${look}.webp`);
   writeWebp(png, file);

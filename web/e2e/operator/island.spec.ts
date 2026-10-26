@@ -63,13 +63,15 @@ test.describe("the chain, said with nothing opened", () => {
     await expect(island(page)).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("a real mainnet operator: a highlighter-yellow chip on the capsule, no practice line, the network in full in the panel", async ({ page }) => {
+  test("a real mainnet operator: a chip in the capsule's colours turned over, no practice line, the network in full in the panel", async ({ page }) => {
     await chain(page, { mock: false, network: "mainnet" });
     await load(page, "/campaigns", "Payouts");
     await expect(island(page)).toHaveAccessibleName("ZecDrop Payouts Mainnet");
     const chip = island(page).locator('[data-network="mainnet"]');
     await expect(chip).toBeVisible();
-    expect(await chip.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 214, 10)");
+    // Paper on the black capsule: its ink as the fill, its fill as the text.
+    expect(await chip.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(242, 242, 238)");
+    expect(await chip.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(0, 0, 0)");
     await expect(page.getByRole("status")).toHaveCount(0);
     await openIsland(page);
     await expect(page.getByText("Zcash mainnet", { exact: true })).toBeVisible();

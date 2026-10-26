@@ -304,13 +304,15 @@ test.describe("the network on the capsule, with nothing opened", () => {
         expect(await chip.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
       });
 
-      test("mainnet is a highlighter-yellow chip, from a receipt link for mainnet, on a page built for testnet", async ({ page }) => {
+      test("mainnet is a chip in the capsule's colours turned over, from a receipt link for mainnet, on a page built for testnet", async ({ page }) => {
         await page.goto(MAINNET_RECEIPT);
         const chip = island(page).locator('[data-network="mainnet"]');
         await expect(chip).toBeVisible();
         await expect(chip).toHaveText("Mainnet");
         await expect(island(page)).toHaveAccessibleName("ZecDrop Receipt Mainnet");
-        expect(await chip.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 214, 10)");
+        // Paper on the black capsule: its ink as the fill, its fill as the text.
+        expect(await chip.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(242, 242, 238)");
+        expect(await chip.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(0, 0, 0)");
         await expect(island(page).getByText("testnet")).toHaveCount(0);
         // And once opened, in full.
         await openIsland(page);

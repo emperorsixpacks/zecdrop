@@ -137,15 +137,15 @@ describe("opening the capsule", () => {
     for (const label of PUBLIC_LABELS) expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
   });
 
-  it("marks the page you are on with aria-current, and the highlighter", async () => {
+  it("marks the page you are on with aria-current, and the capsule's colours turned over", async () => {
     const user = userEvent.setup();
     show({ showOperatorNav: false }, "/privacy");
     const nav = await openIsland(user);
     const current = within(nav).getAllByRole("link").filter((a) => a.getAttribute("aria-current") === "page");
     expect(current.map((a) => a.textContent)).toEqual(["How privacy works"]);
-    // The highlighter is on the label, and the heavier type says it too.
-    expect(current[0]?.firstElementChild).toHaveClass("bg-marker", "font-extrabold");
-    expect(within(nav).getByRole("link", { name: "Get paid" }).firstElementChild).not.toHaveClass("bg-marker");
+    // The label is a paper pill on the capsule, and the heavier type says it too.
+    expect(current[0]?.firstElementChild).toHaveClass("bg-island-ink", "text-island", "font-extrabold");
+    expect(within(nav).getByRole("link", { name: "Get paid" }).firstElementChild).not.toHaveClass("bg-island-ink");
   });
 
   it("marks Home only on the home page, not on every page", async () => {

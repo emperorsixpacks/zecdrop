@@ -112,7 +112,8 @@ export default function HomePage() {
         <title>ZecDrop - Pay many people, keep who got what private</title>
 
         {/* The headline and the sheet, side by side on a wide screen so the first look is seen without a scroll. */}
-        <div className="grid items-start gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
+        {/* The sheet's column is fixed at the width where a revealed address still fits on its line. */}
+        <div className="grid items-start gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_30rem]">
           <div className="space-y-8 lg:pt-6">
             <h1 className="display text-[clamp(2.75rem,12vw,4.75rem)] leading-[0.92] text-balance [font-stretch:72%] lg:text-[clamp(4rem,6.8vw,5.75rem)]">
               <span className="block">Pay many people.</span> <span className="block">Keep who got what private.</span>{" "}
