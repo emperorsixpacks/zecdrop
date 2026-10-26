@@ -141,6 +141,14 @@ pub fn ironwood_active(network: &Network, height: BlockHeight) -> bool {
     )
 }
 
+/// The consensus branch id this build stamps on a transaction that targets `height`: what the
+/// pinned librustzcash parameters say, not what a node says. The distributor and the operator's
+/// start-up check compare the two, so a build that does not know a network's current upgrade
+/// (mainnet NU7 has no height in the pinned crates) refuses instead of sending a doomed batch.
+pub fn expected_branch_id(network: &Network, height: u32) -> u32 {
+    u32::from(BranchId::for_height(network, BlockHeight::from_u32(height)))
+}
+
 /// Builds, signs and proves one batch. `anchor` must be a known Ironwood note-commitment-tree
 /// root at or below the tip (output-only bundles have only zero-value dummy spends, whose Merkle
 /// paths the circuit does not check, but consensus still checks the anchor).
@@ -484,11 +492,37 @@ pub(crate) mod tests {
             .is_some_and(|m| m.starts_with("TEST ONLY payout"))));
     }
 
-    // covers: REQ-TX-001
+    // covers: REQ-TX-001, REQ-TX-004
+    #[test]
+    fn the_expected_branch_follows_the_pinned_parameters() {
+        use zcash_protocol::consensus::Network::MainNetwork;
+        // Testnet is on NU7, mainnet (as of 2026-10-18, tip 3,522,426) still on NU6.3, and the
+        // pinned crates know no mainnet NU7 height: they keep saying NU6.3 for any mainnet
+        // height. That is why the node's branch id is cross-checked before every build.
+        assert_eq!(
+            expected_branch_id(&TestNetwork, u32::from(nu7_height())),
+            0x7719_0ad9
+        );
+        assert_eq!(expected_branch_id(&MainNetwork, 3_522_427), 0x37a5_165b);
+        assert_eq!(expected_branch_id(&MainNetwork, u32::MAX), 0x37a5_165b);
+        // Before Ironwood existed the id is older, and `ironwood_active` says no.
+        assert_ne!(expected_branch_id(&MainNetwork, 3_000_000), 0x37a5_165b);
+        assert!(!ironwood_active(
+            &MainNetwork,
+            BlockHeight::from_u32(3_000_000)
+        ));
+        assert!(ironwood_active(
+            &MainNetwork,
+            BlockHeight::from_u32(3_522_427)
+        ));
+    }
+
+    // covers: REQ-TX-001, REQ-TX-004
     #[test]
     fn mainnet_nu6_3_height_builds_the_same_shape_offline() {
         // ADR 0005: testnet is on NU7, mainnet on NU6.3; the builder picks the branch from the
-        // height. Offline only: TEST ONLY keys, fabricated coin, never broadcast.
+        // height. Offline only: TEST ONLY keys, fabricated coin, never broadcast. The height is
+        // one block after the real mainnet tip seen on 2026-10-18.
         use zcash_protocol::consensus::Network::MainNetwork;
         let keys =
             CampaignKeys::derive(&crate::keys::tests::TEST_ONLY_SEED, MainNetwork, 0).unwrap();
@@ -505,10 +539,13 @@ pub(crate) mod tests {
             })
             .collect();
         let coin = fake_coin(&keys, 100_000);
-        let height = MainNetwork
-            .activation_height(NetworkUpgrade::Nu6_3)
-            .unwrap()
-            + 100_000;
+        let height = BlockHeight::from_u32(3_522_427);
+        assert!(
+            height
+                > MainNetwork
+                    .activation_height(NetworkUpgrade::Nu6_3)
+                    .unwrap()
+        );
         let tx = build_batch_tx(
             &keys,
             height,
@@ -532,6 +569,29 @@ pub(crate) mod tests {
             (0, 2, 20_000)
         );
         assert!(v.balances());
+        // The proofs and every signature verify under the NU6.3 branch id, like a node would.
+        inspect::verify_proofs_and_signatures(&tx.raw, |op| {
+            (op == &coin.outpoint).then(|| coin.coin.clone())
+        })
+        .unwrap();
+        // Mainnet-shaped strings: t1 for the funding and change addresses, u1 for the account's
+        // unified address and uview1 for the auditor key.
+        assert!(
+            keys.funding_address().starts_with("t1"),
+            "{}",
+            keys.funding_address()
+        );
+        assert!(keys.change_address().starts_with("t1"));
+        assert!(
+            keys.unified_address().starts_with("u1"),
+            "{}",
+            keys.unified_address()
+        );
+        let ufvk = keys.ufvk_encoded().unwrap();
+        assert!(ufvk.starts_with("uview1"), "{}", &ufvk[..12]);
+        // The auditor key recovers both outputs from the mainnet-height bytes.
+        let recovered = inspect::recover_with_ufvk(&tx.raw, MainNetwork, &ufvk).unwrap();
+        assert_eq!(recovered.iter().map(|o| o.value).sum::<u64>(), 20_000);
     }
 
     // covers: REQ-TX-002

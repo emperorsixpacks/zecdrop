@@ -18,9 +18,12 @@ use orchard::tree::MerkleHashOrchard;
 use thiserror::Error;
 use tokio::runtime::{Builder, Runtime};
 use zcash_primitives::merkle_tree::read_commitment_tree;
+use zcash_protocol::consensus::{NetworkUpgrade, Parameters};
 
+use crate::builder::expected_branch_id;
 use crate::chain::{ChainBackend, PrevOut, Submitted, TxStatus};
 use crate::keys::CampaignKeys;
+use crate::zcash_network;
 
 /// Fixed-text errors (the server's own messages are not kept, except a rejection's reason).
 #[derive(Debug, Error)]
@@ -35,6 +38,21 @@ pub enum BackendError {
     Broadcast(#[from] BroadcastError),
     #[error("the Ironwood tree state does not parse")]
     BadTreeState,
+    /// The server sent no Ironwood tree state for a height at which the tree is not empty, so it
+    /// cannot supply the anchor a batch needs (an old lightwalletd that lacks the field looks
+    /// exactly like this).
+    #[error("the node returned no Ironwood tree state: it cannot be used to build batches")]
+    IronwoodTreeMissing,
+    /// The node is on a different network upgrade than the one this build stamps.
+    #[error(
+        "the node reports branch {node:08x} but this build expects {expected:08x} at height \
+         {height}: this build does not know the network's current upgrade"
+    )]
+    BranchMismatch {
+        node: u32,
+        expected: u32,
+        height: u32,
+    },
     #[error("could not start the async runtime")]
     Runtime,
 }
@@ -102,11 +120,19 @@ impl<A: StreamerApi> ChainBackend for LightwalletdBackend<A> {
         Ok(self.runtime.block_on(self.source.chain_info())?.tip_height)
     }
 
+    fn consensus_branch_id(&mut self) -> Result<Option<u32>, BackendError> {
+        Ok(Some(
+            self.runtime
+                .block_on(self.source.chain_info())?
+                .consensus_branch_id,
+        ))
+    }
+
     fn ironwood_anchor(&mut self, height: u32) -> Result<[u8; 32], BackendError> {
         let tree_hex = self
             .runtime
             .block_on(self.source.ironwood_tree_hex(height))?;
-        ironwood_anchor_from_tree_hex(&tree_hex)
+        ironwood_anchor_at(self.source.network(), height, &tree_hex)
     }
 
     fn prevout(&mut self, outpoint: &OutPoint) -> Result<Option<PrevOut>, BackendError> {
@@ -149,9 +175,50 @@ impl<A: StreamerApi> ChainBackend for LightwalletdBackend<A> {
     }
 }
 
+/// [`ironwood_anchor_from_tree_hex`] for a tree state fetched at `height` on `network`. An empty
+/// string is the empty tree only up to the Ironwood activation height; above it the server is
+/// not serving the field at all, and an empty-tree anchor would be a silent wrong answer.
+pub fn ironwood_anchor_at(
+    network: drop_core::Network,
+    height: u32,
+    ironwood_tree_hex: &str,
+) -> Result<[u8; 32], BackendError> {
+    if ironwood_tree_hex.is_empty() {
+        let activation = zcash_network(network)
+            .activation_height(NetworkUpgrade::Nu6_3)
+            .map_or(0, u32::from);
+        if height > activation {
+            return Err(BackendError::IronwoodTreeMissing);
+        }
+    }
+    ironwood_anchor_from_tree_hex(ironwood_tree_hex)
+}
+
+/// The check an operator makes once, at start-up, of a node that will be asked to build and send
+/// batches (REQ-OPS-004): it serves the configured network, it is on the upgrade this build
+/// stamps for the next block, and it serves the Ironwood tree state at its tip. Returns the live
+/// chain info. A failure here means no address should be funded yet.
+pub async fn preflight<A: StreamerApi>(
+    source: &LightwalletdSource<A>,
+) -> Result<ChainInfo, BackendError> {
+    let info = source.chain_info().await?;
+    let height = info.tip_height.saturating_add(1);
+    let expected = expected_branch_id(&zcash_network(source.network()), height);
+    if info.consensus_branch_id != expected {
+        return Err(BackendError::BranchMismatch {
+            node: info.consensus_branch_id,
+            expected,
+            height,
+        });
+    }
+    let tree = source.ironwood_tree_hex(info.tip_height).await?;
+    ironwood_anchor_at(source.network(), info.tip_height, &tree)?;
+    Ok(info)
+}
+
 /// The Ironwood anchor (tree root, as `orchard::Anchor` bytes) from lightwalletd's
 /// `TreeState.ironwood_tree` hex. An empty string is the empty tree, which is the Ironwood
-/// tree state at NU6.3 activation.
+/// tree state before NU6.3 activation; see [`ironwood_anchor_at`] for the height-aware version.
 pub fn ironwood_anchor_from_tree_hex(ironwood_tree_hex: &str) -> Result<[u8; 32], BackendError> {
     if ironwood_tree_hex.is_empty() {
         return Ok(orchard::Anchor::empty_tree().to_bytes());
@@ -185,6 +252,10 @@ mod tests {
         tx: Option<RawTx>,
         sent: Mutex<Vec<Vec<u8>>>,
         asked_tree_height: Arc<Mutex<Option<u64>>>,
+        /// The branch id the server reports, as lightwalletd prints it.
+        branch_id: String,
+        /// What the server returns for the Ironwood tree; `None` is the real tree state fixture.
+        tree_hex: Option<String>,
     }
 
     /// Public chain data captured from testnet.zec.rocks (GetTreeState at 4,476,194); the
@@ -192,13 +263,22 @@ mod tests {
     const TREE_STATE_FIXTURE: &str =
         include_str!("../testdata/testnet-ironwood-treestate-4476194.txt");
 
-    fn fixture_field(name: &str) -> String {
-        TREE_STATE_FIXTURE
-            .lines()
+    /// Public chain data captured from zec.rocks (mainnet, GetTreeState at 3,522,400 on
+    /// 2026-10-18). The root line is what this crate's parser computes from the tree line: the
+    /// same code path as the testnet fixture above, whose root was cross-checked independently.
+    const MAINNET_TREE_STATE_FIXTURE: &str =
+        include_str!("../testdata/mainnet-ironwood-treestate-3522400.txt");
+
+    fn field_of(text: &str, name: &str) -> String {
+        text.lines()
             .find_map(|l| l.strip_prefix(name))
             .map(str::trim)
             .unwrap()
             .to_string()
+    }
+
+    fn fixture_field(name: &str) -> String {
+        field_of(TREE_STATE_FIXTURE, name)
     }
 
     /// The UTXO's txid in wire (internal) order; drop-chain reverses it to display order.
@@ -230,13 +310,16 @@ mod tests {
         }
         async fn ironwood_tree(&self, height: u64) -> Result<String, ApiError> {
             *self.asked_tree_height.lock().unwrap() = Some(height);
-            Ok(fixture_field("ironwood_tree_hex "))
+            Ok(self
+                .tree_hex
+                .clone()
+                .unwrap_or_else(|| fixture_field("ironwood_tree_hex ")))
         }
         async fn server_info(&self) -> Result<ServerInfo, ApiError> {
             Ok(ServerInfo {
                 chain_name: "test".into(),
                 block_height: 4_476_200,
-                consensus_branch_id: "77190ad9".into(),
+                consensus_branch_id: self.branch_id.clone(),
             })
         }
     }
@@ -251,16 +334,47 @@ mod tests {
         asked_tree_height: Arc<Mutex<Option<u64>>>,
     ) -> LightwalletdBackend<FakeApi> {
         let keys = test_keys(0);
-        let api = FakeApi {
+        LightwalletdBackend::from_source(
+            LightwalletdSource::with_api(fake_api(send, tx, asked_tree_height), Network::Testnet),
+            &keys,
+        )
+        .unwrap()
+    }
+
+    fn fake_api(
+        send: SendResponse,
+        tx: Option<RawTx>,
+        asked_tree_height: Arc<Mutex<Option<u64>>>,
+    ) -> FakeApi {
+        let keys = test_keys(0);
+        FakeApi {
             funding_address: keys.funding_address(),
             funding_script: keys.funding_script().0 .0.clone(),
             send,
             tx,
             sent: Mutex::new(vec![]),
             asked_tree_height,
-        };
-        LightwalletdBackend::from_source(LightwalletdSource::with_api(api, Network::Testnet), &keys)
+            branch_id: "77190ad9".into(),
+            tree_hex: None,
+        }
+    }
+
+    /// A testnet server that reports `branch_id` and answers every tree-state request with
+    /// `tree_hex` (`None`: the real fixture).
+    fn api_saying(branch_id: &str, tree_hex: Option<&str>) -> FakeApi {
+        FakeApi {
+            branch_id: branch_id.into(),
+            tree_hex: tree_hex.map(str::to_owned),
+            ..fake_api(ok(), None, Arc::default())
+        }
+    }
+
+    fn run<T>(future: impl std::future::Future<Output = T>) -> T {
+        Builder::new_current_thread()
+            .enable_all()
+            .build()
             .unwrap()
+            .block_on(future)
     }
 
     fn ok() -> SendResponse {
@@ -374,6 +488,99 @@ mod tests {
             ironwood_anchor_from_tree_hex("zz"),
             Err(BackendError::BadTreeState)
         ));
+    }
+
+    // covers: REQ-TX-004
+    #[test]
+    fn the_backend_reports_the_branch_id_the_node_says() {
+        assert_eq!(
+            backend(ok(), None).consensus_branch_id().unwrap(),
+            Some(0x7719_0ad9)
+        );
+    }
+
+    // covers: REQ-TX-004
+    #[test]
+    fn an_empty_tree_state_is_the_empty_tree_only_up_to_activation() {
+        let empty = orchard::Anchor::empty_tree().to_bytes();
+        // Ironwood activated at 4,134,000 on testnet and 3,428,143 on mainnet.
+        assert_eq!(
+            ironwood_anchor_at(Network::Testnet, 4_134_000, "").unwrap(),
+            empty
+        );
+        assert_eq!(
+            ironwood_anchor_at(Network::Mainnet, 3_428_143, "").unwrap(),
+            empty
+        );
+        assert_eq!(
+            ironwood_anchor_at(Network::Mainnet, 100, "").unwrap(),
+            empty
+        );
+        for (network, above) in [(Network::Testnet, 4_134_001), (Network::Mainnet, 3_428_144)] {
+            assert!(matches!(
+                ironwood_anchor_at(network, above, ""),
+                Err(BackendError::IronwoodTreeMissing)
+            ));
+        }
+        // A server that omits the field (an old lightwalletd) is refused at the tip, not trusted.
+        let source =
+            LightwalletdSource::with_api(api_saying("77190ad9", Some("")), Network::Testnet);
+        let mut b = LightwalletdBackend::from_source(source, &test_keys(0)).unwrap();
+        assert!(matches!(
+            b.ironwood_anchor(4_476_200),
+            Err(BackendError::IronwoodTreeMissing)
+        ));
+    }
+
+    // covers: REQ-OPS-004
+    #[test]
+    fn the_start_up_check_accepts_a_matching_node_and_refuses_what_a_batch_could_not_use() {
+        let source = |api| LightwalletdSource::with_api(api, Network::Testnet);
+
+        // Testnet tip 4,476,200 is on NU7 and serves a real Ironwood tree.
+        let info = run(preflight(&source(api_saying("77190ad9", None)))).unwrap();
+        assert_eq!(
+            (info.tip_height, info.consensus_branch_id),
+            (4_476_200, 0x7719_0ad9)
+        );
+
+        // A node on another upgrade than this build stamps.
+        let err = run(preflight(&source(api_saying("37a5165b", None)))).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                BackendError::BranchMismatch {
+                    node: 0x37a5_165b,
+                    expected: 0x7719_0ad9,
+                    height: 4_476_201
+                }
+            ),
+            "{err}"
+        );
+        assert!(err.to_string().contains("37a5165b"), "{err}");
+
+        // A node that serves no Ironwood tree state.
+        let err = run(preflight(&source(api_saying("77190ad9", Some(""))))).unwrap_err();
+        assert!(matches!(err, BackendError::IronwoodTreeMissing), "{err}");
+
+        // A node that serves the other network.
+        let wrong = LightwalletdSource::with_api(api_saying("77190ad9", None), Network::Mainnet);
+        let err = run(preflight(&wrong)).unwrap_err();
+        assert!(matches!(err, BackendError::Chain(_)), "{err}");
+    }
+
+    // covers: REQ-TX-004
+    #[test]
+    fn a_real_mainnet_tree_state_parses_to_the_anchor_a_batch_needs() {
+        let tree = field_of(MAINNET_TREE_STATE_FIXTURE, "ironwood_tree_hex ");
+        let root = ironwood_anchor_at(Network::Mainnet, 3_522_400, &tree).unwrap();
+        assert_eq!(
+            hex::encode(root),
+            field_of(MAINNET_TREE_STATE_FIXTURE, "ironwood_root_hex ")
+        );
+        // Mainnet's Ironwood tree has notes in it: the root is not the empty tree's.
+        assert_ne!(root, orchard::Anchor::empty_tree().to_bytes());
+        assert!(Option::<orchard::Anchor>::from(orchard::Anchor::from_bytes(root)).is_some());
     }
 
     /// Read-only calls against the public testnet endpoint. Run with `--ignored`.

@@ -19,8 +19,9 @@
 //!
 //! ## Using drop-zcash from the operator
 //!
-//! Everything below is testnet until the operator's mainnet opt-in exists:
-//! [`ZcashDistributor::new`] refuses mainnet keys.
+//! The examples below use testnet. [`ZcashDistributor::new`] refuses mainnet keys; a mainnet
+//! distributor comes from [`ZcashDistributor::new_for_mainnet`], which needs a [`MainnetPermit`]
+//! that only the operator creates, after its own `--allow-mainnet` and confirmation gate.
 //!
 //! **1. Campaign keys and addresses** (one ZIP 32 account per campaign index):
 //!
@@ -111,12 +112,12 @@ pub mod memo;
 mod txid;
 
 pub use builder::{
-    build_batch_tx, build_sweep, BuildError, BuiltTx, FundingCoin, PayoutLine,
+    build_batch_tx, build_sweep, expected_branch_id, BuildError, BuiltTx, FundingCoin, PayoutLine,
     MAX_IRONWOOD_ACTIONS_PER_TX,
 };
 pub use chain::{ChainBackend, PrevOut, Submitted, TxStatus};
 pub use codec::ZcashAddressCodec;
-pub use distributor::{ZcashDistributor, ZcashError};
+pub use distributor::{MainnetPermit, ZcashDistributor, ZcashError};
 pub use keys::{CampaignKeys, KeyError};
 pub use memo::{decode_memo, encode_memo, MemoError};
 
