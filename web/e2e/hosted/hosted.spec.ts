@@ -10,6 +10,7 @@ import { expect, test, type Page, type Response } from "@playwright/test";
 import { TOUR_LOOKS, TOUR_SHOTS, TOUR_WIDTH, tourImageSrc } from "../../src/features/home/tour-steps.js";
 import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 import { dumpBrowserState } from "../operator/privacy.js";
+import { decodeScreenshot } from "../qr.js";
 
 // A public copy of the app, built the way a deployment is built and served WITH
 // the headers and rewrites of the vercel.json made for it (scripts/hosted-config.mjs,
@@ -261,6 +262,9 @@ test.describe("the policy breaks nothing", () => {
 });
 
 test.describe("the payslip page on a public copy", () => {
+  // The density of a phone's screen, which is what a code on it is drawn at.
+  test.use({ deviceScaleFactor: 2 });
+
   /** Every request to the verifier, as the browser made it. */
   function watchVerifier(page: Page) {
     const sent: { method: string; url: string; type: string | undefined; body: string | null; cookie: boolean }[] = [];
@@ -281,7 +285,7 @@ test.describe("the payslip page on a public copy", () => {
     expect(before).toHaveLength(5);
 
     await page.getByRole("button", { name: "Load a sample" }).click();
-    await expect(page.getByLabel("Payslip")).toHaveValue(payslipText);
+    await expect(page.getByLabel("Payslip", { exact: true })).toHaveValue(payslipText);
     await page.getByRole("button", { name: "Check payslip" }).click();
     const verified = page.getByRole("heading", { level: 2, name: "Verified", exact: true });
     await expect(verified).toBeVisible();
@@ -329,6 +333,53 @@ test.describe("the payslip page on a public copy", () => {
 
     expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
     expect(seen.problems()).toEqual([]);
+  });
+
+  test("opens from a link under the policy: the payslip is in the box, the fragment is gone, nothing is asked until it is, and the stub answers the check", async ({ page }) => {
+    const seen = await watch(page);
+    const sent = watchVerifier(page);
+    const value = Buffer.from(
+      JSON.stringify({ version: payslip.version, network: payslip.network, txid: payslip.txid, action: payslip.action, receiver: payslip.receiver, value: payslip.value, rseed: payslip.rseed }),
+    ).toString("base64url");
+    await page.goto(`/payslip#payslip=${value}`);
+    await expect(page.getByLabel("Payslip", { exact: true })).toHaveValue(payslipText);
+    await expect(page.getByText("This payslip came from a link. Whoever has that link has the payslip: its receiver, its amount and the key to its memo.")).toBeVisible();
+    // The fragment left the address bar, and the verifier has not been asked a thing.
+    expect(page.url()).toBe(`${SITE}/payslip`);
+    expect(sent).toEqual([]);
+
+    // The link and a QR code of it are made in the page, under the policy: the code is drawn inline, and the library comes from this origin.
+    await page.getByRole("button", { name: "Make a link" }).click();
+    const link = await page.getByLabel("Payslip link", { exact: true }).inputValue();
+    expect(link).toBe(`${SITE}/payslip#payslip=${value}`);
+    await page.getByRole("button", { name: "Show QR code" }).click();
+    const qr = page.getByRole("img", { name: "QR code of the payslip link" });
+    await expect(qr).toBeVisible();
+    expect(decodeScreenshot(await qr.screenshot())).toBe(link);
+    expect(sent).toEqual([]);
+
+    // Asked, the stub verifier answers: one POST, with the payslip as its body.
+    await page.getByRole("button", { name: "Check payslip" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toBeFocused();
+    const posts = sent.filter((r) => r.method === "POST");
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(posts[0]?.body ?? "null")).toEqual(payslip);
+    expect(new URL(posts[0]?.url ?? "").search).toBe("");
+    expect(page.url()).toBe(`${SITE}/payslip`);
+
+    expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
+    expect(seen.problems()).toEqual([]);
+  });
+
+  test("a link that holds no payslip loads nothing and leaves the address bar bare, under the policy", async ({ page }) => {
+    const seen = await watch(page);
+    const sent = watchVerifier(page);
+    await page.goto("/payslip#payslip=%%%");
+    await expect(page.getByRole("alert")).toHaveText("This link does not hold a payslip this page can read. Nothing was loaded.");
+    await expect(page.getByLabel("Payslip", { exact: true })).toHaveValue("");
+    expect(page.url()).toBe(`${SITE}/payslip`);
+    expect(sent).toEqual([]);
+    expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
   });
 
   test("keeps the payslip nowhere in the browser", async ({ page }) => {

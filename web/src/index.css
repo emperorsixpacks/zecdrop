@@ -81,6 +81,7 @@
  *   marker          the highlighter: revealed text, focus; marker-ink is the text on it
  *   bar             the redaction bar
  *   good, bad       "verified" and "problem", as text
+ *   qr-ink, qr-paper  a QR code: black on white in both sets, since a scanner reads a dark code on a light ground
  *
  * Before the script has set the attribute the page is the light set, so nothing flashes for the
  * default. */
@@ -100,6 +101,8 @@
   --p-bar: #000000;
   --p-good: #0b6b3a;
   --p-bad: #b3261e;
+  --p-qr-ink: #000000;
+  --p-qr-paper: #ffffff;
 }
 
 :root[data-theme="light"] {
@@ -118,6 +121,8 @@
   --p-bar: #000000;
   --p-good: #0b6b3a;
   --p-bad: #b3261e;
+  --p-qr-ink: #000000;
+  --p-qr-paper: #ffffff;
 }
 
 :root[data-theme="dark"] {
@@ -136,6 +141,8 @@
   --p-bar: #c9c9c2;
   --p-good: #4ade80;
   --p-bad: #ff8a8a;
+  --p-qr-ink: #000000;
+  --p-qr-paper: #ffffff;
 }
 
 /* ---- Roles: what the app asks for -------------------------------------------------------- */
@@ -167,6 +174,8 @@
   --verified: var(--p-good);
   --problem: var(--p-bad);
   --accent-text: var(--p-accent-text);
+  --qr-ink: var(--p-qr-ink); /* a QR code: black on white whatever the theme, because a scanner needs it */
+  --qr-paper: var(--p-qr-paper);
 }
 
 @layer base {

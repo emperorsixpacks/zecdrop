@@ -54,6 +54,16 @@ logs or echoes the body, but whoever runs it can see it. Check offline (`drop-op
 when that matters. Not built: a payslip without the memo, a proof that the presenter controls the receiver, and a check in
 the browser.
 
+**As a link or a QR code** (REQ-PAY-004). The site's payslip page can make a link, `/payslip#payslip=…`, or a QR code of it, so a
+recipient can hand a payslip to someone on a phone. The payslip sits only after the `#`, which a browser never sends to a server:
+opening the link or scanning the code does not tell the host what it holds. The page reads it once, takes the fragment out of the
+address bar and out of its own history entry at once, puts the payslip in the box and checks nothing until asked. Making a link
+sends nothing anywhere, and the page keeps it nowhere. Still, a link **is** the whole payslip in an address: whoever has it has
+the receiver, the amount and the key to the memo and can present it as their own, and a chat app, a notes app or a browser that
+syncs its history may keep what was sent or opened. The page's own history entry is cleaned; a browser's separate record of the
+visit is outside the page's control and may keep the full link. The page says all this where a link is made and where one is
+opened. Send a link only to the person the payment is to be proved to.
+
 ## Public (anyone can see, and the verifier recomputes)
 
 | Item | Why it is public |
@@ -89,7 +99,7 @@ Recipient addresses · per-recipient amounts · memos · which output belongs to
 8. **The operator sees everything** (recipient list, amounts, memos) and holds the spend key.
 9. **Recipients' later behaviour** (spending, exchange deposits) is out of scope.
 10. **A payslip discloses its output's receiver, amount and memo to whoever holds it** (and to a hosted verifier that checks
-    it). See "Payslips" above.
+    it, and to anything that carries a link or QR code of it). See "Payslips" above.
 
 ## Trust assumptions
 

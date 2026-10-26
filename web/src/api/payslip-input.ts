@@ -118,6 +118,12 @@ export function readPayslip(text: string): PayslipRead {
   return { ok: true, payslip: { version, network, txid, action, receiver, value, rseed } };
 }
 
+/** The payslip as the operator writes its file: indented, one field a line, a line break at the end. What a link loads into the box. */
+export function payslipText(payslip: Payslip): string {
+  const { version, network, txid, action, receiver, value, rseed } = payslip;
+  return `${JSON.stringify({ version, network, txid, action, receiver, value, rseed }, null, 2)}\n`;
+}
+
 /** The body of the request: the payslip, compact, with its fields in the verifier's order. */
 export function payslipBody(payslip: Payslip): string {
   const { version, network, txid, action, receiver, value, rseed } = payslip;

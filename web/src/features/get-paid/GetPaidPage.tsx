@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { classifyAddress } from "@/lib/address-shape";
+import { isAbort } from "@/lib/share";
 
 import { BUTTONS_HINT, describeShape, FEEDBACK_TEXT, PROMISE, SHAPE_NOTE, shareText, ZODL_URL, type Feedback } from "./wording";
 
@@ -20,11 +21,6 @@ const FIELD_ID = "address";
 const NOTE_ID = "address-note";
 
 const linkClass = "inline-flex min-h-11 items-center font-medium text-link underline underline-offset-4";
-
-/** Closing the share sheet rejects with an AbortError. */
-function isAbort(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
-}
 
 function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (

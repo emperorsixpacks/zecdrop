@@ -20,12 +20,13 @@ import { parseCampaign, parseOperatorError, type ProgressEvent } from "@/api/ope
 import { clearSession } from "@/api/operator/session";
 import { parsePayslipAnswer, PAYSLIP_INVALID_REASONS, PAYSLIP_NOT_PROVEN } from "@/api/payslip-answer";
 import { PAYSLIP_PROBLEM_TEXT } from "@/api/payslip-input";
+import { payslipLink } from "@/api/payslip-link";
 import { SAMPLE_PAYSLIP_TEXT, samplePayslip } from "@/api/payslip-sample";
 import { TOUR_SHOTS } from "@/features/home/tour-steps";
 import { classifyAddress } from "@/lib/address-shape";
 import { describeEvent, describeRun, explainFailure } from "@/features/operator/messages";
 import { BUTTONS_HINT, describeShape, FEEDBACK_TEXT, PROMISE, SHAPE_NOTE, shareText, WHY_TEXT } from "@/features/get-paid/wording";
-import { FAILURE_TEXT, INVALID_TEXT, wording } from "@/features/payslip/wording";
+import { FAILURE_TEXT, INVALID_TEXT, LINK_FEEDBACK, LINK_NOTICE, LINK_PROBLEM, LINK_WARNING, LOOPBACK_NOTE, QR_CAPTION, SHARE_TEXT, wording } from "@/features/payslip/wording";
 import { useWizardDraft } from "@/features/wizard/draft";
 import { lensRowsFrom } from "@/features/wizard/list";
 import { previewPayouts } from "@/lib/csv-preview";
@@ -197,6 +198,51 @@ describe("the payslip page, after a check", () => {
       }
     }
     for (const sentence of Object.values(PAYSLIP_PROBLEM_TEXT)) read(sentence);
+  });
+});
+
+// What the payslip page says about a payslip as a link or a QR code, and about a link that does not hold one.
+describe("the payslip page, with a link", () => {
+  const link = payslipLink(samplePayslip(), "https://zecdrop.example");
+  const fragment = link.slice(link.indexOf("#"));
+
+  it.each([
+    ["opened from a link", `/payslip${fragment}`],
+    ["opened from a link that holds no payslip", "/payslip#payslip=%%%"],
+  ])("%s: makes none of the claims the public cannot back up", async (_name, path) => {
+    const words = await textOf(path);
+    expect(words.length).toBeGreaterThan(200);
+    for (const [label, pattern] of BANNED) {
+      expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+
+  it("with the link and its QR code shown: makes none of the claims the public cannot back up", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/payslip"]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.change(await screen.findByLabelText("Payslip"), { target: { value: SAMPLE_PAYSLIP_TEXT } });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Make a link" }));
+    await user.click(screen.getByRole("button", { name: "Show QR code" }));
+    await screen.findByRole("img", { name: "QR code of the payslip link" });
+
+    const words = await readEverything();
+    expect(words).toContain(LINK_WARNING);
+    for (const [label, pattern] of BANNED) {
+      expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+
+  it("every sentence it can say about a link", () => {
+    for (const sentence of [LINK_WARNING, LINK_NOTICE, LINK_PROBLEM, QR_CAPTION, LOOPBACK_NOTE, SHARE_TEXT, ...Object.values(LINK_FEEDBACK)]) {
+      for (const [label, pattern] of BANNED) expect(sentence, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
   });
 });
 

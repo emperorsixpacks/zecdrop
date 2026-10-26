@@ -37,6 +37,8 @@ const ROLES = [
   "bar",
   "good",
   "bad",
+  "qr-ink",
+  "qr-paper",
 ] as const;
 type Role = (typeof ROLES)[number];
 type Colours = Record<Role, string>;
@@ -101,6 +103,21 @@ describe("Redacted paper is complete, in both modes", () => {
   });
 });
 
+describe("a QR code is dark on light, whatever the theme", () => {
+  it("is black on white in the light set and in the dark set, the same in both", () => {
+    for (const m of MODES) {
+      const c = colours(m);
+      expect(c?.["qr-ink"], m).toBe("#000000");
+      expect(c?.["qr-paper"], m).toBe("#ffffff");
+    }
+  });
+
+  it("is drawn from the roles, not from the page's own colours", () => {
+    expect(css).toMatch(/--qr-ink:\s*var\(--p-qr-ink\)/u);
+    expect(css).toMatch(/--qr-paper:\s*var\(--p-qr-paper\)/u);
+  });
+});
+
 describe("every pair of roles that meet in the app is readable", () => {
   for (const m of MODES) {
     describe(m, () => {
@@ -128,6 +145,8 @@ describe("every pair of roles that meet in the app is readable", () => {
         ["text on the marker (revealed text, highlighted rows)", c["marker-ink"], c.marker, 4.5],
         ["the focus ring on the page", c.ink, c.bg, 3],
         ["the redaction bar is seen against the page", c.bar, c.bg, 1.4],
+        // A scanner needs more than a reader does: a dark code on a light ground, as sharp as it can be.
+        ["a QR code's dark on its light", c["qr-ink"], c["qr-paper"], 18],
       ];
       for (const [name, fg, bg, min] of pairs) {
         it(`${name}: at least ${String(min)}:1`, () => {

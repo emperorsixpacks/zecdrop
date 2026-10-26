@@ -8,14 +8,14 @@ and not a guarantee that the address is valid, and SHALL tell a person that a tr
 negative test SHALL show that no request is made and no storage is written when an address is pasted, checked and shared.
 
 ### REQ-FUND-003 — The funding QR code asks for exactly the deposit
-Status: planned
+Status: implemented
 Where the operator shows a campaign's funding address on a real chain, the page SHALL also show a QR code that encodes exactly the
 ZIP-321 request the wallet link carries (the funding address and the required amount, nothing else), SHALL draw it dark on light in
 both themes so a scanner can read it, and SHALL NOT show one when there is no funding address or the amount is not a positive whole
 number of zatoshi. A test SHALL decode the rendered code and compare what it holds with the link.
 
 ### REQ-PAY-004 — A payslip link carries the payslip only in its fragment
-Status: planned
+Status: implemented
 A payslip link SHALL hold the payslip only after the `#` of the address, so that a browser does not send it to any server. The page
 that opens such a link SHALL load the payslip into the paste box, SHALL remove the fragment from the address bar before anything
 else happens, SHALL NOT check the payslip until the visitor asks, and SHALL say plainly that whoever holds the link holds the

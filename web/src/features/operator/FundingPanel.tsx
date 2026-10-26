@@ -1,7 +1,8 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import type { OperatorCampaign } from "@/api/operator/schemas";
 import { CopyButton } from "@/components/CopyButton";
+import { QrCode } from "@/components/QrCode";
 import { UnitNote } from "@/components/UnitProvider";
 import { Why } from "@/components/Why";
 import { Zec } from "@/components/Zec";
@@ -12,6 +13,7 @@ import { NearFundingPanel } from "@/features/funding/near/NearFundingPanel";
 import { shortId } from "@/lib/ids";
 import { fundingPaymentUri } from "@/lib/payment-uri";
 import { phaseSentence } from "@/lib/phase";
+import { useMediaQuery } from "@/lib/use-media";
 
 import { FailureNotice } from "./FailureNotice";
 import { useCheckFunding, useHealth } from "./hooks";
@@ -38,9 +40,16 @@ function Progress({ campaign }: { campaign: OperatorCampaign }) {
   );
 }
 
+/** From this wide, the QR code sits beside the address. Narrower, it is behind a button: a person on the phone itself copies
+ * the address instead, and the code (and the library that draws it) is not loaded until it is asked for. */
+const QR_BESIDE = "(min-width: 48rem)";
+
 function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; address: string }) {
   const check = useCheckFunding(campaign.id);
   const headingId = useId();
+  const qrId = useId();
+  const wide = useMediaQuery(QR_BESIDE);
+  const [qrOpen, setQrOpen] = useState(false);
   // A link that opens a wallet app with the address and amount filled in. Null if either looks wrong.
   const walletLink = fundingPaymentUri(address, campaign.fundingRequired);
   // On mainnet the deposit should be exactly what is asked: a surplus comes back as change to an address this
@@ -68,22 +77,48 @@ function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; a
           Send exactly that amount. A surplus comes back as change to an address this operator cannot spend on mainnet.
         </p>
       )}
-      <div className="space-y-2">
-        <p className="mono text-lg break-all" data-testid="funding-address">
-          {address}
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <CopyButton value={address} label="Copy funding address" />
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-x-10">
+        <div className="space-y-2">
+          <p className="mono text-lg break-all" data-testid="funding-address">
+            {address}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <CopyButton value={address} label="Copy funding address" />
+            {walletLink !== null && (
+              <Button asChild variant="outline" size="sm">
+                <a href={walletLink}>Open in wallet</a>
+              </Button>
+            )}
+            {walletLink !== null && !wide && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-expanded={qrOpen}
+                aria-controls={qrOpen ? qrId : undefined}
+                onClick={() => {
+                  setQrOpen((open) => !open);
+                }}
+              >
+                {qrOpen ? "Hide QR code" : "Show QR code"}
+              </Button>
+            )}
+          </div>
           {walletLink !== null && (
-            <Button asChild variant="outline" size="sm">
-              <a href={walletLink}>Open in wallet</a>
-            </Button>
+            <p className="max-w-[64ch] text-sm text-muted-foreground">
+              Opens a wallet app that handles zcash links. If nothing opens, copy the address.
+            </p>
           )}
         </div>
-        {walletLink !== null && (
-          <p className="max-w-[64ch] text-sm text-muted-foreground">
-            Opens a wallet app that handles zcash links. If nothing opens, copy the address.
-          </p>
+        {/* The same request the wallet link carries, nothing more: this address and the exact amount. Only where there is a link. */}
+        {walletLink !== null && (wide || qrOpen) && (
+          <figure id={qrId} data-testid="funding-qr" className="mt-4 w-full max-w-[18rem] space-y-2 md:mt-0 md:w-fit">
+            <QrCode text={walletLink} label="QR code for this deposit: the funding address and the exact amount" className="md:w-auto" />
+            {/* The caption wraps to the width of the code and never makes the figure wider than it. */}
+            <figcaption className="w-0 min-w-full text-sm text-muted-foreground">
+              Scan with a Zcash wallet on your phone: it fills in this address and the exact amount.
+            </figcaption>
+          </figure>
         )}
       </div>
       <NearFundingPanel

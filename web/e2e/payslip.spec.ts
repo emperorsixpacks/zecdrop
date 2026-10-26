@@ -107,10 +107,10 @@ for (const viewport of VIEWPORTS) {
           return fulfil(route, { status: 200, body: answer() });
         });
         await page.goto("/payslip");
-        await page.getByLabel("Payslip").fill("this is not a payslip");
+        await page.getByLabel("Payslip", { exact: true }).fill("this is not a payslip");
         await page.getByRole("button", { name: "Check payslip" }).click();
         await expect(page.getByRole("alert")).toHaveText("That is not a payslip: it is not valid JSON. Paste the whole file.");
-        await expect(page.getByLabel("Payslip")).toBeFocused();
+        await expect(page.getByLabel("Payslip", { exact: true })).toBeFocused();
         expect(asked).toBe(0);
         await check(page, "a bad paste", problems);
       });
@@ -179,7 +179,7 @@ test.describe("what the page does with a payslip", () => {
     await expect(page.getByRole("heading", { level: 1, name: "How privacy works" })).toBeVisible();
     await page.goBack();
     await expect(page.getByRole("heading", { level: 1, name: "Check a payslip" })).toBeVisible();
-    await expect(page.getByLabel("Payslip")).toHaveValue("");
+    await expect(page.getByLabel("Payslip", { exact: true })).toHaveValue("");
   });
 
   test("a changed copy is refused by the verifier and never shown as verified", async ({ page }) => {
@@ -205,22 +205,32 @@ test.describe("what the page does with a payslip", () => {
     await page.goto("/payslip");
     await page.getByRole("button", { name: "Load a sample" }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Payslip")).toHaveValue(sampleText);
+    await expect(page.getByLabel("Payslip", { exact: true })).toHaveValue(sampleText);
     // From the box, Tab reaches the button to check, with nothing to stop at in between.
-    await page.getByLabel("Payslip").focus();
+    await page.getByLabel("Payslip", { exact: true }).focus();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "Check payslip" })).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toBeFocused();
-    // The order carries on from the result: backwards, it is the link to the sample's receipt, then the helpers.
+    // The order carries on from the result: backwards, it is the buttons that send the payslip on (Share last, where the
+    // browser has a share sheet), then the link to the sample's receipt, then the helpers.
+    const canShare = await page.evaluate(() => typeof navigator.share === "function");
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("button", { name: canShare ? "Share" : "Show QR code", exact: true })).toBeFocused();
+    if (canShare) {
+      await page.keyboard.press("Shift+Tab");
+      await expect(page.getByRole("button", { name: "Show QR code", exact: true })).toBeFocused();
+    }
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("button", { name: "Make a link", exact: true })).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(page.getByRole("link", { name: "receipt", exact: true })).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(page.getByRole("button", { name: "Load a changed copy" })).toBeFocused();
     await page.getByRole("button", { name: "Clear" }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Payslip")).toHaveValue("");
-    await expect(page.getByLabel("Payslip")).toBeFocused();
+    await expect(page.getByLabel("Payslip", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Payslip", { exact: true })).toBeFocused();
     await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toHaveCount(0);
   });
 });

@@ -82,3 +82,35 @@ export const FAILURE_TEXT: Record<PayslipFailureKind, (network: ZecNetwork) => {
     text: "For your safety this page only shows answers in the published format. This one was not, so there is no result. Try again later.",
   }),
 };
+
+// ---- A payslip as a link or a QR code (openspec REQ-PAY-004) ----
+
+/** Said where a link or a QR code is made: what it holds, who can read it, and who to send it to. */
+export const LINK_WARNING =
+  "This link holds the whole payslip. Anyone who gets it can read its amount, its receiver and the key to its memo, and can present it as their own. Send it only to the person you want to prove the payment to.";
+
+/** Said where a link has been opened and its payslip put in the box. */
+export const LINK_NOTICE =
+  "This payslip came from a link. Whoever has that link has the payslip: its receiver, its amount and the key to its memo.";
+
+/** Said when a fragment claimed to be a payslip and was not. It never says what was in it. */
+export const LINK_PROBLEM = "This link does not hold a payslip this page can read. Nothing was loaded.";
+
+/** Under the QR code of a payslip's link. */
+export const QR_CAPTION =
+  "Scan this with a phone camera to open the payslip there. It holds the whole payslip, so show it only to the person you want to prove the payment to.";
+
+/** Where the page is open on the computer itself, a link made here points back to it. */
+export const LOOPBACK_NOTE =
+  "This page is open on this computer, so the link points here and opens only here. Open the public site to make a link someone else can open.";
+
+/** What is said after Share did not work, or a copy did not. Closing the share sheet says nothing. */
+export const LINK_FEEDBACK = {
+  fallback_copied: "Sharing did not work here, so the link was copied instead.",
+  copy_failed: "Could not copy. Make the link, select it and copy it yourself.",
+} as const;
+
+export type LinkFeedback = keyof typeof LINK_FEEDBACK;
+
+/** What the share sheet is given along with the link. */
+export const SHARE_TEXT = "A Zcash payslip to check:";

@@ -81,8 +81,8 @@ never echoing full addresses in errors. Name field ("Name this payout run", opti
 short chips ("Only 3 people: amounts are easy to guess") each with a "Why?" popover. Time estimate as one line ("About 20
 seconds"). Primary: **Looks right, continue**. Secondary: back.
 
-**Stage 3, Send.** One question first: *Is it funded?* Shows the funding address with a copy button (and QR only if a
-dependency-free renderer is trivial; otherwise skip) and a live "Waiting for funds" pulse that flips to "Funded" the
+**Stage 3, Send.** One question first: *Is it funded?* Shows the funding address with a copy button, an Open in wallet link and a QR code of the
+same wallet link (REQ-FUND-003; see "QR codes") and a live "Waiting for funds" pulse that flips to "Funded" the
 moment the operator sees it. Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
 0.00045 fee. It cannot be undone."). After confirming, the sheet becomes a live timeline: Preparing, Proving, Sending,
 Confirming 1 / 2 / 3, Done, with elapsed time and a realistic estimate; failures say what happened and what to do. On
@@ -129,6 +129,17 @@ the transaction with its explorer link, the action, the confirmations). It is in
 "What this does not prove" is always the last block, whatever happened above it. A check that gets no answer is a calm
 notice, never the bad colour: it says nothing about the payslip.
 
+After the two helpers and before the result, only when the box holds a payslip that reads as one: **Send this payslip**, a section
+under a hairline. First
+the warning, a ruled note with the marker's rule, always there and read before any button ("This link holds the whole
+payslip. Anyone who gets it can read its amount, its receiver and the key to its memo, and can present it as their own. Send it only
+to the person you want to prove the payment to."). Then up to three secondary buttons, Make a link, Show QR code and (only where the
+phone has a share sheet) Share; the first two toggle and say what they will do next. The link is a read-only box that selects itself
+on focus, in the mono face and breaking anywhere, with Copy payslip link under it; the QR code is the width of the column on a phone
+(at most 26rem) and four pixels a module from 48rem up. A page opened from a link has a ruled note above the box that says the
+payslip came from a link and who therefore has it; the address bar is already bare by then, and the page has not checked anything.
+A link that is not a payslip is one plain sentence above the box, in the problem colour, and nothing is loaded.
+
 **Get paid.** For a recipient on a phone, so one column and thumb-sized controls (nothing under 44px) from 360px up. A promise
 in one paragraph in larger type, then four numbered steps with a plain title each (Get a wallet, Copy your address, Give it to
 whoever is paying you, When you are paid); the number is a small ink square (the marker in the dark set), drawn and not read, level
@@ -136,6 +147,17 @@ with the top of its title. Step 3 is the one sheet: the box, a line that says th
 (the ink rule for a real-money address, the marker's rule for a practice, Sapling or unrecognised one, the bad colour for the one
 that would publish every payment), Share and Copy, and the line that says when they turn on. Share is the main button where the
 phone has a share sheet, Copy where it has none. There is no picture, no third-party font and no link out but the wallet's.
+
+## QR codes
+
+Two of them, and one component (`QrCode`): the funding request and a payslip link. A scanner reads dark on light, so the code is black
+on white in every theme (the roles `--qr-ink` and `--qr-paper`, black and white in the light set and in the dark set,
+held there by `colours.test.ts`), on a white sheet with four modules of quiet zone, whatever the page around it. It is an inline SVG
+with one `rect` and one `path`, named for a screen reader ("QR code for this deposit", "QR code of the payslip link"), and has a caption
+that says what scanning it does, in the text and not only in the picture. It is not recoloured by forced-colours. The funding code shows at md and
+up beside the address it belongs to, and below that behind a button, because a phone cannot scan itself; a payslip's is behind its button at every width. Where there is room a module
+is a whole number of pixels (five for the funding code, four for the longer payslip link); on a phone the code fills its box.
+Until the library is loaded a dashed square in its place says the code is being made, and a code that cannot be made says so.
 
 ## No wallet to connect
 

@@ -111,10 +111,22 @@ network's explorer. "What this does not prove" is always on the page: before a c
 
 Checking here hands the receiver, the amount and the secret that also opens the output's memo to whoever runs the verifier.
 The page says so next to the button, and points to `drop-operator verify-payslip --payslip FILE --tx FILE`, which needs no
-network. The payslip lives in the component's state only: not in a URL, storage, the query cache or the console, and the box
-is empty again when the person leaves. "Load a sample" is payslip 3 of the real 8-recipient testnet batch (the one the sample
+network. The payslip lives in the component's state only: not in storage, the query cache or the console, and not in an
+address (except the link below, which the person asks for), and the box is empty again when the person leaves. "Load a sample" is payslip 3 of the real 8-recipient testnet batch (the one the sample
 receipt shows, bundled from `../fixtures/testnet-ironwood-batch-8/`); "Load a changed copy" is the same with the amount one
 zatoshi higher, so a visitor can watch the check fail.
+
+A payslip in the box that reads as one can be sent as a link or a QR code (openspec REQ-PAY-004): "Make a link", "Show QR code"
+and, where the phone has a share sheet, "Share". The link is `<origin>/payslip#payslip=<the payslip's body, base64url, no
+padding>` (`src/api/payslip-link.ts`; the origin is `VITE_PUBLIC_RECEIPT_BASE_URL` if the build has one). The payslip is only
+after the `#`, which a browser never sends to a server, and the link is made when it is asked for, not before. It is a bearer
+document, and the page says so where it makes one: whoever has the link has the payslip, its receiver, its amount and the key to
+its memo, and can present it as their own. Opening a link reads the fragment once, strictly (a size cap, the base64url alphabet
+and nothing else, one spelling of the bytes, then the same reading as a paste), puts the payslip in the box and takes the
+fragment out of the address bar (`history.replaceState`, before anything else happens, whatever the fragment held). It never
+checks by itself: the page says the payslip came from a link, and the person presses Check payslip. A fragment that is not a
+payslip loads nothing and says so. The QR code is the same link, at the lowest error-correction level, drawn large on a phone
+(see "QR codes").
 
 ## The get-paid page
 
@@ -136,10 +148,24 @@ cookie, the history and the console while an address is pasted, checked, shared 
 wording and the address check for each of them; `e2e/get-paid.spec.ts` and the hosted spec count the requests the real page makes
 after it has loaded (none).
 
+## QR codes
+
+Two screens draw one (`src/components/QrCode.tsx`): the funding request on a real-chain campaign page, beside "Copy funding address"
+and "Open in wallet" (the same `zcash:` link, so a wallet that scans it fills in the address and the exact amount; openspec
+REQ-FUND-003), and a payslip link on `/payslip`. The matrix of modules comes from [uqr](https://github.com/unjs/uqr) 0.1.3 (MIT, no
+dependencies), loaded with `import("uqr")` into a chunk of its own (about 10 kB, 4 kB gzipped) the first time a code is drawn, so
+no page that draws none pays for it. The drawing is ours: one inline SVG (a paper `rect` and one `path`), a quiet zone of four modules,
+and black on white in every theme (`--qr-ink` and `--qr-paper`; `src/colours.test.ts` holds them to that), because a scanner reads
+dark on light. There is no canvas, no data URI and no request. The funding code is drawn only where there is a wallet link to put
+in it (not on the practice chain, not for an amount that cannot be put in one); at 768px and up it sits beside the address, below that
+behind a "Show QR code" button. Where there is room a module is a whole number of pixels, so that every module is as wide as every other.
+The tests read what was drawn with jsQR 1.4.0 (a devDependency that is never shipped), a decoder that did not draw it:
+`src/test/qr.ts` for the SVG, `e2e/qr.ts` for a screenshot of the page at the density of a phone.
+
 ## Hosting a public copy (receipt viewer only)
 
 A public, static copy of the app serves the home page, `/privacy`, `/get-paid`, the sample receipts, live receipt links and the
-payslip check (answered by a hosted verifier). Nothing is deployed from this repository by itself; the owner does that. The steps are in
+payslip check (answered by a hosted verifier), including a payslip opened from a link. Nothing is deployed from this repository by itself; the owner does that. The steps are in
 [`../docs/runbooks/hosted-demo.md`](../docs/runbooks/hosted-demo.md). In short:
 
 ```bash
@@ -217,6 +243,9 @@ in a test that fails if that changes. The payslip page is the one deliberate exc
 amount and a secret, and is sent to the verifier on request, in one POST body (see "The payslip page"). It is shown back only as
 an amount and a short receiver, and kept nowhere. `features/payslip/PayslipPage.test.tsx` and `e2e/payslip.spec.ts` carry a
 payslip through a check and fail if any of it turns up in storage, an address, the console, the query cache or a second request.
+The link the page makes on request is the only address it is ever in, and only after the `#`; `features/payslip/PayslipLink.test.tsx`
+and `e2e/payslip-link.spec.ts` open links good and bad and fail if the payslip is in the address bar or the history afterwards, in
+storage, the console or any request, or if opening a link calls `fetch` at all.
 
 The viewing key (for an auditor) is the one thing that discloses everything. It
 is requested only after the person ticks "I understand ..." (a fresh tick for
@@ -259,7 +288,8 @@ its hook mention storage, navigation, logging or a cache.
   - **public**: the public pages over `vite preview`, both themes, 360px and
     1280px: no console errors, no requests leaving the origin, no sideways
     scrolling, zero axe WCAG 2.2 A/AA violations, tab order and focus. The payslip page is
-    checked in every state of its result (the browser answers for the verifier), from the keyboard, and for where the payslip goes.
+    checked in every state of its result (the browser answers for the verifier), from the keyboard, and for where the payslip goes,
+    as a link and a QR code (read back from the pixels), and opened from a link, good and bad, with the address bar bare afterwards.
     The get-paid page is checked with an address of every shape, with a share sheet that accepts, is closed and refuses, at 360px
     for thumb-sized controls, and for the requests it makes after it has loaded (none).
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
@@ -267,7 +297,8 @@ its hook mention storage, navigation, logging or a cache.
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
     live receipt link, that the policy is really in force (a request to any other origin is blocked and reported), that
     the operator pages explain themselves and call nothing, that a payslip is checked against the stub (preflight, one POST of
-    JSON, Verified for the sample, a refusal for the changed copy) with no violation, that the get-paid page takes, shares and
+    JSON, Verified for the sample, a refusal for the changed copy) with no violation, that a page opened from a payslip link loads
+    under the policy and the stub answers its check, that the get-paid page takes, shares and
     copies an address under the policy and asks no one for anything, and that `scripts/check-hosted.mjs` passes.
   - **operator**: `e2e/operator/global-setup.ts` starts the real binary on a
     free loopback port with a temporary store, reads the token from its start-up banner,
@@ -282,7 +313,8 @@ its hook mention storage, navigation, logging or a cache.
     `viewing-key.spec.ts` is the key test above. `a11y.spec.ts` runs axe on every
     operator page at 360px and 1280px in both themes, with every section opened,
     the send sheet, a run in progress, a stopped run and a failed one (from the operator's captured
-    files), and the real-chain funding states and the key (from its `golden/` files). The global setup refuses to run
+    files), and the real-chain funding states and the key (from its `golden/` files). `funding-qr.spec.ts` reads the funding
+    QR code from the pixels, at both widths and in both themes, for testnet and mainnet. The global setup refuses to run
     if `dist/` is older than `src/`.
 
 ## Folder map
@@ -291,24 +323,25 @@ its hook mention storage, navigation, logging or a cache.
 src/
   api/          wire types + strict zod validators (types, findings, warnings),
                 receipt link + fetch (receipt-query, receipt, endpoints, demo);
-                the payslip check (payslip-input: the paste, payslip-answer, payslip: the POST, payslip-sample);
+                the payslip check (payslip-input: the paste, payslip-answer, payslip: the POST, payslip-sample,
+                payslip-link: a payslip as a link and back);
     operator/   the operator API: schemas (strict, from captured responses),
                 client, session (in-memory token), events (SSE over fetch)
-  components/   app chrome (TopBar, Footer, AppShell), CopyButton, Zec, TxActions;
+  components/   app chrome (TopBar, Footer, AppShell), CopyButton, Zec, TxActions, QrCode;
                 ui/ is generated by shadcn
   features/
     home/       "/"             public pitch
     receipt/    "/r/:id"        PUBLIC receipt viewer
     get-paid/   "/get-paid"     "Get paid in ZEC": how to be paid, the address check, Share and Copy
-    payslip/    "/payslip"      "Check a payslip": the paste box, the verdict, what it does not prove
+    payslip/    "/payslip"      "Check a payslip": the paste box, the verdict, what it does not prove, the link and QR code
     privacy/    "/privacy"      "Privacy boundary" page
     operator/   the token gate, hooks, wording (messages.ts),
-                batch list, funding and start panels
+                batch list, funding (with its QR code) and start panels
     campaigns/  "/campaigns"    the operator's campaigns
     wizard/     "/new/..."      three stages (Payouts, Check, Send), the in-memory draft, PrivacyWarnings
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
-  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), phase, fees, ids, explorer, theme, utils
+  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, phase, fees, ids, explorer, theme, utils
   test/         fake operator, fixture loader, Rust-source reader, render helper
   index.css     palette (Redacted paper, light and dark), roles, motion, Tailwind map
 tests/          guard tests that run ESLint itself
