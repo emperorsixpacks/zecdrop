@@ -7,10 +7,13 @@ Three ways, from least to most effort. Everything is on **Zcash testnet**; nothi
 Open <https://zecdrop-site.vercel.app>.
 
 - **Home** explains the idea and how a payout is run.
-- **See a real receipt** opens `/r/demo?demo=real`: the receipt for the real 8-recipient testnet payout
-  (txid `6e2359182d1dc772…`). This page is a **saved copy** of the verifier's answer, not a live lookup. The site cannot
-  run a payout or look up other transactions, because the operator holds the keys and runs on your own computer (there is
-  no wallet to connect), and the hosted verifier is **not deployed yet**.
+- **A live receipt:** [the real 8-recipient testnet payout](https://zecdrop-site.vercel.app/r/real-8?network=testnet&tx=6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955&commitment=698ec02d7e72ec60a11f5a6e176288bf4a27e86304dfe75330bfb82051b976f8&declared_total=500000)
+  (txid `6e2359182d1dc772…`). The page asks the hosted verifier, which reads public Zcash testnet and recomputes the totals,
+  so this is a live check, not a stored page. Expect "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ". The verifier runs on a
+  teammate's server; if the page says it cannot reach it, use path 2, which needs only Docker.
+- **See a real receipt** opens `/r/demo?demo=real`, a saved copy of the same answer that works even when the verifier is down.
+- The site cannot run a payout, because the operator holds the keys and runs on your own computer (there is no wallet to
+  connect).
 
 ## 2. Check the real payout yourself (Docker, no keys, no coins)
 

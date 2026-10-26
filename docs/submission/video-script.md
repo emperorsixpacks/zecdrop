@@ -17,14 +17,15 @@ Goal: a judge understands the product, sees it work on a real chain, and hears t
 
 ## The receipt scene
 
-The hosted verifier is **not deployed** (as of 2026-10-15), so the live site answers `/r/demo?demo=real` from a bundled
-copy of the real answer. Pick one and say which on camera; never imply a live chain lookup when it is the copy.
+The hosted verifier is deployed (a teammate's VPS, checked 2026-10-16), so the receipt can be a live lookup. Say which it is
+on camera; never imply a live chain lookup when it is the bundled copy.
 
-- **Copy (works today):** open `https://zecdrop-site.vercel.app/r/demo?demo=real`. Say "this is a saved copy of the
-  verifier's answer for the real transaction." The page reads "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ".
-- **Live lookup:** if the hosted verifier is deployed before recording, open the shareable link from the finished campaign
-  instead, and say "this page just asked the verifier, which read the chain." A local verifier plus a local build of the site
-  gives the same picture (see `docs/runbooks/hosted-demo.md`).
+- **Live lookup (use this):** open the shareable link for the real batch:
+  `https://zecdrop-site.vercel.app/r/real-8?network=testnet&tx=6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955&commitment=698ec02d7e72ec60a11f5a6e176288bf4a27e86304dfe75330bfb82051b976f8&declared_total=500000`. Say "this page just asked
+  the verifier, which read the chain." The page reads "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ". Open it once
+  before recording to be sure the VPS is up.
+- **Copy (fallback if the verifier is unreachable):** open `https://zecdrop-site.vercel.app/r/demo?demo=real` and say "this is
+  a saved copy of the verifier's answer for the real transaction."
 
 ## Prepare before recording
 

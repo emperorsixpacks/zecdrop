@@ -1,14 +1,16 @@
 # Runbook — hosted public demo (receipt viewer)
 
-**Status (2026-10-15): the static site is deployed, the verifier is not.** The site is live at
-<https://zecdrop-site.vercel.app> (uploaded with the Vercel CLI from `web/dist`, built with `npm run build:hosted`; it was
-checked from outside: every route answers, the headers are present, no console errors, the bundled real receipt renders). It
-was built for a verifier at `https://zecdrop-verifier.fly.dev`, which does not exist. The plan is a VPS instead of Fly.io
-(which needs a payment method): [`deploy/vps/`](../../deploy/vps/README.md) is ready and was tested locally, and a teammate
-hosts it. When its https address is known, the site is rebuilt with `VITE_API_URL=<that address>` (the content-security
-policy names the verifier's origin at build time) and uploaded again. Until then, live receipt links say the verifier is
-unreachable; the bundled samples work. Before that, everything below was also checked locally against a stub verifier
-(`web/e2e/hosted/`).
+**Status (2026-10-16): the site and the verifier are both deployed.** The site is live at
+<https://zecdrop-site.vercel.app> (uploaded with the Vercel CLI from `web/dist`, built with `npm run build:hosted`). The
+verifier runs on a teammate's VPS at `https://sdamphofqtywy3tnaonev8rw.161.35.55.45.sslip.io`, from
+[`deploy/vps/`](../../deploy/vps/README.md) (a Fly.io app was the first plan, but Fly needs a payment method). The site was
+rebuilt with `VITE_API_URL=https://sdamphofqtywy3tnaonev8rw.161.35.55.45.sslip.io`, because the content-security policy names the verifier's origin at build time; if the
+verifier's address ever changes, rebuild and upload again. Checked on 2026-10-16: `web/scripts/check-hosted.mjs` passes every
+check (CSP, CORS for the site's origin, the real batch `settled` with no findings), and in a headless Chromium the shareable
+link for the real batch loads with one request, to the verifier, and no console errors. The bundled sample
+(`/r/demo?demo=real`) still works when the verifier is down. The VPS and its certificate (Let's Encrypt, valid to 2027-01-14,
+renewal not yet observed) must stay up through judging. Before that, everything below was also checked locally against a
+stub verifier (`web/e2e/hosted/`).
 
 ## What this is, and what it is not
 

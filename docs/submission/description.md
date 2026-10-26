@@ -46,12 +46,12 @@ not been done.
 **Honest limits.** Not audited (one independent code review was done; see `docs/SECURITY.md`). Testnet-first; nothing has
 run on mainnet. Campaigns larger than one batch need a funding-split step that is not built. NEAR Intents funding shows a
 live price preview on testnet and creates nothing; its mainnet quote and status paths have only run against a fake service.
-Released wallets probably cannot sync current testnet, so the recipient side is shown with our own tool. The public site
-answers the real receipt from a bundled copy, because the hosted verifier is not deployed yet; the verifier itself is in the
-repository and builds as a container.
+Released wallets probably cannot sync current testnet, so the recipient side is shown with our own tool. The hosted
+verifier runs on a single teammate's server, so live receipt links depend on that server and on the public testnet node it
+reads; the same verifier is in the repository and runs from one Docker command.
 
-**Links.** Repository: [url]. Demo: <https://zecdrop-site.vercel.app> (the public receipt viewer; open the sample receipt for
-the real 8-recipient run). Video: [url].
+**Links.** Repository: [url]. Demo: <https://zecdrop-site.vercel.app> (the public receipt viewer; [this link](https://zecdrop-site.vercel.app/r/real-8?network=testnet&tx=6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955&commitment=698ec02d7e72ec60a11f5a6e176288bf4a27e86304dfe75330bfb82051b976f8&declared_total=500000) checks the
+real 8-recipient run live). Video: [url].
 
 **Build window.** All code in this repository was written during the ZECATHON build window; third-party
 libraries are dependencies, and generated or fetched protocol files are recorded in PROVENANCE.md files.
