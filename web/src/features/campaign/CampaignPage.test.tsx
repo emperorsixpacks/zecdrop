@@ -20,6 +20,7 @@ import {
 } from "@/test/fake-operator";
 import { FUNDING_SOURCE_WORDING } from "@/features/operator/funding-source-wording";
 import { INBOX_WORDING } from "@/features/operator/inbox-wording";
+import { TESTNET_FAUCET_URL } from "@/lib/faucet";
 import { fundingPaymentUri } from "@/lib/payment-uri";
 import { BANNED } from "@/test/banned-phrases";
 import { fixtureJson, goldenJson } from "@/test/operator-fixtures";
@@ -65,7 +66,7 @@ const quietStream: RouteHandler = () => ({ status: 200, body: null, raw: { text:
 const summary = () => screen.getByTestId("payout-summary");
 
 describe("a campaign waiting for funding", () => {
-  it("shows its status, figures and the practice chain's deposit form", async () => {
+  it("shows its status, figures and the fake chain's deposit form", async () => {
     open({ "GET /api/campaigns/:id": () => replyWith("campaign-awaiting-funding.json") });
     expect(await screen.findByRole("heading", { level: 1, name: "Sentinel campaign" })).toBeInTheDocument();
     expect(screen.getByText(ID)).toBeInTheDocument();
@@ -73,7 +74,7 @@ describe("a campaign waiting for funding", () => {
     expect(summary()).toHaveTextContent("11.625 TAZ");
     expect(summary()).toHaveTextContent("+ 0.00035 TAZ fee");
     expect(screen.getByText("Waiting for funds")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Practice mode: record a pretend deposit" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Fake chain: record a pretend deposit" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Privacy warnings (1)" })).toBeInTheDocument();
   });
 
@@ -259,7 +260,7 @@ describe("a funded campaign", () => {
 
 describe("a funded campaign on testnet", () => {
   it.each([
-    ["the practice chain", mockHealth, "campaign-funded.json"],
+    ["the fake chain", mockHealth, "campaign-funded.json"],
     ["a real testnet", realHealth, "campaign-real-funded.json"],
   ] as const)("on %s the sheet has no box to tick, and its button is ready", async (_name, health, file) => {
     const user = userEvent.setup();
@@ -411,7 +412,7 @@ describe("a run in progress", () => {
     expect(screen.getByTestId("elapsed")).toHaveTextContent(/^Watching for \d+:\d\d$/u);
   });
 
-  it("says the wait is an estimate, and not on the practice chain", async () => {
+  it("says the wait is an estimate, and not on the fake chain", async () => {
     openRunning();
     await screen.findByRole("heading", { name: "Sending the payouts" });
     expect(screen.queryByText(/These are estimates/u)).toBeNull();
@@ -589,7 +590,7 @@ describe("a settled campaign", () => {
     expect(await screen.findByRole("button", { name: "Auditor access" })).toHaveAttribute("aria-expanded", "false");
     await user.click(await screen.findByRole("button", { name: "Give an auditor access" }));
     expect(screen.getByRole("button", { name: "Auditor access" })).toHaveAttribute("aria-expanded", "true");
-    // The irreversible-disclosure warning is the first thing in it. (The practice chain has no real
+    // The irreversible-disclosure warning is the first thing in it. (The fake chain has no real
     // keys, so there is nothing to confirm or show here; the real-chain tests cover the confirmation.)
     expect(await screen.findByText("This cannot be undone")).toBeInTheDocument();
     expect(screen.getByText(/no real viewing keys/u)).toBeInTheDocument();
@@ -685,7 +686,7 @@ describe("a real chain", () => {
     await user.click(screen.getByRole("button", { name: "About the deposit" }));
     expect(await screen.findByText(/The funding address and the amount are public/u)).toBeInTheDocument();
     // Not the mock chain: no pretend deposit.
-    expect(screen.queryByRole("heading", { name: "Practice mode: record a pretend deposit" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Fake chain: record a pretend deposit" })).toBeNull();
     expect(screen.queryByText("Mock chain:")).toBeNull();
   });
 
@@ -709,6 +710,28 @@ describe("a real chain", () => {
     expect(
       screen.getByText("Send exactly that amount. A surplus comes back as change to an address this operator cannot spend on mainnet."),
     ).toBeInTheDocument();
+  });
+
+  // covers: REQ-RUN-003
+  it("on testnet points to the faucet, which pays this address directly", async () => {
+    open({ "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json") }, realHealth);
+    const faucet = await screen.findByTestId("faucet");
+    expect(faucet).toHaveTextContent("No test coins? The testnet faucet pays this address for free.");
+    const link = within(faucet).getByRole("link", { name: "testnet faucet" });
+    expect(link).toHaveAttribute("href", TESTNET_FAUCET_URL);
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  // covers: REQ-RUN-003
+  it("on mainnet names no faucet", async () => {
+    const mainnetHealth: RouteHandler = () => ({ body: { ...(goldenJson("health-real.json") as Json), network: "mainnet" } });
+    open(
+      { "GET /api/campaigns/:id": () => ({ body: { ...(goldenJson("campaign-real-awaiting-deposit.json") as Json), network: "mainnet" } }) },
+      mainnetHealth,
+    );
+    expect(await screen.findByText(/to this address, in one\s+deposit/u)).toBeInTheDocument();
+    expect(screen.queryByTestId("faucet")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/faucet/iu);
   });
 
   it("offers 'Open in wallet': a zcash link with this address and exactly the amount to send, and nothing else", async () => {
@@ -769,9 +792,9 @@ describe("a real chain", () => {
       expect(screen.getByRole("button", { name: "Check for the deposit now" })).toBeEnabled();
     });
 
-    it("is not on the practice chain, where nothing real can be paid", async () => {
+    it("is not on the fake chain, where nothing real can be paid", async () => {
       open({ "GET /api/campaigns/:id": () => replyWith("campaign-awaiting-funding.json") });
-      await screen.findByRole("heading", { name: "Practice mode: record a pretend deposit" });
+      await screen.findByRole("heading", { name: "Fake chain: record a pretend deposit" });
       expect(screen.queryByRole("button", { name: "Fund from another coin" })).toBeNull();
     });
 

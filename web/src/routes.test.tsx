@@ -27,7 +27,8 @@ afterEach(() => {
 });
 
 const PUBLIC_HEADINGS: [path: string, heading: string][] = [
-  ["/", "Pay many people. Keep who got what private. Prove the total."],
+  ["/", "Pay many people. Keep it private. Prove the total."],
+  ["/start", "Make a payout"],
   ["/r/abc123", "Payout receipt"],
   ["/r/demo?demo=1", "Payout receipt"],
   ["/r/demo?demo=real", "Payout receipt"],
@@ -142,7 +143,7 @@ describe("layouts", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
   });
 
-  it.each(["/", "/r/abc123", "/r/demo?demo=1", "/get-paid", "/payslip", "/privacy", "/nope"])(
+  it.each(["/", "/start", "/r/abc123", "/r/demo?demo=1", "/get-paid", "/payslip", "/privacy", "/nope"])(
     "shows only the public menu on %s",
     (path) => {
       renderAt(path);
@@ -155,6 +156,8 @@ describe("layouts", () => {
       expect(within(nav).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
       expect(within(nav).getByRole("link", { name: "How privacy works" })).toHaveAttribute("href", "/privacy");
       expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+      // This page is the operator's own (loopback): its Make a payout is its payouts.
+      expect(within(nav).getByRole("link", { name: "Make a payout" })).toHaveAttribute("href", "/campaigns");
       for (const label of OPERATOR_ONLY) {
         expect(within(nav).queryByRole("link", { name: label })).toBeNull();
       }
@@ -168,6 +171,7 @@ describe("layouts", () => {
 
   it.each([
     ["/", "Home"],
+    ["/start", "Make a payout"],
     ["/r/abc123", "Receipt"],
     ["/get-paid", "Get paid"],
     ["/payslip", "Payslip"],

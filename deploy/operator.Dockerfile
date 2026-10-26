@@ -13,7 +13,10 @@ COPY web ./
 # The app bundles the example list and a few public receipts from these.
 COPY examples /src/examples
 COPY fixtures /src/fixtures
-RUN npm run build
+# Receipt and payslip links name the public site, which anyone can open and which checks them with its key-less verifier (the
+# operator does not serve those checks). Build with --build-arg PUBLIC_SITE= to keep the links on your own computer instead.
+ARG PUBLIC_SITE=https://zecdrop-site.vercel.app
+RUN VITE_PUBLIC_RECEIPT_BASE_URL="$PUBLIC_SITE" npm run build
 
 # The operator.
 FROM rust:1.92-bookworm AS build
@@ -24,7 +27,7 @@ WORKDIR /src
 # Cargo needs every workspace member's manifest to resolve, so copy the whole crates/ tree.
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
-# The caches make a rebuild after `./zecdrop update` take minutes, not the first build's half hour.
+# The caches make a rebuild after `./zecdrop update` far quicker than the first build.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked -p drop-operator \

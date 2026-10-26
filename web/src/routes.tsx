@@ -2,7 +2,6 @@ import { Route, Routes } from "react-router";
 
 import { PublicLayout } from "@/components/AppShell";
 import { NotFoundPage } from "@/components/NotFoundPage";
-import { PracticeLeaver } from "@/components/PracticeBanner";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import AuditPage from "@/features/audit/AuditPage";
 import CampaignPage from "@/features/campaign/CampaignPage";
@@ -13,6 +12,7 @@ import { OperatorArea } from "@/features/operator/OperatorArea";
 import PayslipPage from "@/features/payslip/PayslipPage";
 import PrivacyPage from "@/features/privacy/PrivacyPage";
 import ReceiptPage from "@/features/receipt/ReceiptPage";
+import StartPage from "@/features/start/StartPage";
 import CheckStage from "@/features/wizard/CheckStage";
 import PayoutFlow from "@/features/wizard/PayoutFlow";
 import PayoutsStage from "@/features/wizard/PayoutsStage";
@@ -21,7 +21,6 @@ import SendStage from "@/features/wizard/SendStage";
 export function AppRoutes() {
   return (
     <>
-      <PracticeLeaver />
       <ScrollToTop />
       <Routes>
         {/* Operator routes: served by the local binary. On a hosted public copy they explain themselves. */}
@@ -44,6 +43,7 @@ export function AppRoutes() {
           <Route path="get-paid" element={<GetPaidPage />} />
           <Route path="payslip" element={<PayslipPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="start" element={<StartPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

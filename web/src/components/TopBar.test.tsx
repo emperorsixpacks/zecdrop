@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "@/test/dom";
 import { island, islandPanel, openIsland } from "@/test/island";
-import { usePractice } from "@/lib/practice-mode";
 
 import { TopBar } from "./TopBar";
 
@@ -23,7 +22,7 @@ function show(props: Props, path = "/") {
 /** The capsule's element, the one that is open or closed. */
 const capsuleOf = () => island().closest(".island") as HTMLElement;
 
-const PUBLIC_LABELS = ["Home", "Sample receipt", "Get paid", "Check a payslip", "How privacy works"];
+const PUBLIC_LABELS = ["Make a payout", "Home", "Sample receipt", "Get paid", "Check a payslip", "How privacy works"];
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -56,7 +55,7 @@ describe("the capsule, closed", () => {
     ["/audit", true, "Audit"],
   ])("on %s it names the page %s", (path, operator, name) => {
     show({ showOperatorNav: operator }, path);
-    expect(island()).toHaveTextContent(new RegExp(`${name}\\s*(testnet|Mainnet|Practice)$`, "u"));
+    expect(island()).toHaveTextContent(new RegExp(`${name}\\s*(testnet|Mainnet)$`, "u"));
   });
 
   it("says the name of the site once on a page that has no name of its own", () => {
@@ -127,13 +126,15 @@ describe("opening the capsule", () => {
     expect(island()).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("holds the five public links, in order, each named as it was in the header it replaces", async () => {
+  // covers: REQ-RUN-002
+  it("holds the six public links, in order, with Make a payout first: on the operator's own page, its payouts", async () => {
     const user = userEvent.setup();
     show({ showOperatorNav: false }, "/privacy");
     const nav = await openIsland(user);
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => a.textContent)).toEqual(PUBLIC_LABELS);
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/", "/r/demo?demo=real", "/get-paid", "/payslip", "/privacy"]);
+    // On the public site the first is the page that says how to run ZecDrop (HostedNotice.test.tsx).
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/campaigns", "/", "/r/demo?demo=real", "/get-paid", "/payslip", "/privacy"]);
     for (const label of PUBLIC_LABELS) expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
   });
 
@@ -385,7 +386,7 @@ describe("the operator's header", () => {
     const nav = within(islandPanel()).getByRole("navigation", { name: "Primary" });
     expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Payouts", "Audit"]);
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("Practice mode: nothing is sent to Zcash");
+    expect(status).toHaveTextContent("Fake chain: nothing is sent to Zcash");
     // Seen without opening anything: not in the panel, which is closed.
     expect(islandPanel()).not.toContainElement(status);
     expect(island()).not.toContainElement(status);
@@ -395,7 +396,7 @@ describe("the operator's header", () => {
   it("says when the chain is not known, in the same line", () => {
     show({ showOperatorNav: true, modeUnknown: true }, "/campaigns");
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("Chain mode unknown: practice controls hidden");
+    expect(status).toHaveTextContent("Chain mode unknown: fake-chain controls hidden");
     expect(islandPanel()).not.toContainElement(status);
   });
 
@@ -434,50 +435,3 @@ describe("the operator's header", () => {
   });
 });
 
-// covers: REQ-DEMO-001
-describe("in practice mode", () => {
-  afterEach(() => {
-    usePractice.setState({ on: false });
-  });
-
-  it("the capsule says Practice where it named the network, and names no network", () => {
-    usePractice.setState({ on: true });
-    show({ showOperatorNav: false });
-    expect(island()).toHaveAccessibleName("ZecDrop Home Practice");
-    expect(within(island()).getByText("Practice", { exact: true })).toHaveAttribute("data-network", "practice");
-    expect(screen.queryByText("Zcash testnet")).toBeNull();
-    expect(screen.queryByText("Zcash mainnet")).toBeNull();
-  });
-
-  it("even a page built for mainnet does not say mainnet in practice mode: nothing in it is on a network", () => {
-    usePractice.setState({ on: true });
-    show({ showOperatorNav: false, network: "mainnet" });
-    expect(screen.queryByText("Zcash mainnet")).toBeNull();
-    expect(screen.queryByText("Mainnet")).toBeNull();
-    expect(within(island()).getByText("Practice", { exact: true })).toBeInTheDocument();
-  });
-
-  it("the operator's header says Practice, once, and not both that and the practice chain's line", () => {
-    usePractice.setState({ on: true });
-    show({ showOperatorNav: true, mock: true, network: "testnet" }, "/campaigns");
-    expect(screen.getAllByText("Practice", { exact: true })).toHaveLength(1);
-    expect(screen.queryByText("Practice mode: nothing is sent to Zcash")).toBeNull();
-    expect(screen.queryByText("Zcash testnet")).toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("says in the open panel what Practice is: nothing is real", async () => {
-    const user = userEvent.setup();
-    usePractice.setState({ on: true });
-    show({ showOperatorNav: false });
-    await openIsland(user);
-    expect(within(islandPanel()).getByText("Practice, nothing is real")).toBeInTheDocument();
-  });
-
-  it("is the header it was when practice mode is off", () => {
-    show({ showOperatorNav: true, mock: true, network: "testnet" }, "/campaigns");
-    expect(screen.queryByText("Practice", { exact: true })).toBeNull();
-    expect(screen.getByText("Practice mode: nothing is sent to Zcash")).toBeInTheDocument();
-    expect(screen.getByText("Zcash testnet")).toBeInTheDocument();
-  });
-});

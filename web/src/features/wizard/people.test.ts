@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { importCsv } from "@/practice/csv";
+import { importCsv } from "@/test/csv-import";
 import { formatZec, parseZec } from "@/lib/zec";
 
 import {
@@ -33,7 +33,7 @@ function seeded(seed: number) {
 
 const sum = (shares: readonly bigint[]) => shares.reduce((a, b) => a + b, 0n);
 
-// Addresses that the practice importer (a port of the operator's, with the mock chain's shape-only codec) accepts.
+// Addresses that the test importer (a port of the operator's, with the mock chain's shape-only codec) accepts.
 const A = "u1alphaaddressforthelisttest";
 const B = "u1bravoaddressforthelisttest";
 const C = "u1charlieaddressforthelisttest";

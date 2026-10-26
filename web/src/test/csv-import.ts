@@ -1,10 +1,9 @@
-// The operator's CSV importer, as the practice chain runs it: a port of crates/drop-core/src/import.rs with the address check
-// of crates/drop-operator/src/codec.rs, which looks at the SHAPE of an address and nothing else (no checksum, no network).
-// A list is answered line by line as the operator answers it, with the operator's own sentences, and
-// csv.test.ts compares the answers with the ones the real operator gave (fixtures/contract/operator).
+// The operator's CSV importer, for tests of what the page writes (the people list): a port of crates/drop-core/src/import.rs
+// with the address check of crates/drop-operator/src/codec.rs, which looks at the SHAPE of an address and nothing else (no
+// checksum, no network). A list is answered line by line as the operator answers it, with the operator's own sentences, and
+// csv-import.test.ts compares the answers with the ones the real operator gave (fixtures/contract/operator).
 //
-// A list is read once, here, into rows that the plan (plan.ts) turns into counts and totals; the rows are not kept. No
-// error holds the text that was wrong: a line number, a kind, and static words.
+// No error holds the text that was wrong: a line number, a kind, and static words.
 
 export const MAX_MEMO_BYTES = 512;
 export const MAX_ADDRESS_BYTES = 1_024;
@@ -153,7 +152,7 @@ function parseAmount(text: string): { zatoshi: bigint } | { reason: AmountReason
   return zatoshi > MAX_MONEY ? fail("exceeds_max_money") : { zatoshi };
 }
 
-// ---- addresses: the practice chain looks at the shape only ------------------------------------------
+// ---- addresses: the shape only, as the mock chain's codec looks -----------------------------------
 
 type Receiver = "unified" | "shielded" | "transparent";
 

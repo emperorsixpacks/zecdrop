@@ -461,8 +461,8 @@ html[data-motion="calm"] { --motion: 0.35; }
 }
 
 /* The screen: a fixed frame on top of the page, drawn as a ring of the bezel colour around a window with rounded corners. It
- * takes no press and no scroll (pointer-events: none), and the page scrolls under it as it always did. It is above the page and
- * the practice banner, and below the capsule, the popovers, the toast and the dialogs (which the browser draws in its top
+ * takes no press and no scroll (pointer-events: none), and the page scrolls under it as it always did. It is above the page, and
+ * below the capsule, the popovers, the toast and the dialogs (which the browser draws in its top
  * layer). Content that sits near a corner must stay clear of the curve: --frame-pad is the least distance from the screen's
  * edge at which a box's corner is still inside it (the bezel, and the part of the corner's circle that cuts in). */
 :root {
@@ -487,7 +487,7 @@ html[data-motion="calm"] { --motion: 0.35; }
 /* The paper's grain: a faint, static speckle on the desk, from a small file of the site's own (the hosted policy allows no
  * data: image). It is one fixed layer behind the content, so it costs no layout and does not move with a scroll; the cards sit
  * above it and stay clean. The speckle is black; after hours it is turned to white. --grain-opacity is its strength, for whoever
- * wants it more or less (or none: the tour's pictures, which are of the operator's screens and not of this page, set it to 0). */
+ * wants it more or less, or none (0). */
 body::before {
   content: "";
   position: fixed;
@@ -586,12 +586,12 @@ dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(
   to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; }
 }
 
-/* The practice-mode pill: hatched, so it reads as "not real". */
+/* The fake-chain pill: hatched, so it reads as "not real". */
 .hatched {
   background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--foreground) 9%, transparent) 5px 6px);
 }
 
-/* The practice-mode pill, on the header capsule: stripes of the capsule's own ink, since the capsule is dark where the
+/* The fake-chain pill, on the header capsule: stripes of the capsule's own ink, since the capsule is dark where the
  * page is light and the other way round. (After .hatched, which it overrides.) */
 .island .hatched {
   background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--island-ink) 30%, transparent) 5px 6px);
@@ -616,7 +616,7 @@ html {
 
 @layer components {
   /* The strip the capsule sits in. As tall as the closed capsule, so opening it never moves the page; it lets every press
-   * through but the capsule's own. It sticks below the practice banner, which scrolls away. */
+   * through but the capsule's own. */
   .island-header {
     position: sticky;
     top: var(--island-edge);

@@ -136,7 +136,6 @@ describe("failures are sorted into kinds", () => {
   const cases: [status: number, code: string | null, kind: PayslipFailureKind][] = [
     [413, "payload_too_large", "too_large"],
     [413, null, "too_large"],
-    [409, "practice_mode", "practice"],
     [409, "something_else", "unreachable"],
     [409, null, "unreachable"],
     [400, "invalid_payslip", "rejected"],
@@ -172,9 +171,6 @@ describe("failures are sorted into kinds", () => {
     expect(mapFailure(500, "chain_unavailable")).toBe("unreachable");
     expect(mapFailure(400, "chain_unavailable")).toBe("rejected");
     expect(mapFailure(503, "network_not_configured")).toBe("unreachable");
-    // Practice mode's refusal is only that on the status it is given with.
-    expect(mapFailure(400, "practice_mode")).toBe("rejected");
-    expect(mapFailure(500, "practice_mode")).toBe("unreachable");
   });
 
   it.each([

@@ -6,7 +6,7 @@
 // value, never throws, and hands the address back only for a shape that suits a payout.
 //
 //   u1…               a unified address on mainnet: real money
-//   utest1…           a unified address on testnet: practice only
+//   utest1…           a unified address on testnet: test coins only
 //   t1… t3… tm… t2…   a transparent address (mainnet, testnet): it shows every payment publicly
 //   zs1… ztestsapling1…   a Sapling address: an older shielded kind
 
@@ -19,7 +19,7 @@ export interface AddressShape {
   kind: AddressKind;
   /** Only for "unrecognised". */
   why: UnrecognisedWhy | null;
-  /** Whether a payout can pay an address of this shape: a unified address, real or practice. */
+  /** Whether a payout can pay an address of this shape: a unified address, mainnet or testnet. */
   suitsPayouts: boolean;
   /** The address to share or copy: trimmed, and in lower case (Bech32 is the same address in either case).
    * Empty unless the shape suits a payout. */

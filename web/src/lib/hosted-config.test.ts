@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { TOUR_LOOKS, TOUR_SHOTS, tourImageSrc } from "@/features/home/tour-steps";
-
 import {
   buildHostedConfig,
   CLIENT_ROUTES,
@@ -90,7 +88,7 @@ describe("buildHostedConfig", () => {
   it("answers every client route with index.html", () => {
     expect(config.rewrites.map((r) => r.source)).toEqual([...CLIENT_ROUTES]);
     for (const rewrite of config.rewrites) expect(rewrite.destination).toBe("/index.html");
-    for (const path of ["/r/c-1", "/r/demo", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new", "/new/basics", "/campaign/c-1", "/audit"]) {
+    for (const path of ["/r/c-1", "/r/demo", "/privacy", "/payslip", "/get-paid", "/start", "/campaigns", "/new", "/new/basics", "/campaign/c-1", "/audit"]) {
       expect(
         config.rewrites.some((r) => matchSource(r.source, path)),
         path,
@@ -107,16 +105,8 @@ describe("buildHostedConfig", () => {
     }
   });
 
-  it("leaves the home page tour's pictures alone too: they are files in /tour, not client routes", () => {
-    const pictures = TOUR_SHOTS.flatMap((shot) => TOUR_LOOKS.map((look) => tourImageSrc(shot, look)));
-    expect(pictures).toHaveLength(16);
-    for (const path of pictures) {
-      expect(path).toMatch(/^\/tour\/[a-z-]+\.webp$/u);
-      expect(
-        config.rewrites.some((r) => matchSource(r.source, path)),
-        path,
-      ).toBe(false);
-    }
+  it("leaves the page's own picture alone too: the paper texture is a file, not a client route", () => {
+    expect(config.rewrites.some((r) => matchSource(r.source, "/grain.png"))).toBe(false);
   });
 
   it("does not mistake /campaigns for /campaign/…", () => {

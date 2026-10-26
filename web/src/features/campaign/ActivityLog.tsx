@@ -1,7 +1,6 @@
 import type { StreamStatus } from "@/api/operator/events";
 import type { ProgressEvent } from "@/api/operator/schemas";
 import { describeEvent } from "@/features/operator/messages";
-import { usePractice } from "@/lib/practice-mode";
 
 const STATUS_TEXT: Record<StreamStatus, string> = {
   connecting: "Connecting to the operator…",
@@ -20,7 +19,6 @@ interface ActivityLogProps {
 /** What the engine reports as it works, in plain words. The events carry batch
  * numbers, counts and transaction ids: never anything about a recipient. */
 export function ActivityLog({ log, status, unreadable }: ActivityLogProps) {
-  const practice = usePractice((state) => state.on);
   return (
     <div className="max-w-[64ch] space-y-3">
       <p className="text-base text-muted-foreground" data-testid="stream-status">
@@ -40,7 +38,7 @@ export function ActivityLog({ log, status, unreadable }: ActivityLogProps) {
         <div role="log" aria-label="Activity log" tabIndex={0} className="max-h-72 overflow-y-auto rounded-(--r-control) text-base outline-none">
           <ol className="space-y-1">
             {log.map((event, index) => (
-              <li key={`${String(index)}-${event.event}`}>{describeEvent(event, practice)}</li>
+              <li key={`${String(index)}-${event.event}`}>{describeEvent(event)}</li>
             ))}
           </ol>
         </div>

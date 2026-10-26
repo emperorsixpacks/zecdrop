@@ -79,9 +79,9 @@ test("a request that names another host is refused by the operator", async ({ re
   expect([403, 421]).toContain(response.status());
 });
 
-// The home page is served by the operator too (its public routes), with the tour's pictures in /tour. They are
-// the page's own files, so the policy ('self' only) lets them in; the operator serves them as images.
-test("the home page's tour pictures load under the operator's policy, with no violation", async ({ page }) => {
+// The home page is served by the operator too (its public routes), with the paper texture behind it (/grain.png). It is
+// the page's own file, so the policy ('self' only) lets it in; the operator serves it as an image.
+test("the page's own picture (the paper texture) loads under the operator's policy, with no violation", async ({ page }) => {
   const console_: string[] = [];
   page.on("console", (m) => {
     if (m.type() === "error" || m.type() === "warning") console_.push(`${m.type()}: ${m.text()}`);
@@ -94,20 +94,17 @@ test("the home page's tour pictures load under the operator's policy, with no vi
     });
   });
 
-  // Listen before the page loads: a picture near the first screen is asked for at once.
+  // Listen before the page loads: the texture behind the page is asked for at once.
   const answers: Response[] = [];
   page.on("response", (answer) => answers.push(answer));
   await page.goto(operatorUrl("/"));
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const first = page.locator("section[aria-labelledby='tour-heading'] img").first();
-  await first.scrollIntoViewIfNeeded();
-  await expect.poll(() => answers.some((answer) => new URL(answer.url()).pathname.startsWith("/tour/"))).toBe(true);
-  const response = answers.find((answer) => new URL(answer.url()).pathname.startsWith("/tour/")) as Response;
+  await expect.poll(() => answers.some((answer) => new URL(answer.url()).pathname === "/grain.png")).toBe(true);
+  const response = answers.find((answer) => new URL(answer.url()).pathname === "/grain.png") as Response;
   expect(response.status()).toBe(200);
-  expect(response.headers()["content-type"]).toBe("image/webp");
+  expect(response.headers()["content-type"]).toBe("image/png");
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["content-security-policy"]).toContain("default-src 'self'");
-  await expect.poll(() => first.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 
   expect(await page.evaluate(() => (window as unknown as { __spv: string[] }).__spv), "securitypolicyviolation events").toEqual([]);
   expect(console_).toEqual([]);

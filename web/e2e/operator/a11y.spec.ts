@@ -10,7 +10,7 @@ import { loadSentinels } from "./privacy.js";
 // The operator pages, signed in, against the real operator: both themes, phone
 // and desktop width. Each page is checked for console problems, sideways
 // scrolling and WCAG 2.2 A/AA violations (colour contrast and target size
-// included). The practice-mode pill must be present on every one of them.
+// included). The fake-chain pill must be present on every one of them.
 
 interface Watched {
   problems: () => string[];
@@ -68,7 +68,7 @@ function watch(page: Page): Watched {
 async function check(page: Page, label: string, watched: Watched, options: { sheet?: boolean } = {}): Promise<void> {
   // While a sheet is open the page behind it is hidden from assistive technology, the pill with it.
   if (options.sheet !== true) {
-    await expect(page.getByRole("status").filter({ hasText: "Practice mode: nothing is sent to Zcash" }), `${label}: practice pill`).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Fake chain: nothing is sent to Zcash" }), `${label}: fake-chain pill`).toBeVisible();
   }
   expect(watched.problems(), `${label}: console`).toEqual([]);
   const overflow = await overflowReport(page);
@@ -118,7 +118,7 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
         await check(page, "audit, everything open", watched);
 
         for (const [label, id, ready] of [
-          ["campaign awaiting funding", awaiting, page.getByRole("heading", { name: "Practice mode: record a pretend deposit" })],
+          ["campaign awaiting funding", awaiting, page.getByRole("heading", { name: "Fake chain: record a pretend deposit" })],
           ["funded campaign", funded, page.getByRole("button", { name: "Send 5 payouts" })],
           ["settled campaign", settled, page.getByText("Sealed")],
         ] as const) {
@@ -239,7 +239,7 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
 
         await page.getByRole("link", { name: "Looks right, continue" }).click();
         await expect(page.getByRole("heading", { level: 1, name: "Fund and send" })).toBeVisible();
-        await expect(page.getByRole("heading", { name: "Practice mode: record a pretend deposit" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Fake chain: record a pretend deposit" })).toBeVisible();
         await check(page, "send, not yet funded", watched);
 
         await page.getByRole("button", { name: "Record mock deposit" }).click();
@@ -280,9 +280,9 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
           await page.goto(operatorUrl(`/campaign/${funded}`, { token: true }));
         };
         const checkReal = async (label: string) => {
-          // Not the mock chain: no practice pill and no pretend deposit on these pages.
-          await expect(page.getByText("Practice mode"), `${label}: no practice pill`).toHaveCount(0);
-          await expect(page.getByText("Practice mode: record"), `${label}: no pretend deposit`).toHaveCount(0);
+          // Not the mock chain: no fake-chain pill and no pretend deposit on these pages.
+          await expect(page.getByText("Fake chain"), `${label}: no fake-chain pill`).toHaveCount(0);
+          await expect(page.getByText("Fake chain: record"), `${label}: no pretend deposit`).toHaveCount(0);
           expect(watched.problems(), `${label}: console`).toEqual([]);
           const overflow = await overflowReport(page);
           expect(overflow.wide, `${label}: elements wider than the viewport`).toEqual([]);

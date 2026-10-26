@@ -97,7 +97,7 @@ async function clippedByTheCurves(page: Page, band: "top" | "bottom"): Promise<C
   }, band);
 }
 
-const PUBLIC_PAGES = ["/", "/get-paid", "/payslip", "/privacy", "/r/demo?demo=real", "/nope"] as const;
+const PUBLIC_PAGES = ["/", "/start", "/get-paid", "/payslip", "/privacy", "/r/demo?demo=real", "/nope"] as const;
 
 for (const width of WIDTHS) {
   test.describe(`nothing is clipped by the screen's curves, at ${String(width)}px`, () => {
@@ -123,15 +123,6 @@ for (const width of WIDTHS) {
       const skip = page.getByRole("link", { name: "Skip to content" });
       await expect(skip).toBeFocused();
       await expect(skip).toBeVisible();
-      expect(await clippedByTheCurves(page, "top")).toEqual([]);
-    });
-
-    test("the practice banner, its sentence and its button, on a page in practice mode", async ({ page }) => {
-      await page.addInitScript(() => {
-        sessionStorage.setItem("zecdrop.practice", "1");
-      });
-      await page.goto("/new");
-      await expect(page.getByRole("region", { name: "Practice mode", exact: true })).toBeVisible();
       expect(await clippedByTheCurves(page, "top")).toEqual([]);
     });
 
@@ -260,32 +251,6 @@ test.describe("popovers and dialogs are above the frame", () => {
       Number(getComputedStyle(document.querySelector('[data-slot="popover-content"]') as Element).zIndex),
     ]);
     expect(over).toBeGreaterThan(frame);
-  });
-
-  test("the confirm sheet (a modal dialog, in the browser's top layer) is above it, and sits inside the curve on a phone", async ({ page }) => {
-    await page.addInitScript(() => {
-      sessionStorage.setItem("zecdrop.practice", "1");
-    });
-    await page.goto("/new");
-    await page.getByRole("button", { name: "Use the example list" }).click();
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.getByRole("link", { name: "Looks right, continue" }).click();
-    await page.getByRole("button", { name: "Record mock deposit" }).click();
-    await page.getByRole("button", { name: "Send 8 payouts" }).click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet).toBeVisible();
-    expect(await sheet.evaluate((el) => el.matches(":modal"))).toBe(true);
-    const box = (await sheet.boundingBox()) as { x: number; y: number; width: number; height: number };
-    // The sheet's corners: its bottom ones follow the screen's own, and it is a bezel's width in from the edges.
-    expect(box.x).toBe(6);
-    expect(box.x + box.width).toBe(390 - 6);
-    expect(box.y + box.height).toBe(800 - 6);
-    const radii = await sheet.evaluate((el) => {
-      const s = getComputedStyle(el);
-      return [s.borderTopLeftRadius, s.borderBottomLeftRadius];
-    });
-    expect(radii).toEqual(["20px", "26px"]);
-    expect(await axeViolations(page), "the sheet over the frame").toEqual([]);
   });
 });
 

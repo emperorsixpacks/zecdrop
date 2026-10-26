@@ -4,7 +4,6 @@ import type { PublicReceipt } from "@/api/types";
 import { Why } from "@/components/Why";
 import { Unknown, Zec } from "@/components/Zec";
 import { shortId } from "@/lib/ids";
-import { isPracticeId } from "@/lib/practice-mode";
 import { useInView } from "@/lib/use-in-view";
 
 import { outputCount } from "./format";
@@ -29,11 +28,8 @@ function Station({ index, label, help, children }: { index: number; label: React
  * The line fills and the stations pop in, one after the other, when it scrolls into view. */
 export function FundsFlow({ receipt }: { receipt: PublicReceipt }) {
   const outputs = outputCount(receipt);
-  // What the deposit spent, when the verifier said; never on a practice receipt, which no deposit funded.
-  const source =
-    !isPracticeId(receipt.manifestCommitment) && (receipt.fundingSource === "shielded" || receipt.fundingSource === "transparent")
-      ? receipt.fundingSource
-      : null;
+  // What the deposit spent, when the verifier said.
+  const source = receipt.fundingSource === "shielded" || receipt.fundingSource === "transparent" ? receipt.fundingSource : null;
   const [ref, inView] = useInView<HTMLDivElement>();
   return (
     <div ref={ref} data-in={inView} className="flow relative">

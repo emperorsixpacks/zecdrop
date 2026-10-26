@@ -51,9 +51,7 @@ function rank(batch: OperatorBatch, depth: number): number {
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** `practice`: the run is a simulation in the page (src/practice), so the steps that speak of the network and of blocks say it is
- * pretended. The sentences are the operator's own when it is not. */
-export function timelineSteps(campaign: TimelineCampaign, log: readonly ProgressEvent[], practice = false): TimelineStep[] {
+export function timelineSteps(campaign: TimelineCampaign, log: readonly ProgressEvent[]): TimelineStep[] {
   const depth = requiredDepthFrom(log);
   const collapsed = depth > MAX_CONFIRM_STEPS;
   const settled = campaign.run.state === "settled" || campaign.phase.phase === "settled";
@@ -93,9 +91,9 @@ export function timelineSteps(campaign: TimelineCampaign, log: readonly Progress
         ? `${String(built)} of ${String(campaign.batches.length)} batches built.`
         : `${sentence(describeDuration(estimateProvingSeconds(campaign.recipientCount)))}.`;
     }
-    if (index === 2) return practice ? "Pretending to send: nothing leaves your browser." : "Sending to the network.";
+    if (index === 2) return "Sending to the network.";
     const seen = `${String(Number.isFinite(confirmations) ? confirmations : 0)} of ${String(depth)} confirmations`;
-    return practice ? `${seen} (simulated).` : `${seen}. Waiting for the next block.`;
+    return `${seen}. Waiting for the next block.`;
   }
 
   const failureText = (): string => {
@@ -128,7 +126,7 @@ export function elapsedText(ms: number): string {
 
 /** The one line of expectation under the timeline: about how long building takes and
  * how long the confirmations take. An estimate, and said to be one. Null on the
- * practice chain, where there is nothing real to wait for. */
+ * fake chain, where there is nothing real to wait for. */
 export function expectation(recipients: number, depth: number, network: "testnet" | "mainnet", mock: boolean): string | null {
   if (mock) return null;
   const blockSeconds = network === "mainnet" ? 75 : 25;

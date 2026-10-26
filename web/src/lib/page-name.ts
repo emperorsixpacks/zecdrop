@@ -11,6 +11,7 @@ export function pageName(pathname: string, operator: boolean): string {
   if (path === "/get-paid") return "Get paid";
   if (path === "/payslip") return "Payslip";
   if (path === "/privacy") return "How privacy works";
+  if (path === "/start") return "Make a payout";
 
   if (operator) {
     if (path === "/campaigns") return "Payouts";

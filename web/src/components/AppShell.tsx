@@ -4,7 +4,6 @@ import { Outlet, useLocation, useMatch } from "react-router";
 import { demoCase } from "@/api/demo";
 import { parseReceiptLink } from "@/api/receipt-query";
 import { Footer } from "@/components/Footer";
-import { PracticeBanner } from "@/components/PracticeBanner";
 import { Toaster } from "@/components/Toaster";
 import { TopBar } from "@/components/TopBar";
 import type { ZecNetwork } from "@/lib/config";
@@ -13,7 +12,7 @@ interface ShellProps {
   showOperatorNav: boolean;
   /** The network to show. Defaults to the page's configured one. */
   network?: ZecNetwork;
-  /** True when the operator runs on the practice (mock) chain. */
+  /** True when the operator runs on the fake (mock) chain. */
   mock?: boolean;
   /** True when the operator did not say which chain it is on. */
   modeUnknown?: boolean;
@@ -30,7 +29,6 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
       >
         Skip to content
       </a>
-      <PracticeBanner />
       <TopBar
         showOperatorNav={showOperatorNav}
         {...(network ? { network } : {})}
@@ -40,7 +38,7 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[68rem] flex-1 px-5 pt-8 pb-10 outline-none sm:pt-12">
         {children}
       </main>
-      <Footer showOperatorLink={!showOperatorNav} />
+      <Footer showStartLink={!showOperatorNav} />
       <Toaster />
       {/* The screen's rounded edge, drawn over the page: it takes no press (index.css, .screen-frame). */}
       <div aria-hidden="true" data-testid="screen-frame" className="screen-frame" />

@@ -12,7 +12,7 @@ interface DropZoneProps {
   disabled?: boolean;
   /** Not the highlighted button of the screen: another one on it is. */
   quiet?: boolean;
-  /** Offered in practice mode: use the example list instead of a file of one's own. It becomes the main button. */
+  /** Offered on testnet: use the example list instead of a file of one's own. It becomes the main button. */
   onExample?: () => void;
 }
 

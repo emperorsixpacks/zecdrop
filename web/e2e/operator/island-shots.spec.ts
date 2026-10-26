@@ -7,7 +7,7 @@ import { island, openIsland, useTheme, type Theme } from "../helpers.js";
 import { operatorUrl } from "./env.js";
 
 // Screenshots of the header capsule for design review, closed and open, on a public page and on an operator page, with the
-// mainnet chip and the practice chip. Not part of the normal run: it does nothing unless UI_SHOTS_DIR names a folder.
+// mainnet chip and the fake-chain line. Not part of the normal run: it does nothing unless UI_SHOTS_DIR names a folder.
 //
 //   UI_SHOTS_DIR=/some/folder npx playwright test --project=operator island-shots
 
@@ -106,14 +106,13 @@ for (const size of SIZES) {
         await shoot(page, `mainnet-operator-${tag}-collapsed`);
       });
 
-      test("the practice chip: the practice banner above the capsule", async ({ page }) => {
+      test("the fake chain: the line under the capsule", async ({ page }) => {
         await useTheme(page, theme);
-        await page.goto(operatorUrl("/"));
-        await page.getByRole("button", { name: "Try it yourself in practice mode" }).click();
+        await page.goto(operatorUrl("/new", { token: true }));
         await page.getByRole("heading", { level: 1, name: "Add the payouts" }).waitFor();
-        await shoot(page, `practice-${tag}-collapsed`);
+        await shoot(page, `fake-chain-${tag}-collapsed`);
         await openIsland(page);
-        await shoot(page, `practice-${tag}-open`);
+        await shoot(page, `fake-chain-${tag}-open`);
       });
     });
   }

@@ -7,8 +7,8 @@ import { operatorUrl, seeded } from "./env.js";
 // without being opened, the one button that is always one press away, and the dialog that goes over it. The capsule as such
 // (tab order, accessibility tree, motion, forced colours) is in e2e/island.spec.ts.
 
-const PRACTICE_LINE = "Practice mode: nothing is sent to Zcash";
-const UNKNOWN_LINE = "Chain mode unknown: practice controls hidden";
+const FAKE_CHAIN_LINE = "Fake chain: nothing is sent to Zcash";
+const UNKNOWN_LINE = "Chain mode unknown: fake-chain controls hidden";
 
 /** Have the operator answer /api/health as another chain would: one it cannot name (a health answer without the `mock` flag, so
  * `{ mock: undefined }`), or the real mainnet one. The rest of what it says is the real answer. */
@@ -34,13 +34,13 @@ const capsuleBox = async (page: Page) => {
 
 test.describe("the chain, said with nothing opened", () => {
   for (const width of [360, 1280]) {
-    test(`${String(width)}px: the capsule names the network, and a line directly under it says the chain is a practice one`, async ({ page }) => {
+    test(`${String(width)}px: the capsule names the network, and a line directly under it says the chain is a fake one`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await load(page, "/campaigns", "Payouts");
       await expect(island(page)).toHaveAccessibleName("ZecDrop Payouts testnet");
       await expect(island(page)).toHaveAttribute("aria-expanded", "false");
 
-      const line = page.getByRole("status").filter({ hasText: PRACTICE_LINE });
+      const line = page.getByRole("status").filter({ hasText: FAKE_CHAIN_LINE });
       await expect(line).toBeVisible();
       const capsule = await capsuleBox(page);
       const under = await line.boundingBox();
@@ -54,16 +54,16 @@ test.describe("the chain, said with nothing opened", () => {
     });
   }
 
-  test("a chain the operator cannot name is said in the same line, and the practice line is not", async ({ page }) => {
+  test("a chain the operator cannot name is said in the same line, and the fake-chain line is not", async ({ page }) => {
     await chain(page, { mock: undefined });
     await load(page, "/campaigns", "Payouts");
     await expect(page.getByRole("status").filter({ hasText: UNKNOWN_LINE })).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: PRACTICE_LINE })).toHaveCount(0);
+    await expect(page.getByRole("status").filter({ hasText: FAKE_CHAIN_LINE })).toHaveCount(0);
     // And it is not in the panel, which is closed: it is on the page.
     await expect(island(page)).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("a real mainnet operator: a highlighter-yellow chip on the capsule, no practice line, the network in full in the panel", async ({ page }) => {
+  test("a real mainnet operator: a highlighter-yellow chip on the capsule, no fake-chain line, the network in full in the panel", async ({ page }) => {
     await chain(page, { mock: false, network: "mainnet" });
     await load(page, "/campaigns", "Payouts");
     await expect(island(page)).toHaveAccessibleName("ZecDrop Payouts Mainnet");
@@ -175,7 +175,7 @@ test.describe("where it sits, on the operator's pages", () => {
         expect(capsule.x, `${path}: inside the screen`).toBeGreaterThanOrEqual(11.5);
         expect(capsule.x + capsule.width, `${path}: inside the screen`).toBeLessThanOrEqual(width - 11.5);
         expect(h1?.y ?? 0, `${path}: the first heading is clear of the capsule`).toBeGreaterThanOrEqual(capsule.y + capsule.height + 8);
-        const line = await page.getByRole("status").filter({ hasText: PRACTICE_LINE }).boundingBox();
+        const line = await page.getByRole("status").filter({ hasText: FAKE_CHAIN_LINE }).boundingBox();
         if (line !== null) expect(h1?.y ?? 0, `${path}: and of the line`).toBeGreaterThanOrEqual(line.y + line.height);
         const overflow = await overflowReport(page);
         expect(overflow.page, `${path}: horizontal scroll`).toBeLessThanOrEqual(0);

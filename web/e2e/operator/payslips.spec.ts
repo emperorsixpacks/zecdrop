@@ -30,7 +30,7 @@ test("on the mock chain the payslips say why there are none, and the operator is
   const seen = await observe(page);
   await page.goto(operatorUrl(`/campaign/${settled}`, { token: true }));
   await page.getByRole("button", { name: "Send payslips" }).click();
-  await expect(page.getByText(/The practice chain has no real transaction to prove/u)).toBeVisible();
+  await expect(page.getByText(/The fake chain has no real transaction to prove/u)).toBeVisible();
   await expect(page.getByRole("button", { name: "Show payslips" })).toHaveCount(0);
   expect(seen.requests().filter((r) => r.url.endsWith("/payslips"))).toEqual([]);
   expect(await axeViolations(page)).toEqual([]);

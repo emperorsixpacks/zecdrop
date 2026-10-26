@@ -27,7 +27,7 @@ export const COPY_STEP = "In your wallet, open Receive and copy the address that
 
 /** Step 2: the other kinds of address a wallet may show, one short row each. */
 export const OTHER_ADDRESSES: readonly { starts: string; text: string }[] = [
-  { starts: "utest1", text: "A testnet address: play money, for practice only." },
+  { starts: "utest1", text: "A testnet address: for test coins, worth nothing." },
   { starts: "t1 or t3", text: "Not for payouts: it shows every payment publicly." },
   { starts: "zs1", text: "An older kind (Sapling). The payout tool asks for the u1 one." },
 ];
@@ -61,8 +61,8 @@ const RESULT: Record<"mainnet_unified" | "testnet_unified" | "transparent" | "sa
     tone: "default",
   },
   testnet_unified: {
-    title: "Looks like a practice address",
-    text: "It starts with utest1: a testnet address, play money for practice only. Do not give it to someone paying real ZEC.",
+    title: "Looks like a testnet address",
+    text: "It starts with utest1: a testnet address, for test coins worth nothing. Do not give it to someone paying real ZEC.",
     tone: "warning",
   },
   transparent: {

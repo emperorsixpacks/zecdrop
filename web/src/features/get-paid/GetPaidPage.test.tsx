@@ -29,7 +29,7 @@ import {
 
 // ---- Harness ---------------------------------------------------------------
 
-// Addresses of each shape. Only the shape matters to the page; none of these is anyone's address. The practice
+// Addresses of each shape. Only the shape matters to the page; none of these is anyone's address. The testnet
 // one is the first real, public address of the sample batch's demo list.
 const BECH32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 const MAINNET = `u1${BECH32.repeat(4).slice(0, 104)}`;
@@ -165,7 +165,7 @@ describe("the page", () => {
     // The others are one short row each: how it starts, and what to do about it.
     const rows = Array.from(document.querySelectorAll("main ol > li:nth-child(2) ul > li"), (row) => row.textContent);
     expect(rows).toEqual([
-      "utest1A testnet address: play money, for practice only.",
+      "utest1A testnet address: for test coins, worth nothing.",
       "t1 or t3Not for payouts: it shows every payment publicly.",
       "zs1An older kind (Sapling). The payout tool asks for the u1 one.",
     ]);
@@ -198,6 +198,7 @@ describe("the page", () => {
     expect(within(nav).getByRole("link", { name: "Get paid" })).toHaveAttribute("href", "/get-paid");
     expect(within(nav).getByRole("link", { name: "Get paid" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Make a payout",
       "Home",
       "Sample receipt",
       "Get paid",
@@ -208,13 +209,13 @@ describe("the page", () => {
 });
 
 describe("the home page's link", () => {
-  it("is one calm line that leads to the page, after the two buttons", () => {
+  it("is a short link under 'Being paid?', after the ways to make a payout", () => {
     renderApp("/");
-    const link = screen.getByRole("link", { name: "Being paid? Start here" });
+    const section = screen.getByRole("region", { name: "Being paid?" });
+    const link = within(section).getByRole("link", { name: "Share your address" });
     expect(link).toHaveAttribute("href", "/get-paid");
-    const buttons = screen.getByRole("link", { name: "See a real receipt" });
-    expect(buttons.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect((link.textContent ?? "").split(/\s+/u).length).toBeLessThanOrEqual(5);
+    const [start] = screen.getAllByRole("link", { name: "Make a payout" });
+    expect((start as HTMLElement).compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -234,11 +235,11 @@ describe("what a pasted address looks like", () => {
   const cases: [label: string, address: () => string, kind: string, title: string, sentence: string][] = [
     ["a real-money unified address", () => MAINNET, "mainnet_unified", "Looks like a real-money address", "It starts with u1, the kind a ZecDrop payout can pay."],
     [
-      "a practice testnet address",
+      "a testnet address",
       () => TESTNET,
       "testnet_unified",
-      "Looks like a practice address",
-      "It starts with utest1: a testnet address, play money for practice only. Do not give it to someone paying real ZEC.",
+      "Looks like a testnet address",
+      "It starts with utest1: a testnet address, for test coins worth nothing. Do not give it to someone paying real ZEC.",
     ],
     [
       "a transparent address",
@@ -333,7 +334,7 @@ describe("the buttons, by what is pasted", () => {
 
   it.each([
     ["a real-money unified address", () => MAINNET],
-    ["a practice testnet address", () => TESTNET],
+    ["a testnet address", () => TESTNET],
   ])("are on for %s", (_label, address) => {
     withShare(() => Promise.resolve());
     show();
@@ -392,7 +393,7 @@ describe("Share", () => {
     expect(share).toHaveBeenCalledWith({ text: shareText(MAINNET) });
   });
 
-  it("shares a practice address too", async () => {
+  it("shares a testnet address too", async () => {
     const share = withShare(() => Promise.resolve());
     const user = userEvent.setup();
     show();

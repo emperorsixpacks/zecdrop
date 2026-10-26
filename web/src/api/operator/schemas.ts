@@ -417,7 +417,7 @@ export const INBOX_STATES = [
 export type InboxState = (typeof INBOX_STATES)[number];
 
 /** A payout's shielded deposit address and what it holds (docs/ADR/0006-shielded-inbox.md). Only on a real testnet
- * chain with zcash-devtool; the mock chain and practice mode answer `null`. Amounts are zatoshi. */
+ * chain with zcash-devtool; the mock chain answers `null`. Amounts are zatoshi. */
 export interface InboxView {
   state: InboxState;
   /** Its address, where the payer deposits, once the wallet is set up and checked; `null` before. */

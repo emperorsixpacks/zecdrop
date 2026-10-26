@@ -114,10 +114,10 @@ test.describe("no funding QR code", () => {
     await expect(page.getByRole("button", { name: /QR code/u })).toHaveCount(0);
   });
 
-  test("on the practice chain, where the operator's own answers are the mock chain's", async ({ page }) => {
+  test("on the fake chain, where the operator's own answers are the mock chain's", async ({ page }) => {
     const { awaiting } = seeded();
     await page.goto(operatorUrl(`/campaign/${awaiting}`, { token: true }));
-    await expect(page.getByRole("heading", { name: "Practice mode: record a pretend deposit" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Fake chain: record a pretend deposit" })).toBeVisible();
     await expect(code(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /QR code/u })).toHaveCount(0);
   });

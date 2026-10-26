@@ -1,9 +1,9 @@
-// The importer the practice chain runs, tried on what the operator's own tests try (crates/drop-core/src/import.rs): the
+// The test copy of the operator's importer, tried on what the operator's own tests try (crates/drop-core/src/import.rs): the
 // shape of a good list, every way a list can be wrong and the line it is reported on, and the places where a careless reader
 // would let something through. server.test.ts compares whole answers with the real operator's; this is the edges.
 import { describe, expect, it } from "vitest";
 
-import { importCsv, MAX_MEMO_BYTES, type RowError, type RowErrorKind } from "./csv";
+import { importCsv, MAX_MEMO_BYTES, type RowError, type RowErrorKind } from "./csv-import";
 
 const A1 = "u1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const A2 = "u1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -123,7 +123,7 @@ describe("a row that is wrong", () => {
     for (const error of report.errors) expect(JSON.stringify(error)).not.toMatch(/abc|uuuu/u);
   });
 
-  it("looks only at the shape of an address, as the practice chain does: a real-looking one with a bad checksum is accepted", () => {
+  it("looks only at the shape of an address, as the mock chain does: a real-looking one with a bad checksum is accepted", () => {
     expect(importCsv(`address,amount\nutest1thisisnotarealaddressbutithastherightshape,1\n`).errors).toEqual([]);
     expect(importCsv(`address,amount\nZS1UPPERCASEISFINE,1\n`).errors).toEqual([]);
   });

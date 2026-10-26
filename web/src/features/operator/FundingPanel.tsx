@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { operatorNearApi } from "@/features/funding/near/api";
 import { NearFundingPanel } from "@/features/funding/near/NearFundingPanel";
+import { TESTNET_FAUCET_URL } from "@/lib/faucet";
 import { shortId } from "@/lib/ids";
 import { fundingPaymentUri } from "@/lib/payment-uri";
 import { phaseSentence } from "@/lib/phase";
@@ -164,6 +165,15 @@ function RealChainFunding({ campaign, address, nested = false }: { campaign: Ope
         qrLabel="QR code for this deposit: the funding address and the exact amount"
         qrCaption="Scan with a Zcash wallet on your phone: it fills in this address and the exact amount."
       />
+      {campaign.network === "testnet" && (
+        <p className="max-w-[64ch] text-base" data-testid="faucet">
+          No test coins? The{" "}
+          <a href={TESTNET_FAUCET_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-link underline underline-offset-4">
+            testnet faucet
+          </a>{" "}
+          pays this address for free.
+        </p>
+      )}
       <NearFundingPanel
         api={operatorNearApi}
         campaign={{ id: campaign.id, network: campaign.network, fundingRequired: campaign.fundingRequired }}
@@ -475,7 +485,7 @@ export function FundingPanel({ campaign }: { campaign: OperatorCampaign }) {
           </span>
         </p>
         {inbox?.state === "moved" && <p className="text-base">{INBOX_WORDING.movedFrom}</p>}
-        {/* No funding address: nothing real could have been sent to it (the mock chain, practice mode), so the deposit is pretend. */}
+        {/* No funding address: nothing real could have been sent to it (the mock chain), so the deposit is pretend. */}
         <DepositSource source={campaign.fundingSource} pretend={campaign.fundingAddress === null || health.data?.mock === true} />
         {inbox !== null && inbox.left !== "0" && (
           <p className="text-base" data-testid="inbox-left">

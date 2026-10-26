@@ -343,23 +343,17 @@ export function describeRun(run: RunState): RunDescription {
 
 // ---- progress events -------------------------------------------------------------------
 
-/** One line for the activity log. Batch numbers are 0-based, as in the core. `practice`: the run is a simulation in the page
- * (src/practice), so the lines that speak of the network, of a block and of confirmations say it is pretended; they are the
- * operator's own words when it is not. */
-export function describeEvent(event: ProgressEvent, practice = false): string {
+/** One line for the activity log. Batch numbers are 0-based, as in the core. */
+export function describeEvent(event: ProgressEvent): string {
   switch (event.event) {
     case "built":
       return `Batch ${String(event.batchIndex)}: transaction built (${String(event.outputs)} shielded outputs).`;
     case "broadcast":
-      return practice ? `Batch ${String(event.batchIndex)}: pretend-sent (practice).` : `Batch ${String(event.batchIndex)}: sent to the network.`;
+      return `Batch ${String(event.batchIndex)}: sent to the network.`;
     case "confirmed":
-      return practice
-        ? `Batch ${String(event.batchIndex)}: ${String(event.depth)} of ${String(event.requiredDepth)} confirmations (simulated).`
-        : `Batch ${String(event.batchIndex)}: ${String(event.depth)} of ${String(event.requiredDepth)} confirmations.`;
+      return `Batch ${String(event.batchIndex)}: ${String(event.depth)} of ${String(event.requiredDepth)} confirmations.`;
     case "waiting":
-      return practice
-        ? `Batch ${String(event.batchIndex)}: waiting (simulated), ${String(event.observedDepth)} of ${String(event.requiredDepth)} confirmations.`
-        : `Batch ${String(event.batchIndex)}: waiting for the next block (${String(event.observedDepth)} of ${String(event.requiredDepth)} confirmations).`;
+      return `Batch ${String(event.batchIndex)}: waiting for the next block (${String(event.observedDepth)} of ${String(event.requiredDepth)} confirmations).`;
     case "failed":
       return `Batch ${String(event.batchIndex)}: failed. ${event.reason}`;
     case "halted":

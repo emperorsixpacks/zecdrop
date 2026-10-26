@@ -24,3 +24,21 @@ export function publicModeFor(hostname: string, publicOnly: boolean): boolean {
 export function isPublicMode(): boolean {
   return publicModeFor(window.location.hostname, config.publicOnly);
 }
+
+/** Where "Make a payout" leads (REQ-RUN-002). On the public site: the page that says how to run ZecDrop on your own computer.
+ * On the operator's own page, which is ZecDrop running on this computer: its payouts. */
+export function makeAPayoutPath(): string {
+  return isPublicMode() ? "/start" : "/campaigns";
+}
+
+/** The operator prints a link to the site's root, with its token after the `#`. Opened on the operator's own page, that link
+ * lands on the payouts, the operator's first screen, instead of the site's home page. Called before the token is taken out of
+ * the address (api/operator/session.ts), so that it goes with the token's own history entry; it changes nothing anywhere else. */
+export function landOnPayouts(
+  location: Pick<Location, "hash" | "pathname">,
+  history: Pick<History, "replaceState" | "state">,
+  publicMode: boolean = isPublicMode(),
+): void {
+  if (publicMode || location.pathname !== "/" || !location.hash.startsWith("#token=")) return;
+  history.replaceState(history.state, "", `/campaigns${location.hash}`);
+}

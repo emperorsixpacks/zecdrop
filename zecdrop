@@ -2,7 +2,7 @@
 # ZecDrop on your own computer: the operator, in Docker, on Zcash testnet. Your wallet and your payout lists stay on this
 # computer, and only this computer can open its page (http://127.0.0.1:8787).
 #
-#   ./zecdrop up       start it, and open its page (the first time: builds ZecDrop, about 15 to 30 minutes)
+#   ./zecdrop up       start it, and open its page (the first time it builds ZecDrop: a few minutes to half an hour)
 #   ./zecdrop open     open its page again (its link changes every time it starts)
 #   ./zecdrop status   whether it runs, and where your wallet and payouts are
 #   ./zecdrop logs     follow its log (Ctrl-C stops following)
@@ -62,7 +62,7 @@ need_docker() {
 running() { [ -n "$(docker ps -q --filter "name=^${NAME}$" 2>/dev/null)" ]; }
 
 build_image() {
-  say "Building ZecDrop. The first time takes about 15 to 30 minutes; after that, a few minutes at most."
+  say "Building ZecDrop. The first time takes a few minutes to half an hour, depending on the computer; after that, much less."
   docker build -f "$ROOT/deploy/operator.Dockerfile" -t "$IMAGE" "$ROOT"
 }
 

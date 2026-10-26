@@ -13,7 +13,7 @@ export const FUNDING_SOURCE_WORDING = {
   ],
   /** A deposit seen, at any depth, that spent no transparent coin. */
   shielded: "From the shielded pool: the deposit names no address of yours. Its amount and time are public.",
-  /** The same on the mock chain or in practice mode, where the deposit is pretend. */
+  /** The same on the mock chain, where the deposit is pretend. */
   shieldedPretend: "From the shielded pool (pretend): the deposit would name no address of yours. Its amount and time would be public.",
   /** A deposit that spent a transparent coin: said plainly, and never a reason to stop. */
   transparentTitle: "This deposit came from transparent funds",

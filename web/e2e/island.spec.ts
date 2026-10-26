@@ -30,7 +30,7 @@ async function inAccessibilityTree(page: Page, role: string, name: string): Prom
   }
 }
 
-const LINKS = ["Home", "Sample receipt", "Get paid", "Check a payslip", "How privacy works"];
+const LINKS = ["Make a payout", "Home", "Sample receipt", "Get paid", "Check a payslip", "How privacy works"];
 
 /** A receipt link for mainnet: the header names the network the link names, whatever the page was built for. The link is not
  * asked of anyone here (the public copy has no verifier to ask); the header says mainnet from the link alone. */
@@ -82,7 +82,7 @@ test.describe("the tab order", () => {
     await expect(island(page)).toHaveAttribute("aria-expanded", "true");
     await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
-    expect(await focused(page)).toBe("Sample receipt");
+    expect(await focused(page)).toBe("Home");
     await page.keyboard.press("Escape");
     await expect(island(page)).toHaveAttribute("aria-expanded", "false");
     await expect(island(page)).toBeFocused();
@@ -105,7 +105,7 @@ test.describe("the tab order", () => {
 });
 
 test.describe("what a screen reader is given", () => {
-  test("a closed capsule has no links in the accessibility tree, and an open one has all five", async ({ page }) => {
+  test("a closed capsule has no links in the accessibility tree, and an open one has all six", async ({ page }) => {
     await page.goto("/privacy");
     await page.getByRole("heading", { level: 1, name: "How privacy works" }).waitFor();
 
@@ -124,11 +124,11 @@ test.describe("what a screen reader is given", () => {
     // Nor can they be reached by the query a test (or a voice control) uses.
     await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
     await expect(islandPanel(page).locator("a:visible")).toHaveCount(0);
-    await expect(islandPanel(page).locator("a")).toHaveCount(5);
+    await expect(islandPanel(page).locator("a")).toHaveCount(6);
 
     const nav = await openIsland(page);
     expect(await inAccessibilityTree(page, "navigation", "Primary")).toBe(1);
-    // Each of the five is in the tree once more than it was: the capsule's own, beside the page's (the footer has one too).
+    // Each of the six is in the tree once more than it was: the capsule's own, beside the page's (the footer has one too).
     for (const label of LINKS) expect(await inAccessibilityTree(page, "link", label), `${label}, open`).toBe((closed[label] ?? 0) + 1);
     await expect(islandPanel(page)).not.toHaveAttribute("inert");
     // The page you are on is the current one, in the tree as much as on the screen.
@@ -185,7 +185,7 @@ test.describe("accessibility, both states, both themes, at phone and desktop wid
   }
 
   for (const theme of THEMES) {
-    test(`${theme}: the mainnet chip and the practice chip pass too`, async ({ page }) => {
+    test(`${theme}: the mainnet chip passes too`, async ({ page }) => {
       await useTheme(page, theme);
       await page.goto(MAINNET_RECEIPT);
       await island(page).waitFor();
@@ -193,12 +193,6 @@ test.describe("accessibility, both states, both themes, at phone and desktop wid
       expect(await axeViolations(page, ".island-header"), "mainnet, closed").toEqual([]);
       await openIsland(page);
       expect(await axeViolations(page, ".island-header"), "mainnet, open").toEqual([]);
-      await page.goto("/");
-      await page.getByRole("button", { name: "Try it yourself in practice mode" }).click();
-      await page.getByRole("heading", { level: 1, name: "Add the payouts" }).waitFor();
-      expect(await axeViolations(page, ".island-header"), "practice, closed").toEqual([]);
-      await openIsland(page);
-      expect(await axeViolations(page, ".island-header"), "practice, open").toEqual([]);
     });
   }
 });
@@ -316,20 +310,6 @@ test.describe("the network on the capsule, with nothing opened", () => {
         await openIsland(page);
         await expect(page.getByText("Zcash mainnet", { exact: true })).toBeVisible();
       });
-
-      test("practice is a hatched chip, and names no network", async ({ page }) => {
-        await page.goto("/");
-        await page.getByRole("button", { name: "Try it yourself in practice mode" }).click();
-        await page.getByRole("heading", { level: 1, name: "Add the payouts" }).waitFor();
-        const chip = island(page).locator('[data-network="practice"]');
-        await expect(chip).toBeVisible();
-        await expect(chip).toHaveText("Practice");
-        expect(await chip.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("repeating-linear-gradient");
-        await expect(island(page).getByText("testnet")).toHaveCount(0);
-        await expect(island(page).getByText("Mainnet")).toHaveCount(0);
-        // Practice mode shows the operator's own screens, so the first screen of a practice payout is "New payout".
-        await expect(island(page)).toHaveAccessibleName("ZecDrop New payout Practice");
-      });
     });
   }
 });
@@ -338,7 +318,7 @@ test.describe("where it sits", () => {
   for (const width of [360, 390, 768, 1280]) {
     test(`at ${String(width)}px the capsule is centred, 44px tall, inside the screen, and clear of the first heading at load`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
-      for (const path of ["/", "/get-paid", "/payslip", "/privacy", "/r/demo?demo=real", "/nope"]) {
+      for (const path of ["/", "/start", "/get-paid", "/payslip", "/privacy", "/r/demo?demo=real", "/nope"]) {
         await page.goto(path);
         const heading = page.getByRole("heading", { level: 1 }).first();
         await heading.waitFor();
@@ -362,12 +342,9 @@ test.describe("where it sits", () => {
   }
 
   for (const width of [320, 360, 390]) {
-    test(`at ${String(width)}px nothing of the capsule, its panel included, is laid out past the screen, closed or open, in practice mode`, async ({ page }) => {
+    test(`at ${String(width)}px nothing of the capsule, its panel included, is laid out past the screen, closed or open`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
-      await page.addInitScript(() => {
-        sessionStorage.setItem("zecdrop.practice", "1");
-      });
-      // Practice mode has the widest words in the panel ("Practice, nothing is real") and the longest page name is one a click away.
+      // The longest page name of the public pages.
       await page.goto("/privacy");
       await page.getByRole("heading", { level: 1, name: "How privacy works" }).waitFor();
       const outside = () =>
@@ -390,49 +367,6 @@ test.describe("where it sits", () => {
       expect(await page.locator(".island-footer").evaluate((el) => el.getBoundingClientRect().height), "the footer is one row").toBeLessThan(70);
     });
   }
-
-  test("the tour's sticky column sticks below the capsule, not under it", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
-    const heading = page.getByRole("heading", { level: 2, name: "A payout, screen by screen" });
-    await heading.waitFor();
-    await page.evaluate(async () => {
-      document.querySelector("#tour-heading")?.scrollIntoView();
-      window.scrollBy(0, 700);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    });
-    const stuck = await page.evaluate(() => {
-      const capsule = document.querySelector(".island")?.getBoundingClientRect();
-      const columns = [...document.querySelectorAll('section[aria-labelledby="tour-heading"] li > div')].filter((el) => getComputedStyle(el).position === "sticky");
-      const top = columns.map((el) => el.getBoundingClientRect()).find((box) => box.top > 0 && box.top < 300 && box.bottom > 0);
-      return { capsuleBottom: capsule?.bottom ?? 0, columnTop: top?.top ?? null };
-    });
-    expect(stuck.columnTop, "a sticky column is stuck near the top").not.toBeNull();
-    expect(stuck.columnTop ?? 0).toBeGreaterThanOrEqual(stuck.capsuleBottom);
-  });
-
-  test("with the practice banner above it, it sits just below the banner, and the banner scrolls away while it stays", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.addInitScript(() => {
-      sessionStorage.setItem("zecdrop.practice", "1");
-    });
-    await page.goto("/new");
-    const banner = page.getByRole("region", { name: "Practice mode", exact: true });
-    await banner.waitFor();
-    await page.getByRole("heading", { level: 1 }).first().waitFor();
-    const bannerBox = await banner.boundingBox();
-    const capsule = await island(page).boundingBox();
-    const h1 = await page.getByRole("heading", { level: 1 }).first().boundingBox();
-    if (bannerBox === null || capsule === null || h1 === null) throw new Error("the banner, the capsule and the heading are all drawn");
-    expect(capsule.y).toBeGreaterThanOrEqual(bannerBox.y + bannerBox.height);
-    expect(h1.y).toBeGreaterThanOrEqual(capsule.y + capsule.height + 8);
-
-    await page.evaluate(() => {
-      window.scrollTo(0, 600);
-    });
-    await expect.poll(async () => (await banner.boundingBox())?.y ?? 0).toBeLessThan(0);
-    expect((await island(page).boundingBox())?.y).toBe(6 + 8);
-  });
 
   test("it stays at the top, opaque, while the page scrolls under it, and the page is not pushed by it", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -690,6 +624,6 @@ test.describe("what is over what", () => {
       return { capsule: z(document.querySelector(".island-header")), toaster: z(document.querySelector('[data-testid="toast"]')?.parentElement ?? null) };
     });
     expect(order.toaster).toBeGreaterThan(order.capsule);
-    expect(order.capsule).toBeGreaterThan(10); // over the page's own raised parts (the tour's pictures, the timeline)
+    expect(order.capsule).toBeGreaterThan(10); // over the page's own raised parts (the timeline)
   });
 });
