@@ -68,14 +68,21 @@ afterEach(() => {
 
 /** Go back to the campaign from the list, the way a person would. */
 async function openCampaignFromList(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole("list", { name: "Campaigns" });
+  await screen.findByRole("list", { name: "Payouts" });
   const link = screen.getAllByRole("link").find((a) => a.getAttribute("href") === `/campaign/${ID}`);
   if (link === undefined) throw new Error("no link to the campaign in the list");
   await user.click(link);
-  await screen.findByRole("heading", { level: 2, name: "Give an auditor the viewing key" });
+  await screen.findByRole("button", { name: "Auditor access" });
+}
+
+/** The section is closed until it is opened. */
+async function openSection(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = await screen.findByRole("button", { name: "Auditor access" });
+  if (trigger.getAttribute("aria-expanded") !== "true") await user.click(trigger);
 }
 
 async function reveal(user: ReturnType<typeof userEvent.setup>) {
+  await openSection(user);
   await user.click(await screen.findByRole("checkbox", { name: /I understand/u }));
   await user.click(screen.getByRole("button", { name: "Show the viewing key" }));
   await screen.findByDisplayValue(KEY);
@@ -108,12 +115,13 @@ describe("carrying a sentinel key through the whole flow", () => {
     expect(found(document.documentElement.outerHTML), "after Hide").toBe(0);
 
     await reveal(user);
-    await user.click(screen.getByRole("link", { name: "All campaigns" }));
-    await screen.findByRole("heading", { level: 1, name: "Campaigns" });
+    await user.click(screen.getByRole("link", { name: "All payouts" }));
+    await screen.findByRole("heading", { level: 1, name: "Payouts" });
     expect(found(document.documentElement.outerHTML), "after leaving the page").toBe(0);
 
     await openCampaignFromList(user);
     expect(screen.queryByDisplayValue(KEY)).toBeNull();
+    await openSection(user);
     expect(screen.getByRole("button", { name: "Show the viewing key" })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /I understand/u })).not.toBeChecked();
 
@@ -140,8 +148,8 @@ describe("carrying a sentinel key through the whole flow", () => {
     const user = userEvent.setup();
     renderApp(`/campaign/${ID}`, { signedIn: true });
     await reveal(user);
-    await user.click(screen.getByRole("link", { name: "All campaigns" }));
-    await screen.findByRole("heading", { level: 1, name: "Campaigns" });
+    await user.click(screen.getByRole("link", { name: "All payouts" }));
+    await screen.findByRole("heading", { level: 1, name: "Payouts" });
     await openCampaignFromList(user);
     expect(screen.queryByDisplayValue(KEY)).toBeNull();
     expect(fake.to("GET", /audit-ufvk-export$/u)).toHaveLength(1);
@@ -155,6 +163,7 @@ describe("carrying a sentinel key through the whole flow", () => {
     });
     const user = userEvent.setup();
     renderApp(`/campaign/${ID}`, { signedIn: true });
+    await openSection(user);
     await user.click(await screen.findByRole("checkbox", { name: /I understand/u }));
     await user.click(screen.getByRole("button", { name: "Show the viewing key" }));
     expect(await screen.findByRole("heading", { name: "This campaign belongs to a different wallet" })).toBeInTheDocument();

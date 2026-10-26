@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 
 import { adoptTokenFromText } from "@/api/operator/session";
+import { Disclosure } from "@/components/Disclosure";
 import { PageHeader } from "@/components/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -94,23 +95,20 @@ export function OpenOperatorLink({ reason }: OpenOperatorLinkProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              <h2>Why it works this way</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              The link holds a one-time key that proves this page is allowed to use your operator. Anyone who has it can
-              use the operator, so keep it to yourself.
-            </p>
-            <p>
-              The page keeps the key in memory only: not in browser storage, cookies or the address bar. That is why
-              reloading asks for the link again.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="border-b border-border">
+          <Disclosure summary="Why it works this way">
+            <div className="max-w-[64ch] space-y-3 text-base text-muted-foreground">
+              <p>
+                The link holds a one-time key that proves this page is allowed to use your operator. Anyone who has it can
+                use the operator, so keep it to yourself.
+              </p>
+              <p>
+                The page keeps the key in memory only: not in browser storage, cookies or the address bar. That is why
+                reloading asks for the link again.
+              </p>
+            </div>
+          </Disclosure>
+        </div>
       </div>
     </>
   );

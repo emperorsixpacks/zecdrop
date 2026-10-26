@@ -29,8 +29,15 @@ const BINARY = resolve(WEB, "../target/debug/drop-operator");
 const DIST = resolve(WEB, "dist");
 const CSV_DIR = resolve(WEB, "../fixtures/contract/operator/csv");
 
-/** Slow enough that a run is visible in the UI, fast enough for a test. */
-const OPERATOR_ARGS = ["--poll-interval-ms", "250", "--mock-confirm-after-polls", "2"];
+/** Slow enough that a run is visible in the UI, fast enough for a test. The screenshot specs that
+ * watch a run unfold ask for a slower one (ZECDROP_E2E_POLL_MS, ZECDROP_E2E_CONFIRM_POLLS); it is
+ * still this spec's own operator, on its own port and store. */
+const OPERATOR_ARGS = [
+  "--poll-interval-ms",
+  /^\d{2,5}$/u.test(process.env["ZECDROP_E2E_POLL_MS"] ?? "") ? (process.env["ZECDROP_E2E_POLL_MS"] as string) : "250",
+  "--mock-confirm-after-polls",
+  /^\d{1,2}$/u.test(process.env["ZECDROP_E2E_CONFIRM_POLLS"] ?? "") ? (process.env["ZECDROP_E2E_CONFIRM_POLLS"] as string) : "2",
+];
 
 function newestMtime(dir: string): number {
   let newest = 0;

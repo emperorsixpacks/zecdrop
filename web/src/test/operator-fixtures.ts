@@ -87,12 +87,42 @@ import g_error_chain_unavailable from "../../../fixtures/contract/operator/golde
 import g_error_confirmation_required from "../../../fixtures/contract/operator/golden/error-confirmation-required.json?raw";
 import g_error_dev_only from "../../../fixtures/contract/operator/golden/error-dev-only.json?raw";
 import g_error_host_not_allowed from "../../../fixtures/contract/operator/golden/error-host-not-allowed.json?raw";
+import g_error_near_already_funded from "../../../fixtures/contract/operator/golden/error-near-already-funded.json?raw";
+import g_error_near_amount_out_of_range from "../../../fixtures/contract/operator/golden/error-near-amount-out-of-range.json?raw";
+import g_error_near_bad_response from "../../../fixtures/contract/operator/golden/error-near-bad-response.json?raw";
+import g_error_near_confirmation_required from "../../../fixtures/contract/operator/golden/error-near-confirmation-required.json?raw";
+import g_error_near_dry_quote_expired from "../../../fixtures/contract/operator/golden/error-near-dry-quote-expired.json?raw";
+import g_error_near_dry_quote_stale from "../../../fixtures/contract/operator/golden/error-near-dry-quote-stale.json?raw";
+import g_error_near_invalid_refund_address from "../../../fixtures/contract/operator/golden/error-near-invalid-refund-address.json?raw";
+import g_error_near_live_quote_exists from "../../../fixtures/contract/operator/golden/error-near-live-quote-exists.json?raw";
+import g_error_near_mainnet_not_enabled from "../../../fixtures/contract/operator/golden/error-near-mainnet-not-enabled.json?raw";
+import g_error_near_no_dry_quote from "../../../fixtures/contract/operator/golden/error-near-no-dry-quote.json?raw";
+import g_error_near_no_live_quote from "../../../fixtures/contract/operator/golden/error-near-no-live-quote.json?raw";
+import g_error_near_not_applicable from "../../../fixtures/contract/operator/golden/error-near-not-applicable.json?raw";
+import g_error_near_quote_mismatch from "../../../fixtures/contract/operator/golden/error-near-quote-mismatch.json?raw";
+import g_error_near_rejected from "../../../fixtures/contract/operator/golden/error-near-rejected.json?raw";
+import g_error_near_unauthorized from "../../../fixtures/contract/operator/golden/error-near-unauthorized.json?raw";
+import g_error_near_unavailable from "../../../fixtures/contract/operator/golden/error-near-unavailable.json?raw";
+import g_error_near_unknown_origin_asset from "../../../fixtures/contract/operator/golden/error-near-unknown-origin-asset.json?raw";
+import g_error_near_zec_origin_not_allowed from "../../../fixtures/contract/operator/golden/error-near-zec-origin-not-allowed.json?raw";
 import g_error_needs_funding_split from "../../../fixtures/contract/operator/golden/error-needs-funding-split.json?raw";
 import g_error_not_applicable from "../../../fixtures/contract/operator/golden/error-not-applicable.json?raw";
 import g_error_not_available from "../../../fixtures/contract/operator/golden/error-not-available.json?raw";
 import g_error_store_corrupt from "../../../fixtures/contract/operator/golden/error-store-corrupt.json?raw";
 import g_error_wrong_wallet_seed from "../../../fixtures/contract/operator/golden/error-wrong-wallet-seed.json?raw";
 import g_health_real from "../../../fixtures/contract/operator/golden/health-real.json?raw";
+import g_near_dry_quote from "../../../fixtures/contract/operator/golden/near-dry-quote.json?raw";
+import g_near_live_quote from "../../../fixtures/contract/operator/golden/near-live-quote.json?raw";
+import g_near_preview from "../../../fixtures/contract/operator/golden/near-preview.json?raw";
+import g_near_status_failed from "../../../fixtures/contract/operator/golden/near-status-failed.json?raw";
+import g_near_status_incomplete_deposit from "../../../fixtures/contract/operator/golden/near-status-incomplete-deposit.json?raw";
+import g_near_status_known_deposit_tx from "../../../fixtures/contract/operator/golden/near-status-known-deposit-tx.json?raw";
+import g_near_status_mystery_state from "../../../fixtures/contract/operator/golden/near-status-mystery-state.json?raw";
+import g_near_status_pending_deposit from "../../../fixtures/contract/operator/golden/near-status-pending-deposit.json?raw";
+import g_near_status_processing from "../../../fixtures/contract/operator/golden/near-status-processing.json?raw";
+import g_near_status_refunded from "../../../fixtures/contract/operator/golden/near-status-refunded.json?raw";
+import g_near_status_success from "../../../fixtures/contract/operator/golden/near-status-success.json?raw";
+import g_near_tokens from "../../../fixtures/contract/operator/golden/near-tokens.json?raw";
 import g_receipt_real from "../../../fixtures/contract/operator/golden/receipt-real.json?raw";
 
 /** Response files by name (e.g. "create-valid.json"), as text. */
@@ -208,12 +238,42 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "error-confirmation-required.json": g_error_confirmation_required,
   "error-dev-only.json": g_error_dev_only,
   "error-host-not-allowed.json": g_error_host_not_allowed,
+  "error-near-already-funded.json": g_error_near_already_funded,
+  "error-near-amount-out-of-range.json": g_error_near_amount_out_of_range,
+  "error-near-bad-response.json": g_error_near_bad_response,
+  "error-near-confirmation-required.json": g_error_near_confirmation_required,
+  "error-near-dry-quote-expired.json": g_error_near_dry_quote_expired,
+  "error-near-dry-quote-stale.json": g_error_near_dry_quote_stale,
+  "error-near-invalid-refund-address.json": g_error_near_invalid_refund_address,
+  "error-near-live-quote-exists.json": g_error_near_live_quote_exists,
+  "error-near-mainnet-not-enabled.json": g_error_near_mainnet_not_enabled,
+  "error-near-no-dry-quote.json": g_error_near_no_dry_quote,
+  "error-near-no-live-quote.json": g_error_near_no_live_quote,
+  "error-near-not-applicable.json": g_error_near_not_applicable,
+  "error-near-quote-mismatch.json": g_error_near_quote_mismatch,
+  "error-near-rejected.json": g_error_near_rejected,
+  "error-near-unauthorized.json": g_error_near_unauthorized,
+  "error-near-unavailable.json": g_error_near_unavailable,
+  "error-near-unknown-origin-asset.json": g_error_near_unknown_origin_asset,
+  "error-near-zec-origin-not-allowed.json": g_error_near_zec_origin_not_allowed,
   "error-needs-funding-split.json": g_error_needs_funding_split,
   "error-not-applicable.json": g_error_not_applicable,
   "error-not-available.json": g_error_not_available,
   "error-store-corrupt.json": g_error_store_corrupt,
   "error-wrong-wallet-seed.json": g_error_wrong_wallet_seed,
   "health-real.json": g_health_real,
+  "near-dry-quote.json": g_near_dry_quote,
+  "near-live-quote.json": g_near_live_quote,
+  "near-preview.json": g_near_preview,
+  "near-status-failed.json": g_near_status_failed,
+  "near-status-incomplete-deposit.json": g_near_status_incomplete_deposit,
+  "near-status-known-deposit-tx.json": g_near_status_known_deposit_tx,
+  "near-status-mystery-state.json": g_near_status_mystery_state,
+  "near-status-pending-deposit.json": g_near_status_pending_deposit,
+  "near-status-processing.json": g_near_status_processing,
+  "near-status-refunded.json": g_near_status_refunded,
+  "near-status-success.json": g_near_status_success,
+  "near-tokens.json": g_near_tokens,
   "receipt-real.json": g_receipt_real,
 };
 

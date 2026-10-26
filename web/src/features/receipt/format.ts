@@ -1,7 +1,7 @@
 // Small display rules for the receipt page.
 
 import { findingBatch, isFailure, type ReceiptFinding } from "@/api/findings";
-import type { PublicReceiptBatch, ReceiptPool } from "@/api/types";
+import type { PublicReceipt, PublicReceiptBatch, ReceiptPool } from "@/api/types";
 import type { PhaseState } from "@/lib/phase";
 
 export const POOL_LABEL: Record<ReceiptPool, string> = {
@@ -65,4 +65,15 @@ export function isPending(state: BatchState): boolean {
 
 export function confirmationsText(count: number): string {
   return count === 1 ? "1 confirmation" : `${String(count)} confirmations`;
+}
+
+/** How many shielded outputs the receipt's batches have in all, or null when some
+ * batch's count could not be established (a sum with a hole in it says nothing). */
+export function outputCount(receipt: PublicReceipt): number | null {
+  let total = 0;
+  for (const batch of receipt.batches) {
+    if (batch.shieldedActions === null) return null;
+    total += batch.shieldedActions;
+  }
+  return total;
 }

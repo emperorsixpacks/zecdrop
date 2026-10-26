@@ -1,0 +1,69 @@
+import type { CSSProperties, ReactNode } from "react";
+
+import type { PublicReceipt } from "@/api/types";
+import { Why } from "@/components/Why";
+import { Unknown, Zec } from "@/components/Zec";
+import { shortId } from "@/lib/ids";
+import { useInView } from "@/lib/use-in-view";
+
+import { outputCount } from "./format";
+
+function Station({ index, label, help, children }: { index: number; label: ReactNode; help?: ReactNode; children: ReactNode }) {
+  return (
+    <li
+      style={{ "--i": index } as CSSProperties}
+      className="relative border-l-2 border-border pb-6 pl-5 last:pb-0 sm:border-l-0 sm:pt-7 sm:pb-0 sm:pl-0 sm:pr-4"
+    >
+      <span
+        aria-hidden
+        className="flow-dot absolute top-0 -left-[9px] size-4 rounded-full border-[3px] border-primary bg-background sm:-top-[7px] sm:left-0"
+      />
+      <div className="flex h-6 items-center gap-1 text-sm text-muted-foreground">
+        {label}
+        {/* The button is 44px for fingers; it hangs over the line above and below so the three stations stay level. */}
+        {help !== undefined && <span className="-my-4 inline-flex">{help}</span>}
+      </div>
+      <div className="text-xl font-bold tracking-tight">{children}</div>
+    </li>
+  );
+}
+
+/** Three stations in a line: where it was funded from, what entered the private
+ * pool, how many outputs came out. Only what the verifier read from the chain. The
+ * line fills and the stations pop in, one after the other, when it scrolls into view. */
+export function FundsFlow({ receipt }: { receipt: PublicReceipt }) {
+  const outputs = outputCount(receipt);
+  const [ref, inView] = useInView<HTMLDivElement>();
+  return (
+    <div ref={ref} data-in={inView} className="flow relative">
+      <div aria-hidden className="flow-line absolute top-[1px] right-1 left-1 hidden h-[3px] rounded-full bg-border sm:block">
+        <i />
+      </div>
+      <ol aria-label="Where the funds went" className="grid sm:grid-cols-3">
+        <Station index={0} label="Funded from">
+          {receipt.fundingAddress === null ? (
+            <Unknown />
+          ) : (
+            <span className="mono text-lg" translate="no" title={receipt.fundingAddress}>
+              {shortId(receipt.fundingAddress, 6)}
+            </span>
+          )}
+        </Station>
+        <Station
+          index={1}
+          label="Into the private pool"
+          help={
+            <Why label="About the private pool">
+              <p>The shielded pool is where Zcash keeps amounts and recipients encrypted. The chain shows how much entered it, not who got what.</p>
+            </Why>
+          }
+        >
+          <Zec zatoshi={receipt.declaredTotal} />
+        </Station>
+        <Station index={2} label="Out in">
+          {outputs === null ? <Unknown /> : outputs === 1 ? "1 output" : `${String(outputs)} outputs`}
+        </Station>
+      </ol>
+    </div>
+  );
+}

@@ -1,20 +1,11 @@
 @import "tailwindcss";
 
-/* Theming model
- *
- * Dark is the default. Light applies only when <html data-theme="light">,
- * which src/lib/theme.ts sets from the saved choice or the OS preference.
- * The `dark:` variant follows the same rule, so component variants written
- * with `dark:` never disagree with the tokens below.
- *
- * Colours are full OKLCH values (no channel tricks); utilities pick them up
- * through the `@theme inline` map. The first group of tokens is the contract
- * the generated shadcn components expect; `link` and `status-*` are ours.
- *
- * Contrast was computed (WCAG 2.2) for both themes: text pairs >= 4.5:1,
- * input borders and focus ring >= 3:1, including tinted badge backgrounds.
- * Re-run the check if you change a value. */
-@custom-variant dark (&:where(:root:not([data-theme="light"]) *));
+/* Design tokens: see web/DESIGN.md. The colours are Midnight, dark and light, below; the
+ * signature element is still the redaction bar, a hatched block that reads as a redaction in
+ * either; the accent (violet) is the one action, the revealed state and focus; the second colour
+ * (teal) is the gradient's end on one emphasised word per page. Text is Schibsted Grotesk and
+ * IBM Plex Mono, bundled. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -36,119 +27,381 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* ZecDrop additions */
+  /* ZecDrop */
   --color-link: var(--link);
-  --color-status-shielded: var(--status-shielded);
-  --color-status-done: var(--status-done);
+  --color-bar: var(--bar);
+  --color-highlighter: var(--highlighter);
+  --color-accent-2: var(--accent-2);
+  --color-accent-text: var(--accent-text);
+  --color-verified: var(--verified);
+  --color-problem: var(--problem);
+  /* kept for the components that still use the older names */
+  --color-status-shielded: var(--muted-foreground);
+  --color-status-done: var(--verified);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Soft corners on controls, pills for choices; nothing else has a box. */
+  --radius: 0.875rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 1.5rem;
 
-  /* System stacks only: no web font means no third-party request and no
-   * flash of unstyled text, which suits a tool that runs offline. */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-    "Liberation Mono", monospace;
-  --font-heading: var(--font-sans); /* generated components use font-heading */
+  /* Bundled (src/main.tsx imports the font files): no request to any other host. */
+  --font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Scale: 14 / 16 / 20 / 28 / 44 / 72 */
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-xl: 1.25rem;
+  --text-3xl: 1.75rem;
+  --text-5xl: 2.75rem;
+  --text-7xl: 4.5rem;
 }
 
+/* ---- The colours ----------------------------------------------------------------------------
+ * Midnight: a deep indigo page, an electric-violet action and a teal second colour. It is the
+ * look; the dark set below is what the page is, and the light set is the same family on a pale
+ * lavender-white, for people who switch the theme or whose system is light. Nothing in the app
+ * names a colour, it names a role; <html data-theme="dark|light"> (src/lib/theme.ts) picks the
+ * set, and the roles below read it. src/colours.test.ts computes the contrast of every pair of
+ * roles that meet in the app, in both sets, and fails below WCAG 2.2 AA (text 4.5:1, a control's
+ * boundary and the gradient's ends 3:1); it also fails on a colour literal anywhere else.
+ *
+ *   bg, surface     the page, and what sits on it (cards, sheets, fields)
+ *   ink, muted      text, and quieter text
+ *   rule, control   hairlines, and the boundary of a control (>= 3:1)
+ *   accent          the one action: its fill; accent-ink is the text on it
+ *   accent-text     the accent as a TEXT colour (>= 4.5:1); accent-2 is the second colour
+ *   bar             the redaction bar
+ *   good, bad       "verified" and "problem", as text
+ *
+ * Before the script has set the attribute the page is the dark set, so nothing flashes. */
 :root {
   color-scheme: dark;
-  --radius: 0.625rem;
+  --p-bg: #0b0b1a;
+  --p-surface: #15152e;
+  --p-ink: #f1f1ff;
+  --p-muted: #9a9ac4;
+  --p-rule: #2a2a52;
+  --p-control: #7474a8;
+  --p-accent: #7658ff;
+  --p-accent-ink: #ffffff;
+  --p-accent-2: #2ee6d6;
+  --p-accent-text: #9b84ff;
+  --p-bar: #2a2a52;
+  --p-good: #2ee6d6;
+  --p-bad: #ff8a9b;
+}
 
-  --background: oklch(0.155 0.006 75);
-  --foreground: oklch(0.96 0.004 85);
-  --card: oklch(0.2 0.007 75);
-  --card-foreground: oklch(0.96 0.004 85);
-  --popover: oklch(0.22 0.008 75);
-  --popover-foreground: oklch(0.96 0.004 85);
-
-  /* Zcash gold, #F4B728. `primary` is a fill and always carries dark text. */
-  --primary: oklch(0.814 0.158 83);
-  --primary-foreground: oklch(0.2 0.02 80);
-  --secondary: oklch(0.27 0.008 75);
-  --secondary-foreground: oklch(0.96 0.004 85);
-  --muted: oklch(0.25 0.007 75);
-  --muted-foreground: oklch(0.74 0.01 80);
-  --accent: oklch(0.29 0.01 78);
-  --accent-foreground: oklch(0.96 0.004 85);
-  --destructive: oklch(0.72 0.17 25);
-
-  --border: oklch(0.3 0.008 75); /* decorative card edges */
-  --input: oklch(0.55 0.01 80); /* a control's boundary: must clear 3:1 */
-  --ring: oklch(0.814 0.158 83);
-
-  /* Gold used as TEXT or an outline. Same as primary here; darker amber in
-   * light, where gold text on a pale background is unreadable. */
-  --link: oklch(0.814 0.158 83);
-  --status-shielded: oklch(0.78 0.12 295);
-  --status-done: oklch(0.8 0.16 155);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --p-bg: #0b0b1a;
+  --p-surface: #15152e;
+  --p-ink: #f1f1ff;
+  --p-muted: #9a9ac4;
+  --p-rule: #2a2a52;
+  --p-control: #7474a8;
+  --p-accent: #7658ff;
+  --p-accent-ink: #ffffff;
+  --p-accent-2: #2ee6d6;
+  --p-accent-text: #9b84ff;
+  --p-bar: #2a2a52;
+  --p-good: #2ee6d6;
+  --p-bad: #ff8a9b;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
+  --p-bg: #f6f6ff;
+  --p-surface: #ffffff;
+  --p-ink: #12122a;
+  --p-muted: #5c5a8a;
+  --p-rule: #dcdaf5;
+  --p-control: #7a78ad;
+  --p-accent: #6a4cff;
+  --p-accent-ink: #ffffff;
+  --p-accent-2: #00877d;
+  --p-accent-text: #5b38e8;
+  --p-bar: #12122a;
+  --p-good: #0a7a62;
+  --p-bad: #b3261e;
+}
 
-  --background: oklch(0.985 0.004 85);
-  --foreground: oklch(0.2 0.01 75);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.01 75);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.01 75);
+/* ---- Roles: what the app asks for -------------------------------------------------------- */
+:root {
+  --background: var(--p-bg);
+  --foreground: var(--p-ink);
+  --card: var(--p-surface);
+  --card-foreground: var(--p-ink);
+  --popover: var(--p-surface);
+  --popover-foreground: var(--p-ink);
 
-  --primary: oklch(0.814 0.158 83);
-  --primary-foreground: oklch(0.2 0.02 80);
-  --secondary: oklch(0.94 0.008 85);
-  --secondary-foreground: oklch(0.2 0.01 75);
-  --muted: oklch(0.955 0.006 85);
-  --muted-foreground: oklch(0.46 0.012 80);
-  --accent: oklch(0.93 0.015 85);
-  --accent-foreground: oklch(0.2 0.01 75);
-  --destructive: oklch(0.5 0.2 27);
+  --primary: var(--p-accent);
+  --primary-foreground: var(--p-accent-ink);
+  --secondary: color-mix(in srgb, var(--p-ink) 7%, var(--p-bg));
+  --secondary-foreground: var(--p-ink);
+  --muted: color-mix(in srgb, var(--p-ink) 5%, var(--p-bg));
+  --muted-foreground: var(--p-muted);
+  --accent: color-mix(in srgb, var(--p-ink) 7%, var(--p-bg)); /* the neutral hover fill */
+  --accent-foreground: var(--p-ink);
+  --destructive: var(--p-bad);
 
-  --border: oklch(0.89 0.008 85);
-  --input: oklch(0.62 0.01 80);
-  --ring: oklch(0.46 0.1 75);
+  --border: var(--p-rule);
+  --input: var(--p-control);
+  --ring: var(--p-ink);
 
-  --link: oklch(0.46 0.1 75);
-  --status-shielded: oklch(0.46 0.16 295);
-  --status-done: oklch(0.42 0.12 155);
+  --link: var(--p-ink);
+  --bar: var(--p-bar); /* redaction bar */
+  --highlighter: var(--p-accent);
+  --verified: var(--p-good);
+  --problem: var(--p-bad);
+  --accent-2: var(--p-accent-2);
+  --accent-text: var(--p-accent-text);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
     @apply font-sans antialiased;
+    font-size: 16px;
   }
 
   body {
     @apply bg-background text-foreground;
+    line-height: 1.5;
   }
 
-  /* Keyboard focus is always visible, including on bare links. */
+  /* Big type: display weight and tight tracking. Not tabular: the font gives a decimal
+   * point a digit's width under tabular figures, which breaks "0.005" apart. A number that
+   * counts up sets its own digits tabular (CountUp). */
+  .display {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  /* Ids, addresses and amount columns. */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 0;
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  /* Keyboard focus is always visible: an ink outline with a highlighter ring around it. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--highlighter);
+    border-radius: 4px;
   }
 }
 
-/* Respect the OS "reduce motion" setting for every animation and transition,
- * including ones inside third-party components. */
+/* ---- Motion ------------------------------------------------------------------------------
+ * Every duration is multiplied by --motion: 1 when Lively, a third of that when Calm
+ * (src/lib/motion.ts sets <html data-motion>). Under the system's "reduce motion" nothing
+ * animates at all, whatever the choice: the last rule in this file. Every animation here
+ * ends in the state the page is in when it is not animating, so taking it away loses
+ * nothing but the movement. */
+html { --motion: 1; }
+html[data-motion="calm"] { --motion: 0.35; }
+
+/* The redaction bar: a block of the bar colour with a faint diagonal hatch, so it
+ * reads as a redaction in the dark set too. It holds no text. */
+.redacted {
+  position: relative;
+  display: inline-block;
+  color: transparent;
+  background-color: var(--bar);
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--background) 16%, transparent) 6px 12px);
+  border-radius: 5px;
+  user-select: none;
+}
+
+/* A bar that is put back wipes in from the left; one that is lifted wipes away to the right,
+ * one row after another (--i is the row). The text it uncovers is drawn at once, under it. */
+@keyframes bar-in {
+  from { transform: scaleX(0); transform-origin: left center; }
+  to { transform: scaleX(1); transform-origin: left center; }
+}
+@keyframes bar-out {
+  from { transform: scaleX(1); transform-origin: right center; }
+  to { transform: scaleX(0); transform-origin: right center; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+.bar-in {
+  animation: bar-in calc(450ms * var(--motion)) cubic-bezier(0.7, 0, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms * var(--motion));
+}
+.bar-out {
+  position: absolute;
+  inset: 0;
+  animation: bar-out calc(450ms * var(--motion)) cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms * var(--motion));
+}
+.reveal-in {
+  animation: fade-in calc(300ms * var(--motion)) both;
+  animation-delay: calc(var(--i, 0) * 60ms * var(--motion));
+}
+
+/* Rows that arrive (after a drop) slide in one after the other. */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-14px); }
+}
+.slide-in {
+  animation: slide-in calc(350ms * var(--motion)) both;
+  animation-delay: calc(var(--i, 0) * 70ms * var(--motion));
+}
+
+/* Rows answer the pointer with a tint of the accent. No lift: a row is not a card. */
+.row-hover { transition: background-color 200ms; }
+.row-hover:hover { background-color: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+/* The slider thumb of a segmented control glides to the chosen option. */
+.segmented-glide {
+  transition:
+    transform calc(350ms * var(--motion)) cubic-bezier(0.2, 0.8, 0.2, 1),
+    width calc(350ms * var(--motion));
+}
+
+/* The primary button lifts a little under the pointer, when Lively. */
+.lift { transition: transform 150ms, box-shadow 250ms, filter 200ms; }
+html[data-motion="lively"] .lift:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+
+/* ...and gives under a press. */
+.lift:active:not(:disabled) { transform: scale(0.98); box-shadow: none; }
+
+/* Sections that open and close: the grid-rows trick, so the height is animated without a jump.
+ * The panel stays mounted while it closes (Radix waits for the animation), then goes. */
+.accordion-panel { display: grid; }
+.accordion-panel > .accordion-inner { min-height: 0; overflow: hidden; }
+.accordion-panel[data-state="open"] { animation: accordion-open calc(350ms * var(--motion)) ease both; }
+.accordion-panel[data-state="closed"] { animation: accordion-close calc(300ms * var(--motion)) ease both; }
+@keyframes accordion-open {
+  from { grid-template-rows: 0fr; opacity: 0; }
+  to { grid-template-rows: 1fr; opacity: 1; }
+}
+@keyframes accordion-close {
+  from { grid-template-rows: 1fr; opacity: 1; }
+  to { grid-template-rows: 0fr; opacity: 0; }
+}
+
+/* The confirm sheet rises, and the page dims behind it. */
+dialog[data-slot="sheet"][open] { animation: sheet-up calc(400ms * var(--motion)) cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(--motion)) both; }
+@keyframes sheet-up {
+  from { transform: translateY(2.5rem); opacity: 0; }
+}
+
+/* The receipt's flow of funds draws itself when it scrolls into view: the line fills,
+ * and the three stations pop in one after the other. Before that they are not drawn. */
+.flow-line > i { display: block; height: 100%; width: 0; border-radius: inherit; background-image: linear-gradient(90deg, var(--accent-text), var(--accent-2)); }
+.flow[data-in="true"] .flow-line > i { width: 100%; transition: width calc(1200ms * var(--motion)) ease; }
+.flow:not([data-in="true"]) .flow-dot { transform: scale(0); }
+.flow[data-in="true"] .flow-dot { animation: pop calc(500ms * var(--motion)) both; animation-delay: calc(var(--i, 0) * 350ms * var(--motion)); }
+@keyframes pop {
+  from { transform: scale(0); }
+}
+
+/* The tick on a settled receipt is drawn, not shown. */
+.check-draw path { stroke-dasharray: 40; stroke-dashoffset: 0; animation: draw calc(600ms * var(--motion)) 200ms ease backwards; }
+@keyframes draw {
+  from { stroke-dashoffset: 40; }
+}
+
+/* The stamp that comes down once when a campaign settles. */
+.stamp {
+  display: inline-block;
+  border: 3px double var(--verified);
+  border-radius: 6px;
+  padding: 0.25rem 1rem;
+  color: var(--verified);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+}
+@keyframes stamp-in {
+  from { opacity: 0; transform: scale(2.2) rotate(-18deg); }
+  to { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+.stamp-in { animation: stamp-in calc(420ms * var(--motion)) cubic-bezier(0.2, 1.4, 0.3, 1) both; }
+
+/* ...and, Lively only, a short burst of confetti beside it. */
+.confetti { position: absolute; left: 3rem; top: 1.5rem; pointer-events: none; }
+.confetti > i {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: burst 900ms ease-out forwards;
+}
+@keyframes burst {
+  to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; }
+}
+
+/* The one word of the headline that carries the accent: from the accent's text colour to the
+ * second colour. Both ends are checked against the page (src/colours.test.ts). */
+.gradient-text {
+  background-image: linear-gradient(90deg, var(--accent-text), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A soft glow behind the page. Drawn only when Lively (and never under "reduce motion", where it
+ * would stay still and be plain decoration): it drifts slowly. It is behind everything, and
+ * is not an element, so no text is ever measured against it. */
+html[data-motion="lively"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 32rem;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(32rem 20rem at 18% 28%, color-mix(in srgb, var(--primary) 20%, transparent), transparent 70%),
+    radial-gradient(32rem 20rem at 82% 8%, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 70%);
+  animation: drift 14s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  to { transform: translate3d(40px, 24px, 0) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body::before { display: none; }
+}
+
+/* The practice-mode pill: hatched, so it reads as "not real". */
+.hatched {
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--foreground) 9%, transparent) 5px 6px);
+}
+
+/* Respect the OS "reduce motion" setting for every animation and transition. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* None at all, not a very short one: a 0.01ms transition still runs for a frame, and a
+     * theme change would show half-old colours (it did, to the contrast check). */
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }

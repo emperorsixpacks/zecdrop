@@ -1,39 +1,46 @@
 import type { PublicReceipt } from "@/api/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Disclosure } from "@/components/Disclosure";
 
 import { BatchList } from "./BatchList";
-import { BoundaryCards } from "./BoundaryCards";
-import { CommitmentCard } from "./CommitmentCard";
+import { Fingerprint } from "./Fingerprint";
 import { FindingsCard } from "./FindingsCard";
-import { FundingAddressCard } from "./FundingAddressCard";
-import { ReceiptSummary } from "./ReceiptSummary";
+import { FundingAddress } from "./FundingAddress";
+import { FundsFlow } from "./FundsFlow";
+import { ProvesAndNot } from "./ProvesAndNot";
+import { ReceiptLens } from "./ReceiptLens";
+import { ReceiptVerdict } from "./ReceiptVerdict";
 
-/** A validated receipt, top to bottom. Nothing here can show recipient data:
- * the type it takes has no field for it. */
+/** A validated receipt, top to bottom: the verdict, what the verifier found, the
+ * flow of funds, the public view, then the details behind a click. Nothing here can
+ * show recipient data: the type it takes has no field for it. */
 export function ReceiptView({ receipt }: { receipt: PublicReceipt }) {
   return (
-    <div className="space-y-8">
-      <ReceiptSummary receipt={receipt} />
-      <FindingsCard findings={receipt.findings} />
+    <div className="space-y-12">
+      <div className="space-y-8">
+        <ReceiptVerdict receipt={receipt} />
+        <FindingsCard findings={receipt.findings} />
+      </div>
+      <FundsFlow receipt={receipt} />
+      <ReceiptLens receipt={receipt} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            <h2>Batches</h2>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="border-b border-border">
+        <Disclosure summary={receipt.batches.length === 1 ? "Transaction" : "Transactions"}>
           <BatchList receipt={receipt} />
-        </CardContent>
-      </Card>
-
-      <FundingAddressCard
-        address={receipt.fundingAddress}
-        network={receipt.network}
-        someBatchesNotBuilt={receipt.batches.some((b) => b.txid === null)}
-      />
-      <CommitmentCard commitment={receipt.manifestCommitment} />
-      <BoundaryCards />
+        </Disclosure>
+        <Disclosure summary="Funding address">
+          <FundingAddress
+            address={receipt.fundingAddress}
+            network={receipt.network}
+            someBatchesNotBuilt={receipt.batches.some((b) => b.txid === null)}
+          />
+        </Disclosure>
+        <Disclosure summary="List fingerprint">
+          <Fingerprint commitment={receipt.manifestCommitment} />
+        </Disclosure>
+        <Disclosure summary="What this proves and what it does not">
+          <ProvesAndNot />
+        </Disclosure>
+      </div>
     </div>
   );
 }

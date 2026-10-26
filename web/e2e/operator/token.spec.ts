@@ -77,7 +77,7 @@ test.describe("with the real token", () => {
 
     await field.fill(`open:    ${operatorUrl("/", { token: true })}`);
     await page.getByRole("button", { name: "Use this link" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Campaigns" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
     expect(page.url()).toBe(operatorUrl("/campaigns"));
 
     const state = await dumpBrowserState(page);
@@ -91,7 +91,7 @@ test.describe("with the real token", () => {
   test("opening the link signs in, and the token is in no URL, storage or later request URL", async ({ page }) => {
     const seen = await observe(page);
     await page.goto(operatorUrl("/campaigns", { token: true }));
-    await expect(page.getByRole("heading", { level: 1, name: "Campaigns" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
 
     expect(page.url()).not.toContain(operatorToken());
     expect(await dumpBrowserState(page)).not.toContain(operatorToken());

@@ -75,7 +75,7 @@ test("a built asset is cached as immutable, and client routes are rewritten to t
   expect(file.status()).toBe(200);
   expect(file.headers()["cache-control"]).toBe("public, max-age=31536000, immutable");
 
-  for (const path of ["/r/demo?demo=real", "/privacy", "/campaigns", "/new/basics", "/campaign/c-1", "/audit", "/r/anything/else"]) {
+  for (const path of ["/r/demo?demo=real", "/privacy", "/campaigns", "/new/check", "/campaign/c-1", "/audit", "/r/anything/else"]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(200);
     expect(await response.text(), path).toContain('<div id="root">');
@@ -86,11 +86,11 @@ test("a built asset is cached as immutable, and client routes are rewritten to t
 
 test.describe("the policy breaks nothing", () => {
   const PAGES: [string, string, RegExp][] = [
-    ["the home page", "/", /Private amounts\. Public accountability\./u],
+    ["the home page", "/", /Pay many people\. Keep who got what private\. Prove the total\./u],
     ["the real sample receipt", "/r/demo?demo=real", /Payout receipt/u],
     ["the first real batch", "/r/demo?demo=real-smoke", /Payout receipt/u],
     ["the findings sample", "/r/demo?demo=findings", /Payout receipt/u],
-    ["the privacy page", "/privacy", /What is public, what is private/u],
+    ["the privacy page", "/privacy", /How privacy works/u],
   ];
 
   for (const [name, path, heading] of PAGES) {
@@ -100,7 +100,7 @@ test.describe("the policy breaks nothing", () => {
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
       if (path.startsWith("/r/")) await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
       // Exercise what a page does with scripts and styles: theme switch, copy button.
-      await page.getByRole("button", { name: "Light theme" }).click();
+      await page.getByRole("button", { name: /^Switch to (dark|light) theme$/u }).click();
       expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
       expect(seen.problems()).toEqual([]);
     });
@@ -112,6 +112,7 @@ test.describe("the policy breaks nothing", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
     await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
     await expect(page.getByRole("heading", { name: "What the verifier found" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Funding address" }).click();
     await expect(page.getByTestId("funding-address")).toHaveText("tmU6c1aX…B3nkZGkD");
 
     const calls = await stubCalls(page);
@@ -145,7 +146,7 @@ test.describe("the policy breaks nothing", () => {
 });
 
 test.describe("the operator pages on a public copy", () => {
-  for (const path of ["/campaigns", "/new", "/new/basics", "/campaign/c-000000000001", "/audit"]) {
+  for (const path of ["/campaigns", "/new", "/new/check", "/campaign/c-000000000001", "/audit"]) {
     test(`${path} explains that the operator runs on your own machine, and calls nothing`, async ({ page }) => {
       const seen = await watch(page);
       const requested: string[] = [];
@@ -156,7 +157,8 @@ test.describe("the operator pages on a public copy", () => {
       // No operator screens, no menu of them, no call to any API.
       await expect(page.getByRole("heading", { name: "Open the operator link" })).toHaveCount(0);
       const nav = page.getByRole("navigation", { name: "Primary" });
-      await expect(nav.getByRole("link", { name: "New campaign" })).toHaveCount(0);
+      await expect(nav.getByRole("link", { name: "Payouts" })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "New payout" })).toHaveCount(0);
       expect(requested.filter((u) => u.includes("/api/") || u.startsWith(STUB))).toEqual([]);
       expect(await seen.violations()).toEqual([]);
       expect(seen.problems()).toEqual([]);

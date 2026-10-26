@@ -6,8 +6,11 @@ import { createRoot } from "react-dom/client";
 
 import { adoptTokenFromLocation } from "./api/operator/session";
 import App from "./App";
+import "@fontsource-variable/schibsted-grotesk/wght.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./index.css";
-import { applyTheme, resolveInitialTheme } from "./lib/theme";
+import { initAppearance } from "./lib/appearance";
 
 // Take the operator token out of the URL fragment and the address bar BEFORE
 // anything renders or any router reads the location. It is kept in memory only.
@@ -17,8 +20,8 @@ window.addEventListener("hashchange", () => {
   adoptTokenFromLocation(window.location, window.history);
 });
 
-// Before first render, so a light-theme user does not see a dark flash.
-applyTheme(resolveInitialTheme());
+// Before first render, so nobody sees the page in a look they did not choose.
+initAppearance();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("missing #root element");

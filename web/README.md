@@ -11,8 +11,8 @@ public accountability"). The same bundle serves two roles:
 
 There is no wallet-connect and no EVM code in this app.
 
-What is real: the public pages, the operator pages (campaign list, five-step
-wizard, campaign view with live progress, receipt link, audit explainer), the
+What is real: the public pages, the operator pages (payout list, the three
+stages Payouts, Check and Send, campaign view with live progress, receipt link, audit explainer), the
 design system and the libraries under `src/lib` and `src/api`. The operator
 pages are tested against responses captured from the real operator binary.
 
@@ -84,11 +84,11 @@ hand-copied duplicate.
 
 **Funding address.** A receipt carries the one transparent address every batch
 spends from (or `null`, shown as "Unknown"). With the manifest commitment it is
-what ties a receipt to a campaign; the campaign id at the top is only a label.
+what ties a receipt to a campaign; the campaign id under the title is only a label.
 The page shows it short, with a copy button and a link to the explorer's address
 page (`VITE_EXPLORER_*_ADDRESS_URL`, default `/address/{address}`, checked on
 both networks on 2026-10-08), and no link when the text is not a plain transparent
-address. The real-sample banner says explorers are third parties and can lag.
+address. The real sample's "Details" say explorers are third parties and can lag.
 
 **Coins.** Amounts are labelled by the network of what the page is about:
 **TAZ** on testnet (the test coin, worth nothing; the page says so) and **ZEC** on
@@ -135,8 +135,8 @@ shows the same screen. Progress events arrive over `fetch` with a streaming
 parser (not `EventSource`, which cannot send a header), with reconnect and
 backoff, and are aborted when the page is left.
 
-On the mock chain a banner on every operator page says "Mock chain: nothing is
-sent to Zcash", and the campaign page offers a form that records a pretend
+On the mock chain a pill in the header of every operator page says "Practice mode:
+nothing is sent to Zcash", and the campaign page offers a form that records a pretend
 deposit. Both appear only because the operator's `/api/health` says
 `mock: true`; they never appear against a real chain. If health says nothing
 about `mock` (an older build), the page treats it as unknown: no development
@@ -158,7 +158,7 @@ written.
 
 ## What is kept, and what never is
 
-Recipient addresses, amounts and memos are typed or pasted into the wizard, sent
+Recipient addresses, amounts and memos are dropped, chosen or pasted on the first stage, sent
 **once** to the loopback operator in `POST /api/campaigns`, and dropped from the
 page's memory the moment the campaign is created. They are never in browser
 storage, a URL, the console, an error message, or any response from the
@@ -213,9 +213,9 @@ its hook mention storage, navigation, logging or a cache.
     live receipt link, that the policy is really in force (a request to any other origin is blocked and reported), that
     the operator pages explain themselves and call nothing, and that `scripts/check-hosted.mjs` passes.
   - **operator**: `e2e/operator/global-setup.ts` starts the real binary on a
-    free loopback port with a temporary store, reads the token from its banner,
+    free loopback port with a temporary store, reads the token from its start-up banner,
     seeds three campaigns, and stops it afterwards. `flow.spec.ts` creates a
-    campaign through the wizard from a sentinel CSV, records mock funding,
+    campaign through the three stages from a sentinel CSV, records mock funding,
     starts, watches it settle and opens the receipt link, then checks that no
     sentinel is in storage (localStorage, sessionStorage, IndexedDB, cookies,
     caches), any URL, the console, any request other than the one that creates
@@ -223,8 +223,9 @@ its hook mention storage, navigation, logging or a cache.
     malformed and query-string token. `csp.spec.ts` walks the main pages under the
     operator's Content-Security-Policy and fails on any violation.
     `viewing-key.spec.ts` is the key test above. `a11y.spec.ts` runs axe on every
-    operator page at 360px and 1280px in both themes, including the real-chain
-    funding states and the key, served from the operator's `golden/` files. The global setup refuses to run
+    operator page at 360px and 1280px in both themes, with every section opened,
+    the send sheet, a run in progress, a stopped run and a failed one (from the operator's captured
+    files), and the real-chain funding states and the key (from its `golden/` files). The global setup refuses to run
     if `dist/` is older than `src/`.
 
 ## Folder map
@@ -241,15 +242,15 @@ src/
     home/       "/"             public pitch
     receipt/    "/r/:id"        PUBLIC receipt viewer
     privacy/    "/privacy"      "Privacy boundary" page
-    operator/   the token gate, mock banner, hooks, wording (messages.ts),
+    operator/   the token gate, hooks, wording (messages.ts),
                 batch list, funding and start panels
     campaigns/  "/campaigns"    the operator's campaigns
-    wizard/     "/new/:step"    five steps, the in-memory draft, PrivacyWarnings
+    wizard/     "/new/..."      three stages (Payouts, Check, Send), the in-memory draft, PrivacyWarnings
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
   lib/          config, zod-config, zec (money), phase, fees, ids, explorer, theme, utils
   test/         fake operator, fixture loader, Rust-source reader, render helper
-  index.css     design tokens, theme (dark default, light via data-theme), Tailwind map
+  index.css     palettes (Midnight, Ocean, Sunrise, Paper, each light and dark), roles, motion, Tailwind map
 tests/          guard tests that run ESLint itself
 e2e/            Playwright specs (public pages) and e2e/operator/ (real operator)
 PROVENANCE.md   what is hand-written, what is generated, and by which tool
@@ -291,7 +292,7 @@ Other conventions worth knowing:
   cannot see that the money reached the people on the list. `src/copy.test.tsx`
   renders every page and fails on phrases that claim more ("everyone was paid",
   "verified payouts", ...).
-- No third-party requests: fonts are system stacks, nothing is loaded from a
-  CDN.
+- No third-party requests: the two fonts (Schibsted Grotesk, IBM Plex Mono; OFL,
+  see PROVENANCE.md) are bundled with the page, nothing is loaded from a CDN.
 - Design tokens (in `src/index.css`) were contrast-checked against WCAG 2.2 AA
   in both themes. Re-check if you change a value.

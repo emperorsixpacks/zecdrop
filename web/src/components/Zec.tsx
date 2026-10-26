@@ -9,7 +9,7 @@ export function Zec({ zatoshi }: { zatoshi: string | null }) {
   const unit = useCoinUnit();
   if (zatoshi === null) return <Unknown />;
   return (
-    <span className="tabular-nums" title={`${zatoshi} zatoshi`}>
+    <span className="whitespace-nowrap" title={`${zatoshi} zatoshi`}>
       {zecFromZatoshi(zatoshi)} {unit}
     </span>
   );

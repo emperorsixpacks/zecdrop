@@ -11,6 +11,18 @@ import { parsePublicReceipt, type OutPointView, type PublicReceipt } from "@/api
 
 import { getToken, rejectToken } from "./session";
 import {
+  parseNearDryQuote,
+  parseNearLiveQuote,
+  parseNearPreview,
+  parseNearStatus,
+  parseNearTokens,
+  type NearAsset,
+  type NearDryQuoteView,
+  type NearLiveQuoteView,
+  type NearPriceView,
+  type NearStatusView,
+} from "./near-schemas";
+import {
   parseCampaign,
   parseCampaignList,
   parseHealth,
@@ -216,4 +228,62 @@ export async function startCampaign(id: string, signal?: AbortSignal): Promise<S
     parse: parseStartResponse,
     ...(signal ? { signal } : {}),
   });
+}
+
+// ---- NEAR Intents (funding from another coin) -----------------------------------------
+//
+// The operator is the only thing that talks to the price service. Three of these five calls
+// create nothing (the asset list, a preview, a dry quote); `getNearLiveQuote` asks for a real
+// deposit address and is sent only after the person has ticked the acknowledgement.
+
+/** The assets a funder could pay with (never ZEC), as the operator lists them. */
+export async function getNearTokens(signal?: AbortSignal): Promise<NearAsset[]> {
+  return await request("/near/tokens", { parse: parseNearTokens, ...(signal ? { signal } : {}) });
+}
+
+/** A dry price for delivering `amountZat` zatoshi of mainnet ZEC. Creates nothing; works on testnet. */
+export async function postNearPreview(
+  input: { originAssetId: string; amountZat: string },
+  signal?: AbortSignal,
+): Promise<NearPriceView> {
+  return await request("/near/preview", {
+    method: "POST",
+    body: { origin_asset_id: input.originAssetId, amount_zat: input.amountZat },
+    parse: parseNearPreview,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** A dry quote for exactly what a mainnet campaign needs. Creates nothing; good for ten minutes. */
+export async function postNearDryQuote(
+  id: string,
+  input: { originAssetId: string; refundTo: string },
+  signal?: AbortSignal,
+): Promise<NearDryQuoteView> {
+  return await request(campaignPath(id, "/funding/near/dry-quote"), {
+    method: "POST",
+    body: { origin_asset_id: input.originAssetId, refund_to: input.refundTo },
+    parse: parseNearDryQuote,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** The header that acknowledges a deposit address starts a real swap. */
+export const NEAR_CONFIRM_HEADER = "X-Zecdrop-Confirm-Near";
+export const NEAR_CONFIRM_ACKNOWLEDGEMENT = "I-UNDERSTAND";
+
+/** Ask for a deposit address. Real money goes where this points: the caller must already have
+ * shown the warning and got the person's agreement, and a dry quote must have just been taken. */
+export async function postNearLiveQuote(id: string, signal?: AbortSignal): Promise<NearLiveQuoteView> {
+  return await request(campaignPath(id, "/funding/near/live-quote"), {
+    method: "POST",
+    parse: parseNearLiveQuote,
+    extraHeaders: { [NEAR_CONFIRM_HEADER]: NEAR_CONFIRM_ACKNOWLEDGEMENT },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** Where the swap stands, as the operator's closed set of words. Never says the campaign is funded. */
+export async function getNearStatus(id: string, signal?: AbortSignal): Promise<NearStatusView> {
+  return await request(campaignPath(id, "/funding/near/status"), { parse: parseNearStatus, ...(signal ? { signal } : {}) });
 }
