@@ -18,7 +18,8 @@ export function DonePanel({
   celebrate = false,
 }: {
   campaign: OperatorCampaign;
-  onAuditor: () => void;
+  /** Open the auditor's section; without it (a personal payout) the action is not offered. */
+  onAuditor?: () => void;
   /** Open the section where each person's payslip is sent. */
   onPayslips: () => void;
   /** This page watched it settle: a short burst of confetti beside the stamp, when Lively. */
@@ -69,9 +70,11 @@ export function DonePanel({
         <Button size="lg" variant="outline" onClick={onPayslips}>
           Send payslips
         </Button>
-        <Button size="lg" variant="outline" onClick={onAuditor}>
-          Give an auditor access
-        </Button>
+        {onAuditor !== undefined && (
+          <Button size="lg" variant="outline" onClick={onAuditor}>
+            Give an auditor access
+          </Button>
+        )}
       </div>
       {receipt.isError && <FailureNotice error={receipt.error} onRetry={() => void receipt.refetch()} retrying={receipt.isFetching} />}
     </section>

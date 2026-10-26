@@ -10,6 +10,7 @@ import { UnitNote } from "@/components/UnitProvider";
 import { Zec } from "@/components/Zec";
 import { Button } from "@/components/ui/button";
 import { OperatorBatchList } from "@/features/operator/OperatorBatchList";
+import { useAudience } from "@/lib/audience";
 import { describeDuration, estimateProvingSeconds } from "@/lib/fees";
 
 import { useWizardDraft } from "./draft";
@@ -25,6 +26,8 @@ const LENS_ROWS = 50;
 export default function CheckStage() {
   const navigate = useNavigate();
   const created = useWizardDraft((s) => s.created);
+  // The batches and the list fingerprint are for an organisation's records; a personal payout does without them.
+  const organisation = useAudience((s) => s.audience) === "organisation";
   const list = useWizardDraft((s) => s.list);
   const reset = useWizardDraft((s) => s.reset);
   const releaseList = useWizardDraft((s) => s.releaseList);
@@ -88,22 +91,24 @@ export default function CheckStage() {
           </Button>
         </div>
 
-        <div className="border-b border-border">
-          <Disclosure summary="Batches">
-            <OperatorBatchList campaign={created} />
-          </Disclosure>
-          <Disclosure summary="List fingerprint">
-            <div className="max-w-[64ch] space-y-3">
-              <p className="mono text-sm break-all" data-testid="manifest-commitment">
-                {created.manifestCommitment}
-              </p>
-              <CopyButton value={created.manifestCommitment} label="Copy list fingerprint" />
-              <p className="text-sm text-muted-foreground">
-                A salted fingerprint of this list. It goes on the public receipt; its technical name is the manifest commitment.
-              </p>
-            </div>
-          </Disclosure>
-        </div>
+        {organisation && (
+          <div className="border-b border-border">
+            <Disclosure summary="Batches">
+              <OperatorBatchList campaign={created} />
+            </Disclosure>
+            <Disclosure summary="List fingerprint">
+              <div className="max-w-[64ch] space-y-3">
+                <p className="mono text-sm break-all" data-testid="manifest-commitment">
+                  {created.manifestCommitment}
+                </p>
+                <CopyButton value={created.manifestCommitment} label="Copy list fingerprint" />
+                <p className="text-sm text-muted-foreground">
+                  A salted fingerprint of this list. It goes on the public receipt; its technical name is the manifest commitment.
+                </p>
+              </div>
+            </Disclosure>
+          </div>
+        )}
       </div>
     </>
   );

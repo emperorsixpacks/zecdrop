@@ -22,6 +22,8 @@ import {
 import { CSV, fixtureJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
 
+import { AUDIENCE_STORAGE_KEY, useAudience } from "@/lib/audience";
+
 import { useWizardDraft } from "./draft";
 
 const VALID_CSV = CSV["valid.csv"] ?? "";
@@ -58,6 +60,7 @@ let operator: FakeOperator;
 
 beforeEach(() => {
   useWizardDraft.getState().reset();
+  useAudience.setState({ audience: "personal" });
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -71,9 +74,9 @@ afterEach(() => {
 
 type User = ReturnType<typeof userEvent.setup>;
 
-/** Open "Import a list instead", where a file or a pasted list goes. */
+/** Choose the organisation view, which starts from a file or a pasted list. */
 async function openImport(user: User) {
-  await user.click(await screen.findByRole("button", { name: "Import a list instead" }));
+  await user.click(await screen.findByRole("radio", { name: "Organisation" }));
 }
 
 /** Paste a list into the drop zone, the way a person does. */
@@ -92,7 +95,7 @@ describe("Stage 1: Payouts", () => {
   });
 
   // covers: REQ-IMP-002
-  it("starts with the people being paid, one to fill in, and keeps a file one click away", async () => {
+  it("starts with the people being paid, one to fill in, and keeps a file one switch away", async () => {
     const user = userEvent.setup();
     renderApp("/new", { signedIn: true });
     expect(screen.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeInTheDocument();
@@ -103,8 +106,9 @@ describe("Stage 1: Payouts", () => {
     expect(within(list).getByLabelText("Note they'll see")).toHaveValue("");
     expect(screen.getByRole("button", { name: "Add a person" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
-    // No spreadsheet is asked for; importing one is still there, closed.
+    // No spreadsheet is asked for, and no options; an organisation's view has both.
     expect(screen.queryByText("Drop a CSV here")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Options" })).toBeNull();
     await openImport(user);
     expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose a file" })).toBeInTheDocument();
@@ -118,6 +122,57 @@ describe("Stage 1: Payouts", () => {
     await pasteList(user, "address,amount\nu1x,1\n");
     await screen.findByTestId("payout-table");
     expect(screen.queryByText("Add the people you're paying. Nothing is sent yet.")).toBeNull();
+  });
+
+  describe("who it is for", () => {
+    it("is personal until the person says otherwise: the people list, no file, no options", () => {
+      renderApp("/new", { signedIn: true });
+      expect(screen.getByRole("radio", { name: "Personal" })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByText("Family, friends or a few people, typed in one by one.")).toBeInTheDocument();
+      expect(screen.getByTestId("people-list")).toBeInTheDocument();
+      expect(screen.queryByText("Drop a CSV here")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Options" })).toBeNull();
+      expect(localStorage.getItem(AUDIENCE_STORAGE_KEY)).toBeNull();
+    });
+
+    it("for an organisation: a file first, the options, and the people list one click away, and the choice is remembered", async () => {
+      const user = userEvent.setup();
+      renderApp("/new", { signedIn: true });
+      await user.click(screen.getByRole("radio", { name: "Organisation" }));
+      expect(screen.getByText("Import your list, or add people one by one. Nothing is sent yet.")).toBeInTheDocument();
+      expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Options" })).toBeInTheDocument();
+      expect(screen.queryByTestId("people-list")).toBeNull();
+      expect(localStorage.getItem(AUDIENCE_STORAGE_KEY)).toBe("organisation");
+
+      await user.click(screen.getByRole("button", { name: "Add people one by one instead" }));
+      expect(screen.getByTestId("people-list")).toBeInTheDocument();
+      expect(screen.queryByText("Drop a CSV here")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Import a list instead" }));
+      expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
+    });
+
+    it("for an organisation with no list yet, Continue says what to do and sends nothing", async () => {
+      const user = userEvent.setup();
+      renderApp("/new", { signedIn: true });
+      await user.click(screen.getByRole("radio", { name: "Organisation" }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      expect(await screen.findByText("Import a list, or add people one by one.")).toHaveAttribute("role", "alert");
+      expect(operator.to("POST", "/api/campaigns")).toHaveLength(0);
+    });
+
+    it("keeps a list typed in when the view changes, and sends it the same", async () => {
+      const user = userEvent.setup();
+      renderApp("/new", { signedIn: true });
+      const list = screen.getByTestId("people-list");
+      await user.click(within(list).getByLabelText("Address"));
+      await user.paste("u1sentineladdressaaaaaaaaaaaaaaaaaaaa");
+      await user.click(within(list).getByLabelText("Amount"));
+      await user.keyboard("1");
+      await user.click(screen.getByRole("radio", { name: "Organisation" }));
+      await user.click(screen.getByRole("button", { name: "Add people one by one instead" }));
+      expect(within(screen.getByTestId("people-list")).getByLabelText("Address")).toHaveValue("u1sentineladdressaaaaaaaaaaaaaaaaaaaa");
+    });
   });
 
   it("offers a default name, so the field can be left alone", () => {
@@ -173,7 +228,7 @@ describe("Stage 1: Payouts", () => {
     expect(screen.getByTestId("payout-total")).toHaveTextContent("1 TAZ");
 
     await user.click(screen.getByRole("button", { name: "Use a different list" }));
-    expect(screen.getByTestId("people-list")).toBeInTheDocument();
+    expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
     expect(useWizardDraft.getState().csvText).toBe("");
   });
 
@@ -204,7 +259,7 @@ describe("Stage 1: Payouts", () => {
       const user = userEvent.setup();
       renderApp("/new", { signedIn: true });
       await pasteList(user, VALID_CSV);
-      expect(screen.queryByRole("radio")).toBeNull();
+      expect(screen.queryByRole("radio", { name: /Standard/u })).toBeNull();
 
       await user.click(screen.getByRole("button", { name: "Options" }));
       expect(screen.getByRole("radio", { name: /Standard \(recommended\)/u })).toBeChecked();
@@ -289,7 +344,9 @@ describe("Stage 1: Payouts", () => {
       expect(draft.list).toHaveLength(5);
       expect(JSON.stringify({ ...draft, list: null })).not.toMatch(/sentinel/u);
       expectNoSentinels(document.body.innerHTML, "after create");
-      expect(localStorage.length + sessionStorage.length).toBe(0);
+      // The one thing kept is the choice of view, which holds nothing of the list.
+      expect(Object.keys({ ...localStorage })).toEqual([AUDIENCE_STORAGE_KEY]);
+      expect(sessionStorage.length).toBe(0);
     });
 
     it("uses the default name when none is typed", async () => {
@@ -337,7 +394,9 @@ describe("Stage 1: Payouts", () => {
       await toProblems(userEvent.setup());
       expectNoSentinels(outsideTheList(), "after an import failure");
       for (const message of screen.getAllByText(/^Line \d+:/u)) expectNoSentinels(message.textContent ?? "", "a problem sentence");
-      expect(localStorage.length + sessionStorage.length).toBe(0);
+      // The one thing kept is the choice of view, which holds nothing of the list.
+      expect(Object.keys({ ...localStorage })).toEqual([AUDIENCE_STORAGE_KEY]);
+      expect(sessionStorage.length).toBe(0);
     });
 
     it("can show only the rows with problems", async () => {

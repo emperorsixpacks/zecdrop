@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, chooseFromIsland, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, chooseFromIsland, overflowReport, THEMES, useAudience, useTheme, VIEWPORTS } from "../helpers.js";
 import { operatorUrl } from "./env.js";
 
 // The screens a first-time operator sees: no payouts yet, nothing to audit, a payout whose
@@ -30,6 +30,8 @@ for (const viewport of VIEWPORTS) {
 
       test("no payouts, nothing to audit, and a payout with no batches", async ({ page }) => {
         await useTheme(page, theme);
+        // The batch list is one of an organisation's tools.
+        await useAudience(page, "organisation");
         const problems: string[] = [];
         page.on("console", (m) => {
           if (m.type() === "error" || m.type() === "warning") problems.push(`console.${m.type()}: ${m.text()}`);
@@ -53,9 +55,10 @@ for (const viewport of VIEWPORTS) {
 
         await page.goto("about:blank");
         await page.goto(operatorUrl("/new", { token: true }));
-        await expect(page.getByText("Add the people you're paying. Nothing is sent yet.")).toBeVisible();
-        await expect(page.getByRole("group", { name: "Person 1" })).toBeVisible();
-        await clean(page, "first run of the people list", problems);
+        // An organisation's first run starts from its list (the personal view's people list is checked in people.spec.ts).
+        await expect(page.getByText("Import your list, or add people one by one. Nothing is sent yet.")).toBeVisible();
+        await expect(page.getByText("Drop a CSV here")).toBeVisible();
+        await clean(page, "first run of an organisation's payout", problems);
 
         await page.unroute(/\/api\/campaigns$/u);
         const id = "c-000000000001";

@@ -3,22 +3,25 @@ import { useContext, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { useAudience, type Audience } from "@/lib/audience";
 import { startPractice, type SimulationLoader } from "@/lib/practice-mode";
 import { cn } from "@/lib/utils";
 
 /** The button that turns practice mode on and opens the first screen of a payout: the simulation is fetched when it is
  * pressed, from the page's own origin, and nothing is fetched before. If it cannot be fetched nothing has changed, and
- * the person is told. */
+ * the person is told. With `audience`, the payout opens in that view (lib/audience.ts) for this visit; it is not stored. */
 export function PracticeStart({
   label,
   variant = "outline",
   size = "lg",
   load,
+  audience,
 }: {
   label: string;
   variant?: "default" | "outline";
   size?: "default" | "lg";
   load?: SimulationLoader;
+  audience?: Audience;
 }) {
   const navigate = useNavigate();
   // Read from the context, not asked for: there is no client where this is drawn on its own (a test), and then there is nothing to clear.
@@ -32,6 +35,8 @@ export function PracticeStart({
       // The simulation's answers are the only ones a practice screen may show: what the screens held of a real operator's
       // (its payouts, its health) is not shown under the banner, and is asked for afresh when practice mode is left.
       queryClient?.clear();
+      // The view for this visit only: the landing page writes nothing to storage (the switch on the payout screen does).
+      if (audience !== undefined) useAudience.setState({ audience });
       void navigate("/new");
     } catch {
       setState("failed");

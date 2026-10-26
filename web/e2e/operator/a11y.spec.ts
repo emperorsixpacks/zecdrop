@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, chooseFromIsland, NARROWEST, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, chooseFromIsland, NARROWEST, overflowReport, THEMES, useAudience, useTheme, VIEWPORTS } from "../helpers.js";
 import { operatorUrl, seeded } from "./env.js";
 import { loadSentinels } from "./privacy.js";
 
@@ -182,7 +182,7 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
         const sentinels = loadSentinels();
         const bad = loadSentinels("row-errors.csv");
         const paste = async (csv: string) => {
-          await page.getByRole("button", { name: "Import a list instead" }).click();
+          await page.getByRole("radio", { name: "Organisation" }).click();
           await page.getByRole("button", { name: "or paste it" }).click();
           await page.getByLabel("Paste your list").fill(csv);
           await page.getByRole("button", { name: "Use this list" }).click();
@@ -194,7 +194,7 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
         await check(page, "payouts, empty", watched);
 
         // Pasting opens the box for it.
-        await page.getByRole("button", { name: "Import a list instead" }).click();
+        await page.getByRole("radio", { name: "Organisation" }).click();
         await page.getByRole("button", { name: "or paste it" }).click();
         await expect(page.getByLabel("Paste your list")).toBeVisible();
         await check(page, "payouts, paste box", watched);
@@ -257,6 +257,8 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
       });
 
       test("a real chain's funding states and the viewing key, from the operator's golden responses", async ({ page }) => {
+        // The viewing key is one of an organisation's tools.
+        await useAudience(page, "organisation");
         // The mock chain has no funding address, no deposit in progress and no
         // viewing key. The operator's own Rust test writes what a real chain
         // answers (fixtures/contract/operator/golden/); serve those to the page

@@ -258,3 +258,17 @@ describe("the first look", () => {
     expect(calm.container.querySelectorAll(".bar-in")).toHaveLength(0);
   });
 });
+
+describe("who it is for", () => {
+  it("shows two doors, personal and organisation, each a way into a practice payout in its own view", () => {
+    renderHome();
+    const personal = screen.getByTestId("door-personal");
+    const organisation = screen.getByTestId("door-organisation");
+    expect(within(personal).getByRole("heading", { level: 3, name: "Personal" })).toBeInTheDocument();
+    expect(within(personal).getByText("Money home to family")).toBeInTheDocument();
+    expect(within(personal).getByRole("button", { name: "Try a personal payout" })).toBeInTheDocument();
+    expect(within(organisation).getByRole("heading", { level: 3, name: "Organisation" })).toBeInTheDocument();
+    expect(within(organisation).getByText("Payroll and contributors")).toBeInTheDocument();
+    expect(within(organisation).getByRole("button", { name: "Try an organisation payout" })).toBeInTheDocument();
+  });
+});

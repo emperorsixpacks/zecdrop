@@ -53,6 +53,25 @@ test("three people typed in, a lucky split, and the operator's importer takes th
   await expect(page.getByText(/equal amounts are easy to see/u)).toHaveCount(0);
 });
 
+test("the switch between Personal and Organisation changes what the screen shows, and is remembered", async ({ page }) => {
+  await page.goto(operatorUrl("/new", { token: true }));
+  await expect(page.getByRole("radio", { name: "Personal" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("people-list")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Options" })).toHaveCount(0);
+  await expect(page.getByText("Drop a CSV here")).toHaveCount(0);
+
+  await page.getByRole("radio", { name: "Organisation" }).click();
+  await expect(page.getByText("Drop a CSV here")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Options" })).toBeVisible();
+  await expect(page.getByTestId("people-list")).toHaveCount(0);
+
+  await page.reload();
+  await page.goto(operatorUrl("/new", { token: true }));
+  await expect(page.getByRole("radio", { name: "Organisation" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("Drop a CSV here")).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
+});
+
 for (const theme of THEMES) {
   for (const viewport of [NARROWEST, ...VIEWPORTS]) {
     test(`the people list at ${viewport.name}, ${theme}: fits the screen and passes axe`, async ({ page }) => {

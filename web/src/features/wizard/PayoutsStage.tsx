@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { OperatorApiError } from "@/api/operator/client";
 import { DropZone } from "@/components/DropZone";
 import { PageHeader } from "@/components/PageHeader";
+import { Segmented } from "@/components/Segmented";
 import { Why } from "@/components/Why";
 import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/Disclosure";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useCreateCampaign, useHealth } from "@/features/operator/hooks";
+import { useAudience, type Audience } from "@/lib/audience";
 import { previewPayouts } from "@/lib/csv-preview";
 import { usePractice } from "@/lib/practice-mode";
 import {
@@ -39,14 +41,28 @@ function defaultRunName(now = new Date()): string {
   return `Payout, ${String(now.getDate())} ${now.toLocaleString("en-GB", { month: "short" })}`;
 }
 
+/** What the example list is called where a file's name would be. */
+const EXAMPLE_LIST_NAME = "demo-recipients.testnet.csv";
+
+const AUDIENCES = [
+  { value: "personal", label: "Personal" },
+  { value: "organisation", label: "Organisation" },
+] as const satisfies readonly { value: Audience; label: string }[];
+
+const AUDIENCE_NOTE: Record<Audience, string> = {
+  personal: "Family, friends or a few people, typed in one by one.",
+  organisation: "A team or a community: a spreadsheet, the options and the auditor's tools.",
+};
+
 const POLICY_LABEL: Record<FeePolicyName, string> = {
   zip317_text: "Standard",
   zebra_main: "Lower",
 };
 
-/** Stage 1 of 3. Add the people, name the run, continue. The list is built here one person at a time (or imported
- * from a file, for a big one). Everything stays in this page's memory until Continue sends it, once, to the operator
- * on this computer. */
+/** Stage 1 of 3. Add the people, name the run, continue. Who it is for decides how much the screen shows
+ * (lib/audience.ts): a personal payout is the people list and Continue; an organisation's starts from a spreadsheet and
+ * has the fee and batch options, with the people list one click away. Either way everything stays in this page's
+ * memory until Continue sends it, once, to the operator on this computer. */
 export default function PayoutsStage() {
   const navigate = useNavigate();
   const unit = useCoinUnit();
@@ -65,6 +81,11 @@ export default function PayoutsStage() {
   const { setName, setFeePolicy, setMaxOutputsPerBatch, setCsv, setPeople, campaignCreated, reset } = useWizardDraft.getState();
 
   const exampleList = usePractice((s) => s.exampleList);
+  const audience = useAudience((s) => s.audience);
+  const setAudience = useAudience((s) => s.setAudience);
+  const organisation = audience === "organisation";
+  // An organisation's list starts from a file; this is its people list instead, when asked for.
+  const [byHand, setByHand] = useState(false);
   const { state, create, clearError } = useCreateCampaign();
   const creating = state.status === "creating";
   const [sizeText, setSizeText] = useState(String(size));
@@ -125,6 +146,11 @@ export default function PayoutsStage() {
 
   async function submit() {
     setAsked(true);
+    // An organisation that has neither imported a list nor opened the people list has nothing to send.
+    if (!importing && organisation && !byHand) {
+      setLocalProblem("Import a list, or add people one by one.");
+      return;
+    }
     if (!importing) {
       const count = listProblems();
       if (count > 0) {
@@ -196,7 +222,15 @@ export default function PayoutsStage() {
 
   return (
     <>
-      <PageHeader title="Add the payouts" {...(importing ? {} : { description: "Add the people you're paying. Nothing is sent yet." })} />
+      <PageHeader
+        title="Add the payouts"
+        {...(importing
+          ? {}
+          : {
+              description:
+                organisation && !byHand ? "Import your list, or add people one by one. Nothing is sent yet." : "Add the people you're paying. Nothing is sent yet.",
+            })}
+      />
       <form
         className="space-y-10"
         noValidate
@@ -205,6 +239,15 @@ export default function PayoutsStage() {
           void submit();
         }}
       >
+        <div className="space-y-2">
+          {/* The control names itself to assistive technology; this is the same words for the eye. */}
+          <p aria-hidden className="text-base font-semibold">
+            Who it&apos;s for
+          </p>
+          <Segmented label="Who it's for" value={audience} options={AUDIENCES} onValueChange={setAudience} />
+          <p className="text-sm text-muted-foreground">{AUDIENCE_NOTE[audience]}</p>
+        </div>
+
         <div className="max-w-md space-y-2">
           <Label htmlFor={ids.name}>Name this payout run</Label>
           <Input
@@ -220,7 +263,32 @@ export default function PayoutsStage() {
         </div>
 
         <section aria-label="Payout list" className="space-y-5">
-          {!importing ? (
+          {!importing && organisation && !byHand ? (
+            <>
+              <DropZone
+                onList={edit}
+                disabled={creating}
+                {...(exampleList === null
+                  ? {}
+                  : {
+                      onExample: () => {
+                        edit(exampleList, EXAMPLE_LIST_NAME);
+                      },
+                    })}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                className="px-1 underline underline-offset-4 hover:bg-transparent"
+                disabled={creating}
+                onClick={() => {
+                  setByHand(true);
+                }}
+              >
+                Add people one by one instead
+              </Button>
+            </>
+          ) : !importing ? (
             <>
               {exampleList !== null && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -249,6 +317,19 @@ export default function PayoutsStage() {
                   setLocalProblem(null);
                 }}
               />
+              {organisation && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="px-1 underline underline-offset-4 hover:bg-transparent"
+                  disabled={creating}
+                  onClick={() => {
+                    setByHand(false);
+                  }}
+                >
+                  Import a list instead
+                </Button>
+              )}
             </>
           ) : (
             <>
@@ -291,107 +372,104 @@ export default function PayoutsStage() {
           )}
         </section>
 
-        <div className="border-b border-border">
-          {!importing && (
-            <Disclosure summary="Import a list instead">
-              <DropZone onList={edit} disabled={creating} quiet />
-            </Disclosure>
-          )}
-          {importing && (
-            <Disclosure summary="Edit as text">
-              <Label htmlFor={ids.edit} className="sr-only">
-                Payout list as text
-              </Label>
-              <Textarea
-                id={ids.edit}
-                value={csvText}
-                onChange={(e) => {
-                  edit(e.target.value, null);
-                }}
-                rows={8}
-                spellCheck={false}
-                autoComplete="off"
-                autoCapitalize="off"
-                autoCorrect="off"
-                wrap="off"
-                className="mono text-sm"
-                disabled={creating}
-              />
-            </Disclosure>
-          )}
-          <Disclosure summary="Options">
-            <div className="space-y-8 pt-1">
-              <fieldset className="space-y-3">
-                <legend className="flex items-center text-base font-semibold">
-                  Network fee
-                  <Why label="About the network fee">
-                    <p className="font-semibold">Two fee levels</p>
-                    <p className="mt-1">
-                      Zcash charges per action. Standard pays 5,000 zatoshi per action, as the ZIP-317 text says, and any node
-                      accepts it. Lower pays 1,000, which is what current Zebra nodes ask for; a node that follows the ZIP-317 text
-                      would refuse it.
-                    </p>
-                  </Why>
-                </legend>
-                {Object.values(FEE_POLICIES).map((policy) => {
-                  const example = sizeValid ? size : DEFAULT_BATCH_SIZE;
-                  const fee = estimateBatchFee(policy.name, example);
-                  return (
-                    <label key={policy.name} className="flex min-h-11 cursor-pointer items-start gap-3">
-                      <input
-                        type="radio"
-                        name="fee-policy"
-                        value={policy.name}
-                        checked={feePolicy === policy.name}
-                        onChange={() => {
-                          setFeePolicy(policy.name);
-                        }}
-                        className="mt-1.5 size-5 accent-foreground"
-                      />
-                      <span>
-                        <span className="block text-base font-semibold">
-                          {POLICY_LABEL[policy.name]}
-                          {policy.name === "zip317_text" && " (recommended)"}
-                        </span>
-                        <span className="block text-sm text-muted-foreground">
-                          {formatZec(fee)} {unit} for {example} payouts
-                        </span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </fieldset>
-
-              <div className="max-w-xs space-y-2">
-                <Label htmlFor={ids.size}>Payouts per batch</Label>
-                <Input
-                  id={ids.size}
-                  inputMode="numeric"
-                  value={sizeText}
+        {organisation && (
+          <div className="border-b border-border">
+            {importing && (
+              <Disclosure summary="Edit as text">
+                <Label htmlFor={ids.edit} className="sr-only">
+                  Payout list as text
+                </Label>
+                <Textarea
+                  id={ids.edit}
+                  value={csvText}
                   onChange={(e) => {
-                    setSizeText(e.target.value);
-                    const trimmed = e.target.value.trim();
-                    setMaxOutputsPerBatch(/^\d+$/u.test(trimmed) ? Number(trimmed) : Number.NaN);
+                    edit(e.target.value, null);
                   }}
-                  aria-invalid={!sizeValid}
-                  aria-describedby={ids.sizeHelp}
-                  className="max-w-24"
+                  rows={8}
+                  spellCheck={false}
                   autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  wrap="off"
+                  className="mono text-sm"
+                  disabled={creating}
                 />
-                <p id={ids.sizeHelp} className={sizeValid ? "text-sm text-muted-foreground" : "text-sm font-medium text-problem"} role={sizeValid ? undefined : "alert"}>
-                  {sizeValid
-                    ? `${String(size)} payouts take ${describeDuration(estimateProvingSeconds(size))}. ${String(MIN_BATCH_SIZE)} to ${String(MAX_BATCH_SIZE)} allowed.`
-                    : (batchSizeProblem(size) ?? "")}
-                </p>
-                {realChain && (
-                  <p className="text-sm text-muted-foreground" data-testid="single-batch-note">
-                    On a real chain this build sends one batch per campaign. Set {String(MAX_BATCH_SIZE)} so up to {String(MAX_BATCH_SIZE)} payouts fit.
+              </Disclosure>
+            )}
+            <Disclosure summary="Options">
+              <div className="space-y-8 pt-1">
+                <fieldset className="space-y-3">
+                  <legend className="flex items-center text-base font-semibold">
+                    Network fee
+                    <Why label="About the network fee">
+                      <p className="font-semibold">Two fee levels</p>
+                      <p className="mt-1">
+                        Zcash charges per action. Standard pays 5,000 zatoshi per action, as the ZIP-317 text says, and any node
+                        accepts it. Lower pays 1,000, which is what current Zebra nodes ask for; a node that follows the ZIP-317 text
+                        would refuse it.
+                      </p>
+                    </Why>
+                  </legend>
+                  {Object.values(FEE_POLICIES).map((policy) => {
+                    const example = sizeValid ? size : DEFAULT_BATCH_SIZE;
+                    const fee = estimateBatchFee(policy.name, example);
+                    return (
+                      <label key={policy.name} className="flex min-h-11 cursor-pointer items-start gap-3">
+                        <input
+                          type="radio"
+                          name="fee-policy"
+                          value={policy.name}
+                          checked={feePolicy === policy.name}
+                          onChange={() => {
+                            setFeePolicy(policy.name);
+                          }}
+                          className="mt-1.5 size-5 accent-foreground"
+                        />
+                        <span>
+                          <span className="block text-base font-semibold">
+                            {POLICY_LABEL[policy.name]}
+                            {policy.name === "zip317_text" && " (recommended)"}
+                          </span>
+                          <span className="block text-sm text-muted-foreground">
+                            {formatZec(fee)} {unit} for {example} payouts
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+
+                <div className="max-w-xs space-y-2">
+                  <Label htmlFor={ids.size}>Payouts per batch</Label>
+                  <Input
+                    id={ids.size}
+                    inputMode="numeric"
+                    value={sizeText}
+                    onChange={(e) => {
+                      setSizeText(e.target.value);
+                      const trimmed = e.target.value.trim();
+                      setMaxOutputsPerBatch(/^\d+$/u.test(trimmed) ? Number(trimmed) : Number.NaN);
+                    }}
+                    aria-invalid={!sizeValid}
+                    aria-describedby={ids.sizeHelp}
+                    className="max-w-24"
+                    autoComplete="off"
+                  />
+                  <p id={ids.sizeHelp} className={sizeValid ? "text-sm text-muted-foreground" : "text-sm font-medium text-problem"} role={sizeValid ? undefined : "alert"}>
+                    {sizeValid
+                      ? `${String(size)} payouts take ${describeDuration(estimateProvingSeconds(size))}. ${String(MIN_BATCH_SIZE)} to ${String(MAX_BATCH_SIZE)} allowed.`
+                      : (batchSizeProblem(size) ?? "")}
                   </p>
-                )}
+                  {realChain && (
+                    <p className="text-sm text-muted-foreground" data-testid="single-batch-note">
+                      On a real chain this build sends one batch per campaign. Set {String(MAX_BATCH_SIZE)} so up to {String(MAX_BATCH_SIZE)} payouts fit.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          </Disclosure>
-        </div>
+            </Disclosure>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-4">
           <Button type="submit" size="lg" disabled={creating}>

@@ -59,7 +59,7 @@ test("the pages run under the operator's content security policy with no violati
   await page.getByRole("link", { name: "New payout" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
   // The drop zone and its paste box run under the same policy.
-  await page.getByRole("button", { name: "Import a list instead" }).click();
+  await page.getByRole("radio", { name: "Organisation" }).click();
   await page.getByRole("button", { name: "or paste it" }).click();
   await expect(page.getByLabel("Paste your list")).toBeVisible();
   // Switching theme changes a stylesheet's effect, never an inline style.

@@ -37,6 +37,12 @@ as well as on bytes fetched from a node.
   its answer is shown on the row it is about.
 - **No payslips on the mock chain or in practice mode.** Their transactions are not real, so nothing could prove an output. The
   route answers 409 `not_available` there, as the viewing-key export does, and the page says why.
+- **Personal and organisation views** (scope addition, owner, 2026-10-20: "making the UI easier to navigate and less
+  crowded"). The landing page shows two doors, Personal and Organisation, each opening a practice payout in its own view, and
+  the payouts step opens with a switch between them, kept on the browser like the theme. Personal shows the people list and
+  leaves out the file import, the fee and batch options, the batch list, the list fingerprint and the auditor's tools;
+  Organisation starts from the file and keeps everything. It changes what is shown, never what is sent, built or proved, so it
+  needs no requirement of its own; anything hidden is one switch away.
 - **Not built:** a name column; pasting many addresses at once or scanning a QR code to add someone; paying the same people again;
   saved groups and schedules; an income statement combining payslips; gift links for people without a wallet; the audit on screen;
   a packaged desktop app (starting the operator and typing its passphrase stay in a terminal: the store is unlocked before the

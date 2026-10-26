@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { formatZec, parsePositiveZec } from "@/lib/zec";
 
 import { useWizardDraft } from "./draft";
-import { addressHint, cleanMemo, listTotal, personProblems, totalProblem, type AmountMode, type Person } from "./people";
+import { addressHint, amountProblem, cleanMemo, listTotal, personProblems, totalProblem, type AmountMode, type Person } from "./people";
 
 const MODES = [
   { value: "each", label: "Set each" },
@@ -75,7 +75,9 @@ export function PeopleList({ showAll, operatorProblems, network, disabled, onCha
     onChange();
   };
 
-  const { total, unreadable } = listTotal(people);
+  const { total } = listTotal(people);
+  // Amounts typed that cannot be read yet; an amount not typed yet is not worth a word.
+  const unreadable = people.filter((person) => person.amount.trim() !== "" && amountProblem(person.amount) !== null).length;
   const split = mode !== "each";
   const totalWrong = split ? totalProblem(splitTotal, people.length, mode) : null;
   const shownTotalProblem = totalWrong !== null && shows("list", "total") ? totalWrong : null;

@@ -96,10 +96,24 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
  Payouts ──── Check ──── Send            ← slim 3-segment tracker; the only numbered thing
 ```
 
-**Stage 1, Payouts.** A big drop zone ("Drop a CSV here, or paste it"). After a file/paste: a ruled table (address short,
-amount, memo), live total counting up, per-row problems inline in the row ("Line 4: amount has too many decimals"),
-never echoing full addresses in errors. Name field ("Name this payout run", optional default "Payout, 8 Oct"). A closed
-"Options" disclosure holds fee level and payouts per batch with good defaults. Primary: **Continue**.
+**Stage 1, Payouts.** It opens with *Who it's for*, a sliding control (*Personal*, *Organisation*) and one line under it; the
+choice is kept on the browser like the theme (`src/lib/audience.ts`, `zd:audience`, written only when changed) and changes only
+what is shown, never what is sent. **Personal** (the default) is the people list and Continue. **Organisation** starts from the
+drop zone, with *Add people one by one instead* under it, and has *Options*; on the Check stage it keeps *Batches* and *List
+fingerprint*, and on the campaign page *Batches*, *Auditor access* and *Give an auditor access*, which a personal payout's page
+leaves out behind one line, "The batch detail and the auditor's key are in the organisation view.", and *Show them*. Since
+2026-10-20 (owner: "do away with the csv file and spreadsheet that most people might not use") the personal view is **the
+people list** (REQ-IMP-002): the count and the total counting up, then *Amounts*, a sliding control
+(*Set each*, *Even*, *Lucky*; short words so it fits at 320px), then one ruled block a person (*Person N*, *Address* in the mono
+face, *Amount* with its unit, *Note they'll see*, *Remove* on the right) and *Add a person*. *Even* and *Lucky* ask for a *Total to
+split* and show each share in the row; one line under the total says what the split means (equal shares can be worked out from the
+total; random ones cannot), and *Lucky* has *Shuffle again*. A field's problem shows once it is left, every problem on Continue
+("3 problems to fix.", which takes the focus), and the operator's own sentence for a line sits on the person of that line; an
+address that looks wrong for the network is a hint in ink, not a problem. Practice mode puts *Use the example list* above it. A
+file is the organisation view's: the drop zone ("Drop a CSV here", choose a file, or paste it); an imported list shows as a ruled table (address short, amount, memo) with per-row problems inline ("Line 4: amount
+has too many decimals") and *Use a different list* goes back to the people. Errors never echo an address. Name field ("Name this
+payout run", optional default "Payout, 8 Oct"). A closed "Options" disclosure holds fee level and payouts per batch with good
+defaults. Primary: **Continue**.
 
 **Stage 2, Check.** Left, huge: `8 people  0.005 TAZ  + 0.00045 fee`. Under it the lens switch + the list. Warnings are
 short chips ("Only 3 people: amounts are easy to guess") each with a "Why?" popover. Time estimate as one line ("About 20
@@ -110,8 +124,11 @@ same wallet link (REQ-FUND-003; see "QR codes") and a live "Waiting for funds" p
 moment the operator sees it. Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
 0.00045 fee. It cannot be undone."). After confirming, the sheet becomes a live timeline: Preparing, Proving, Sending,
 Confirming 1 / 2 / 3, Done, with elapsed time and a realistic estimate; failures say what happened and what to do. On
-Done: the sealed stamp, then three big actions: **Open public receipt**, **Copy receipt link**, **Give an auditor access**
-(the existing irreversible-disclosure confirmation stays). "Fund from another coin" (NEAR) is a collapsed row under the
+Done: the sealed stamp, then the big actions: **Open public receipt**, **Copy receipt link**, **Send payslips** and **Give an
+auditor access** (the existing irreversible-disclosure confirmation stays). *Send payslips* opens the *Payslips* row (REQ-PAY-005):
+one line, the warning, *Show payslips*; then a ruled row a person (*Person N* and their note, the address short and the amount)
+with *Send payslip*, which opens the payslip page's own link and QR screens for that person, one at a time; *Hide payslips*, and
+they hide themselves after ten minutes. On the mock chain the row says there is no real transaction to prove. "Fund from another coin" (NEAR) is a collapsed row under the
 address, not a section: closed, it asks the price service nothing. On a testnet campaign it opens to a price preview (NEAR
 delivers mainnet ZEC only; it creates nothing). On a mainnet campaign it takes the funder's refund address, shows a price quote
 (still nothing created), and asks for its own "I understand" before the deposit address. The operator keeps that address, so
@@ -142,14 +159,19 @@ in screenshots). It is a `role="status"`, as is "Chain mode unknown: practice co
    while the total counts up; about a second, then still. In Calm,
    under reduced motion and on a return to the page it is not played: the sheet is simply there. It is the page's one
    unprompted motion; nothing else on the page moves by itself.
-3. **The band**: the redaction bar itself across the whole screen (the header capsule's fill and ink, so black with light text,
+3. **Who it's for** (owner, 2026-10-20: "making the UI easier to navigate and less crowded"): two slips side by side (stacked on a
+   phone), *Personal* ("For family, friends and the people around you.") and *Organisation* ("For a team, a grant programme or a
+   community."), each with three uses as ruled lines, one line on how it works, and its own button into practice mode, *Try a
+   personal payout* and *Try an organisation payout*, which open the payout in that view (for the visit; the landing page stores
+   nothing). One sentence over them: "One app, two ways in. The same privacy and the same proof."
+4. **The band**: the redaction bar itself across the whole screen (the header capsule's fill and ink, so black with light text,
    and in the dark set the light-grey bar with dark text), headed "Private amounts, public accountability.", with *Public*,
    *Hidden* and *Checkable* in very large type over their short lines.
-4. **It ran on public testnet**: three short lines and *Open the receipt*, beside the real run printed as a till receipt (the
+5. **It ran on public testnet**: three short lines and *Open the receipt*, beside the real run printed as a till receipt (the
    torn sheet, mono, dotted leaders, tilted a degree on a wide screen): payouts, transaction, total, fee, block, time to settle;
    then the limits measured offline (330 in one transaction, 142 s to prove it, 0.52 s to check it); ending "No mainnet payout
    yet." Every figure is the real receipt's or is named in `src/features/home/run-facts.ts` with its source.
-5. **How to run a payout** (the four steps, unchanged), then **Try it yourself** on a slip (the button beside the text on a wide
+6. **How to run a payout** (the four steps, unchanged), then **Try it yourself** on a slip (the button beside the text on a wide
    screen), then **For the people you pay** (the get-paid page and payslips, one line each), then the tour.
 
 No paragraph is longer than a short sentence (a test holds them to 16 words), and no part claims more than the status line.

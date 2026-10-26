@@ -20,6 +20,7 @@ import {
 } from "@/test/fake-operator";
 import { fixtureJson, goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
+import { useAudience } from "@/lib/audience";
 
 const ID = FIXTURE_CAMPAIGN_ID;
 const PATH = `/campaign/${ID}`;
@@ -47,6 +48,8 @@ afterEach(() => {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  // Most of what this file checks is the whole page, an organisation's; the personal view has its own block below.
+  useAudience.setState({ audience: "organisation" });
 });
 
 /** The parts of the page behind a click open on request. */
@@ -540,6 +543,33 @@ describe("a settled campaign", () => {
     expect(screen.queryByTestId("receipt-link")).toBeNull();
     expect(screen.getByRole("button", { name: "Copy receipt link" })).toBeDisabled();
     expect(screen.queryByRole("link", { name: "Open public receipt" })).toBeNull();
+  });
+});
+
+describe("a personal payout's page", () => {
+  beforeEach(() => {
+    useAudience.setState({ audience: "personal" });
+  });
+
+  it("leaves out the batches and the auditor's tools, and shows them on one tap", async () => {
+    const user = userEvent.setup();
+    open({
+      "GET /api/campaigns/:id": () => replyWith("campaign-settled.json"),
+      "GET /api/campaigns/:id/events": () => replyWithStream("events-settled.sse.txt"),
+      "GET /api/campaigns/:id/receipt": () => replyWith("receipt-settled.json"),
+    });
+    expect(await screen.findByRole("link", { name: "Open public receipt" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send payslips" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Give an auditor access" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Auditor access" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Batches" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Share the receipt" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show them" }));
+    expect(screen.getByRole("button", { name: "Give an auditor access" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Auditor access" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Batches" })).toBeInTheDocument();
+    expect(useAudience.getState().audience).toBe("organisation");
   });
 });
 

@@ -6,6 +6,7 @@ import { CountUp } from "@/components/CountUp";
 import { RedactionLens, type LensMode } from "@/components/lens/Lens";
 import { UnitNote, UnitProvider } from "@/components/UnitProvider";
 import { Button } from "@/components/ui/button";
+import type { Audience } from "@/lib/audience";
 import { shortId } from "@/lib/ids";
 import { isLively } from "@/lib/motion";
 import { useCoinUnit } from "@/lib/units";
@@ -20,8 +21,9 @@ import { Tour } from "./Tour";
 // key-less verifier can compute, and the status line names the limit: a real run
 // on public testnet, nothing on mainnet.
 //
-// The page is the landing page (web/DESIGN.md, "Home"): the headline and the sheet, then a band in the bar's colours, the
-// real run, the steps, practice mode, what a recipient can do, and the tour.
+// The page is the landing page (web/DESIGN.md, "Home"): the headline and the sheet, then who it is for (personal and
+// organisation, each a way into practice mode in its own view), a band in the bar's colours, the real run, the steps,
+// practice mode, what a recipient can do, and the tour.
 
 // The steps to a payout, in order. The first one says why there is no wallet to connect: the keys
 // live in the operator on the person's own computer (docs/ADR/0002), never on this site.
@@ -30,6 +32,26 @@ const STEPS: readonly { title: string; text: string }[] = [
   { title: "Add your payout list", text: "Type in who you're paying, or import a list. Then check it." },
   { title: "Fund the address", text: "Send coins to the address it shows. Open in wallet fills in the amount." },
   { title: "Send and share", text: "One transaction sends all the payouts. Share the receipt link so anyone can check the total." },
+];
+
+// The two kinds of payer (lib/audience.ts). Each door opens a practice payout in its own view.
+const DOORS: readonly { audience: Audience; title: string; lead: string; uses: readonly string[]; how: string; action: string }[] = [
+  {
+    audience: "personal",
+    title: "Personal",
+    lead: "For family, friends and the people around you.",
+    uses: ["Money home to family", "Holiday and wedding gifts", "A shared pot or a tip jar"],
+    how: "Type people in, and split a total evenly or at random.",
+    action: "Try a personal payout",
+  },
+  {
+    audience: "organisation",
+    title: "Organisation",
+    lead: "For a team, a grant programme or a community.",
+    uses: ["Payroll and contributors", "Grants and bounties", "Airdrops and rewards"],
+    how: "Import a spreadsheet. Members get a receipt, an auditor a key.",
+    action: "Try an organisation payout",
+  },
 ];
 
 const LINES: readonly { lead: string; text: string }[] = [
@@ -146,6 +168,37 @@ export default function HomePage() {
             <UnitNote />
           </section>
         </div>
+
+        {/* Who it is for: two doors into the same app, each opening a practice payout in its own view. */}
+        <section aria-labelledby="who-heading" className="space-y-8">
+          <div className="space-y-2">
+            <h2 id="who-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
+              Who it&apos;s for
+            </h2>
+            <p className="max-w-[48ch] text-lg">One app, two ways in. The same privacy and the same proof.</p>
+          </div>
+          <ul className="grid gap-6 md:grid-cols-2">
+            {DOORS.map((door) => (
+              <li key={door.audience} className="slip flex flex-col gap-6 p-6 sm:p-8" data-testid={`door-${door.audience}`}>
+                <div className="space-y-2">
+                  <h3 className="display text-[2rem] sm:text-[2.5rem]">{door.title}</h3>
+                  <p className="text-lg">{door.lead}</p>
+                </div>
+                <ul className="divide-y divide-border border-y border-border">
+                  {door.uses.map((use) => (
+                    <li key={use} className="py-2.5 text-base font-medium">
+                      {use}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-base text-muted-foreground">{door.how}</p>
+                <div className="mt-auto flex flex-wrap gap-3">
+                  <PracticeStart label={door.action} audience={door.audience} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         {/* The redaction bar itself, across the screen: what the chain shows and what it keeps. */}
         <section aria-labelledby="lines-heading" className="band py-14 sm:py-20">
