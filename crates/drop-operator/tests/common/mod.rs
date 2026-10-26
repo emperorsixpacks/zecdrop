@@ -2,6 +2,7 @@
 //! the real router driven in-process.
 #![allow(dead_code)]
 
+pub mod inbox;
 pub mod near;
 pub mod zcash;
 

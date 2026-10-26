@@ -259,6 +259,9 @@ struct CampaignView {
     /// What the deposit (recorded, or still short of the depth) spent, once it is known
     /// (REQ-FUND-004). Never a reason to refuse anything.
     funding_source: Option<FundingSource>,
+    /// The payout's shielded deposit address and what it holds (REQ-FUND-008), when the operator has them; read from
+    /// memory only.
+    inbox: Option<crate::inbox::engine::InboxView>,
     batches: Vec<BatchView>,
     warnings: Vec<WarningView>,
     run: RunState,
@@ -361,6 +364,11 @@ fn view(state: &AppState, record: &CampaignRecord) -> Result<CampaignView, ApiEr
             None
         },
         funding_source: state.funding_source(record),
+        inbox: if state.wallet_matches(record) {
+            state.inboxes().and_then(|inboxes| inboxes.view(&record.id))
+        } else {
+            None
+        },
         batches: batch_views,
         warnings: privacy_warnings(&batches)
             .into_iter()

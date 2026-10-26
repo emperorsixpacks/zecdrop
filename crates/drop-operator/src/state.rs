@@ -7,7 +7,7 @@
 //! it again: stored transactions are re-broadcast, never rebuilt (REQ-RES-001).
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use drop_core::{
@@ -144,6 +144,8 @@ struct Inner {
     /// the node failed): it is not read again before [`DEPOSIT_RETRY_AFTER`].
     unanswered: Mutex<HashMap<Txid, Instant>>,
     near: crate::near::NearState,
+    /// The shielded deposit addresses (REQ-FUND-005), when the operator was started with zcash-devtool.
+    inboxes: OnceLock<Arc<crate::inbox::engine::Inboxes>>,
 }
 
 /// How long an answer waits for a deposit's read before going without it. The read goes on in
@@ -227,7 +229,18 @@ impl AppState {
             reading: Mutex::new(HashSet::new()),
             unanswered: Mutex::new(HashMap::new()),
             near: crate::near::NearState::new(parts.near),
+            inboxes: OnceLock::new(),
         }))
+    }
+
+    /// Gives the operator its shielded deposit addresses (REQ-FUND-005), once. A second call is ignored.
+    pub fn attach_inboxes(&self, inboxes: Arc<crate::inbox::engine::Inboxes>) {
+        let _ = self.0.inboxes.set(inboxes);
+    }
+
+    /// The shielded deposit addresses, when the operator has them.
+    pub fn inboxes(&self) -> Option<&Arc<crate::inbox::engine::Inboxes>> {
+        self.0.inboxes.get()
     }
 
     /// The NEAR Intents funding state (token cache, pending dry quotes) and its parts.
@@ -713,6 +726,10 @@ impl AppState {
         // The live NEAR quotes are read too: a deposit address that was edited is found now.
         for id in self.0.store.near_quote_campaigns()? {
             self.0.store.load_near_quote(&id)?;
+        }
+        // And every payout's shielded deposit address, with any transaction in flight.
+        for id in self.0.store.inbox_campaigns()? {
+            self.0.store.load_inbox(&id)?;
         }
         Ok(headers.len())
     }

@@ -79,6 +79,8 @@ fn normalise(value: &mut Value) {
                     ("receiver", Value::String(_)) => *inner = json!("f0".repeat(43)),
                     ("rseed", Value::String(_)) => *inner = json!("f1".repeat(32)),
                     ("action", Value::Number(_)) => *inner = json!(0),
+                    // When an inbox's move is due: a time.
+                    ("move_at", Value::Number(_)) => *inner = json!(1_700_000_600u64),
                     _ => normalise(inner),
                 }
             }
@@ -689,8 +691,145 @@ async fn the_real_mode_api_shapes_are_pinned() {
 
     near_scenarios(&mut g).await;
     payslips_scenarios(&mut g).await;
+    inbox_scenarios(&mut g).await;
 
     g.finish();
+}
+
+// ---------------------------------------------------------------------------
+// The shielded deposit address (REQ-FUND-008), over the fake inbox wallet
+// ---------------------------------------------------------------------------
+
+async fn campaign_view(h: &Harness, id: &CampaignId) -> Reply {
+    h.get(&campaign_path(id, "")).await
+}
+
+async fn inbox_scenarios(g: &mut Golden) {
+    use common::inbox::{attach, FakeInbox, FEE};
+    use drop_operator::inbox::engine::{InboxSettings, Inboxes};
+
+    let account_of =
+        |h: &Harness, id: &CampaignId| h.state.store().load_campaign(id).unwrap().unwrap().account;
+
+    // From an empty inbox to a moved one, with no delay before the move.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    let (id, created) = create(&h).await;
+    let address = created.json()["funding_address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let account = account_of(&h, &id);
+    inboxes.round(&h.state).await;
+    g.record("campaign-real-inbox-waiting.json", "GET", "/api/campaigns/{id}", 200, &campaign_view(&h, &id).await,
+        "a shielded deposit address set up and shown: nothing has reached it; the public address stays as the fallback");
+    fake.deposit(account, 100_000, 1_001, 1);
+    fake.tip(1_001);
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-confirming.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "a deposit confirming: 1 of the 10 confirmations a move needs",
+    );
+    fake.tip(1_012);
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-short.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "spendable, but short of the funding and the move's fee: need says how much more",
+    );
+    fake.deposit(account, REQUIRED + FEE, 1_002, 2);
+    inboxes.round(&h.state).await;
+    let moving = campaign_view(&h, &id).await;
+    g.record(
+        "campaign-real-inbox-moving.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &moving,
+        "the move is sent and not mined yet: its txid",
+    );
+    let pending = h
+        .state
+        .store()
+        .load_inbox(&id)
+        .unwrap()
+        .unwrap()
+        .pending
+        .unwrap();
+    fake.mine(&pending.txid, 1_013);
+    put_deposit_tx(
+        &node,
+        &address,
+        REQUIRED,
+        Some(1_013),
+        real_deposit("testnet-ironwood-batch"),
+    );
+    node.lock().tip = 1_015;
+    fake.tip(1_015);
+    h.post_empty(&campaign_path(&id, "/check-funding")).await;
+    inboxes.round(&h.state).await;
+    g.record("campaign-real-inbox-moved.json", "GET", "/api/campaigns/{id}", 200, &campaign_view(&h, &id).await,
+        "the move is mined and the payout funded from it: shielded; what is left in the inbox is left");
+
+    // Enough has arrived and the move waits its random delay: when it is due.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let settings = InboxSettings {
+        delay_min: std::time::Duration::from_secs(3_600),
+        delay_max: std::time::Duration::from_secs(3_600),
+        ..common::inbox::now_settings()
+    };
+    let inboxes = std::sync::Arc::new(Inboxes::new(
+        std::sync::Arc::new(fake.clone()),
+        settings,
+        None,
+    ));
+    h.state.attach_inboxes(std::sync::Arc::clone(&inboxes));
+    let (id, _) = create(&h).await;
+    inboxes.round(&h.state).await;
+    fake.deposit(account_of(&h, &id), REQUIRED + FEE, 990, 3);
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-scheduled.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "enough is spendable: the move is due at move_at, a random delay after it could be made",
+    );
+
+    // The wallet could not be set up: no address, and nothing moves.
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    fake.lock().fail_setup = true;
+    let inboxes = attach(&h, &fake);
+    let (id, _) = create(&h).await;
+    inboxes.round(&h.state).await;
+    g.record(
+        "campaign-real-inbox-unavailable.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "the inbox wallet could not be set up: no address is shown; the public address still works",
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,64 @@
+{
+  "batch_count": 1,
+  "batches": [
+    {
+      "confirmations": 0,
+      "fee": "20000",
+      "funding_required": "450020000",
+      "index": 0,
+      "reason": null,
+      "recipients": 3,
+      "state": "planned",
+      "total": "450000000",
+      "txid": null
+    }
+  ],
+  "created_at": 1700000000,
+  "declared_total": "450000000",
+  "fee_policy": {
+    "grace_actions": 2,
+    "marginal_fee": 5000
+  },
+  "fee_total": "20000",
+  "funding": null,
+  "funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "funding_progress": null,
+  "funding_required": "450020000",
+  "funding_source": null,
+  "id": "c-000000000001",
+  "inbox": {
+    "address": null,
+    "asked": "450035000",
+    "confirmations": null,
+    "left": "0",
+    "move_at": null,
+    "need": null,
+    "orchard": "0",
+    "received": "0",
+    "required_confirmations": 10,
+    "spendable": "0",
+    "state": "unavailable",
+    "txid": null
+  },
+  "manifest_commitment": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+  "max_outputs_per_batch": 5,
+  "name": "Real drop",
+  "network": "testnet",
+  "phase": {
+    "phase": "awaiting_funding"
+  },
+  "phase_label": "Waiting for funds",
+  "pool": "ironwood",
+  "recipient_count": 3,
+  "run": {
+    "state": "idle"
+  },
+  "wallet_matches": true,
+  "warnings": [
+    {
+      "code": "small_campaign",
+      "message": "Only 3 recipients: the public total narrows down every amount.",
+      "recipients": 3
+    }
+  ]
+}

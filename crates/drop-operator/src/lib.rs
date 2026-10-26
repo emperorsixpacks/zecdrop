@@ -266,6 +266,7 @@ pub mod events;
 pub mod funding;
 pub mod guard;
 pub mod http;
+pub mod inbox;
 pub mod logging;
 pub mod mock;
 pub mod near;

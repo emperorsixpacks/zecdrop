@@ -21,10 +21,15 @@ use drop_operator::commands::{
 };
 use drop_operator::config::{
     chain_mode, check_network_gate, check_new_passphrase, check_passphrase, resolve_state_dir,
-    take_env, AuditArgs, AuditTxArgs, ChainMode, Cli, Command, Config, ExportArgs, PayslipsArgs,
-    VerifyPayslipArgs, CONFIRM_MAINNET_ENV, PASSPHRASE_ENV, STATE_DIR_ENV,
+    take_env, AuditArgs, AuditTxArgs, ChainMode, Cli, Command, Config, ExportArgs, InboxConfig,
+    PayslipsArgs, VerifyPayslipArgs, CONFIRM_MAINNET_ENV, PASSPHRASE_ENV, STATE_DIR_ENV,
 };
 use drop_operator::crypto::KdfParams;
+use drop_operator::inbox::{
+    backend::DevtoolInbox,
+    devtool::Devtool,
+    engine::{inbox_root, InboxSettings, Inboxes},
+};
 use drop_operator::logging::Logger;
 use drop_operator::mock::{MockBackend, MockChain};
 use drop_operator::near::{NearGateway, NearParts, SystemClock};
@@ -287,6 +292,52 @@ fn near_gateway(base_url: Option<&str>) -> Arc<dyn NearGateway> {
     Arc::new(client)
 }
 
+/// The engine of the shielded deposit addresses (docs/ADR/0006-shielded-inbox.md): checks zcash-devtool, takes the inbox
+/// directory's lock for the life of the process, and tidies what a crash left behind.
+async fn start_inboxes(
+    inbox: &InboxConfig,
+    url: &str,
+    network: Network,
+    state_dir: &Path,
+    state: &AppState,
+) -> Result<Arc<Inboxes>, Box<dyn Error>> {
+    use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+    let server = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_end_matches('/')
+        .to_owned();
+    let devtool = Devtool::new(inbox.devtool.clone(), server, network);
+    devtool.check_patched().await?;
+    let root = inbox_root(state_dir, state.seed());
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&root)?;
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .mode(0o600)
+        .open(root.join(".lock"))?;
+    lock.try_lock()
+        .map_err(|_| "another operator is already using these shielded deposit addresses")?;
+    let chain = LightwalletdSource::connect_lazy(&ChainConfig::new(url.to_owned(), network))?;
+    let backend = DevtoolInbox::new(devtool, root, network, chain);
+    backend.tidy();
+    let settings = InboxSettings {
+        poll: inbox.poll,
+        delay_min: inbox.delay_min,
+        delay_max: inbox.delay_max,
+        ..InboxSettings::default()
+    };
+    Ok(Arc::new(Inboxes::new(
+        Arc::new(backend),
+        settings,
+        Some(lock),
+    )))
+}
+
 async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box<dyn Error>> {
     let config = Config::from_cli(cli, confirm)?;
     let store = Arc::new(open_store(&config.db, true)?);
@@ -337,7 +388,7 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
         codec,
         backend,
         seed,
-        accounts: Arc::new(FileAccounts::new(state_dir)),
+        accounts: Arc::new(FileAccounts::new(state_dir.clone())),
         token: Token::generate()?,
         logger: logger.clone(),
         options: Options {
@@ -353,6 +404,15 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
             allow_mainnet: config.allow_mainnet,
         },
     });
+
+    // The shielded deposit addresses: refused unless zcash-devtool carries ZecDrop's patch and no other operator drives them.
+    if let (Some(inbox), ChainMode::Lightwalletd(url)) = (&config.inbox, &config.chain) {
+        let inboxes = start_inboxes(inbox, url, config.network, &state_dir, &state).await?;
+        state.attach_inboxes(inboxes);
+        logger.info(format_args!(
+            "shielded deposit addresses: on (zcash-devtool checked)"
+        ));
+    }
 
     let listener = TcpListener::bind(config.bind).await?;
     // The link is printed only once everything that can fail before serving has passed: the
@@ -372,6 +432,9 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
     }
     if !mock {
         state.spawn_funding_poller(config.funding_poll_interval);
+    }
+    if let Some(inboxes) = state.inboxes() {
+        inboxes.spawn(state.clone());
     }
 
     serve(listener, state, Some(config.web_dir), async {

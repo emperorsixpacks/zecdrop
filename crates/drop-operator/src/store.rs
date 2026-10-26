@@ -305,6 +305,12 @@ impl Store {
                  created_at INTEGER NOT NULL,
                  record_enc BLOB NOT NULL,
                  row_tag BLOB
+             );
+             CREATE TABLE inboxes (
+                 campaign_id TEXT PRIMARY KEY,
+                 created_at INTEGER NOT NULL,
+                 record_enc BLOB NOT NULL,
+                 row_tag BLOB
              );",
         )?;
 
@@ -374,9 +380,16 @@ impl Store {
             _ => return Err(StoreError::WrongPassphrase),
         };
         conn.execute_batch("PRAGMA secure_delete = ON; PRAGMA synchronous = FULL;")?;
-        // Stores from before NEAR funding gain its table; one that has it is left alone.
+        // Stores from before NEAR funding gain its table, and those from before the shielded deposit address gain theirs;
+        // one that has them is left alone.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS near_quotes (
+                 campaign_id TEXT PRIMARY KEY,
+                 created_at INTEGER NOT NULL,
+                 record_enc BLOB NOT NULL,
+                 row_tag BLOB
+             );
+             CREATE TABLE IF NOT EXISTS inboxes (
                  campaign_id TEXT PRIMARY KEY,
                  created_at INTEGER NOT NULL,
                  record_enc BLOB NOT NULL,
@@ -625,6 +638,80 @@ impl Store {
         Ok(Some(record))
     }
 
+    /// Keeps what the operator knows of a payout's shielded deposit address (REQ-FUND-005/006), replacing what was kept.
+    /// Sealed and bound to the payout, its row authenticated, like a NEAR quote: an inbox moved to another payout, or an
+    /// edited transaction in flight, is refused when it is read.
+    pub fn save_inbox(
+        &self,
+        campaign: &CampaignId,
+        record: &crate::inbox::record::InboxRecord,
+    ) -> Result<(), StoreError> {
+        let json = Zeroizing::new(serde_json::to_vec(record).map_err(|_| StoreError::Corrupt)?);
+        let record_enc = self.seal("inbox", campaign.as_str(), 0, &json)?;
+        let created = i64::try_from(record.created_at).unwrap_or(i64::MAX);
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if self.read_campaign(&tx, campaign.as_str())?.is_none() {
+            return Err(StoreError::NotFound);
+        }
+        let tag = self.tag(
+            TABLE_INBOX,
+            &near_fields(campaign.as_str(), created, &record_enc),
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO inboxes (campaign_id, created_at, record_enc, row_tag) VALUES (?1, ?2, ?3, ?4)",
+            params![campaign.as_str(), created, record_enc, tag],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// What is kept of a payout's shielded deposit address, if it has one.
+    pub fn load_inbox(
+        &self,
+        campaign: &CampaignId,
+    ) -> Result<Option<crate::inbox::record::InboxRecord>, StoreError> {
+        let row: Option<(i64, Vec<u8>, Option<Vec<u8>>)> = self
+            .conn()
+            .query_row(
+                "SELECT created_at, record_enc, row_tag FROM inboxes WHERE campaign_id = ?1",
+                params![campaign.as_str()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+        let Some((created, record_enc, tag)) = row else {
+            return Ok(None);
+        };
+        self.verify(
+            TABLE_INBOX,
+            &near_fields(campaign.as_str(), created, &record_enc),
+            tag.as_deref(),
+        )?;
+        let json = self.unseal("inbox", campaign.as_str(), 0, &record_enc)?;
+        let record: crate::inbox::record::InboxRecord =
+            serde_json::from_slice(&json).map_err(|_| StoreError::Corrupt)?;
+        if i64::try_from(record.created_at).ok() != Some(created) {
+            return Err(StoreError::Corrupt);
+        }
+        Ok(Some(record))
+    }
+
+    /// The payouts that have a shielded deposit address on file.
+    pub fn inbox_campaigns(&self) -> Result<Vec<CampaignId>, StoreError> {
+        let ids: Vec<String> = {
+            let conn = self.conn();
+            let mut statement =
+                conn.prepare("SELECT campaign_id FROM inboxes ORDER BY campaign_id")?;
+            let ids = statement
+                .query_map([], |r| r.get(0))?
+                .collect::<Result<_, _>>()?;
+            ids
+        };
+        ids.into_iter()
+            .map(|id| CampaignId::new(&id).map_err(|_| StoreError::Corrupt))
+            .collect()
+    }
+
     /// The campaigns that have a live NEAR quote on file.
     pub fn near_quote_campaigns(&self) -> Result<Vec<CampaignId>, StoreError> {
         let ids: Vec<String> = {
@@ -801,6 +888,7 @@ impl Store {
 const TABLE_CAMPAIGNS: &str = "campaigns";
 const TABLE_BATCHES: &str = "batches";
 const TABLE_NEAR: &str = "near_quotes";
+const TABLE_INBOX: &str = "inboxes";
 
 /// What a `near_quotes` row's tag covers: its place, its time, and its sealed record. (Each of
 /// these is also caught a second way: the sealed record is bound to its campaign, and its own
@@ -2357,6 +2445,111 @@ mod tests {
             "manifest of another campaign",
             store.load_campaign(&id("camp-a")),
         );
+    }
+
+    fn inbox_record(created: u64, pending: bool) -> crate::inbox::record::InboxRecord {
+        use crate::inbox::record::{InboxRecord, InboxTx, InboxTxKind};
+        InboxRecord {
+            created_at: created,
+            address: "utest1SENTINELinboxADDRESS".into(),
+            birthday: 4_536_971,
+            pending: pending.then(|| InboxTx {
+                kind: InboxTxKind::Move,
+                txid: "ab".repeat(32),
+                raw: "5e5e5e5e5e5e5e5e".into(),
+                expiry_height: 4_537_030,
+            }),
+            moved: None,
+        }
+    }
+
+    // covers: REQ-FUND-006, REQ-PRIV-004
+    #[test]
+    fn an_inbox_is_kept_sealed_with_its_transaction_in_flight_and_survives_a_restart() {
+        let (dir, store) = two_campaigns();
+        let a = id("camp-a");
+        assert_eq!(store.load_inbox(&a).unwrap(), None);
+        store.save_inbox(&a, &inbox_record(1_000, false)).unwrap();
+        // The transaction in flight is written over the same row, before it is broadcast.
+        store.save_inbox(&a, &inbox_record(1_000, true)).unwrap();
+        assert_eq!(
+            store.load_inbox(&a).unwrap(),
+            Some(inbox_record(1_000, true))
+        );
+        assert_eq!(store.inbox_campaigns().unwrap(), vec![a.clone()]);
+        assert_eq!(store.load_inbox(&id("camp-b")).unwrap(), None);
+        let hay = String::from_utf8_lossy(&all_file_bytes(store.path())).into_owned();
+        for needle in ["SENTINELinbox", "5e5e5e5e", "4537030"] {
+            assert!(!hay.contains(needle), "{needle} is in the store file");
+        }
+        let path = store.path().to_owned();
+        drop(store);
+        let again = Store::open(&path, PASS).unwrap();
+        assert_eq!(
+            again.load_inbox(&a).unwrap(),
+            Some(inbox_record(1_000, true))
+        );
+        drop(dir);
+    }
+
+    // covers: REQ-FUND-006
+    #[test]
+    fn an_inbox_is_kept_only_for_a_payout_that_exists_and_an_edited_one_is_refused() {
+        let (_dir, store) = two_campaigns();
+        assert!(matches!(
+            store.save_inbox(&id("camp-nope"), &inbox_record(1, false)),
+            Err(StoreError::NotFound)
+        ));
+        store
+            .save_inbox(&id("camp-a"), &inbox_record(1_000, true))
+            .unwrap();
+        store
+            .save_inbox(&id("camp-b"), &inbox_record(2_000, false))
+            .unwrap();
+        // camp-b's sealed record, moved onto camp-a's row with camp-a's tag recomputed for it, is still refused: the
+        // record is bound to its own payout.
+        let (b_enc, b_created): (Vec<u8>, i64) = store
+            .conn()
+            .query_row(
+                "SELECT record_enc, created_at FROM inboxes WHERE campaign_id = 'camp-b'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        let tag = store
+            .tag(TABLE_INBOX, &near_fields("camp-a", b_created, &b_enc))
+            .unwrap();
+        store
+            .conn()
+            .execute(
+                "UPDATE inboxes SET record_enc = ?1, created_at = ?2, row_tag = ?3 WHERE campaign_id = 'camp-a'",
+                params![b_enc, b_created, tag],
+            )
+            .unwrap();
+        assert_corrupt("inbox of another payout", store.load_inbox(&id("camp-a")));
+        // An edited row without a matching tag is refused too.
+        store
+            .conn()
+            .execute(
+                "UPDATE inboxes SET created_at = 7 WHERE campaign_id = 'camp-b'",
+                [],
+            )
+            .unwrap();
+        assert_corrupt("edited inbox row", store.load_inbox(&id("camp-b")));
+    }
+
+    #[test]
+    fn a_store_from_before_the_shielded_deposit_address_gains_its_table_when_opened() {
+        let (_dir, store) = two_campaigns();
+        store.conn().execute_batch("DROP TABLE inboxes;").unwrap();
+        let path = store.path().to_owned();
+        drop(store);
+        let again = Store::open(&path, PASS).unwrap();
+        assert_eq!(again.load_inbox(&id("camp-a")).unwrap(), None);
+        again
+            .save_inbox(&id("camp-a"), &inbox_record(9, false))
+            .unwrap();
+        assert_eq!(again.inbox_campaigns().unwrap().len(), 1);
     }
 
     fn near_record(created: u64) -> crate::near::NearQuoteRecord {

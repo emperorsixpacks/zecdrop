@@ -105,6 +105,7 @@ pub mod builder;
 pub mod chain;
 pub mod codec;
 pub mod distributor;
+pub mod inbox;
 pub mod inspect;
 pub mod keys;
 pub mod lightwalletd;
@@ -120,6 +121,7 @@ pub use builder::{
 pub use chain::{ChainBackend, PrevOut, Submitted, TxStatus};
 pub use codec::ZcashAddressCodec;
 pub use distributor::{MainnetPermit, ZcashDistributor, ZcashError};
+pub use inbox::InboxKeys;
 pub use keys::{CampaignKeys, KeyError};
 pub use memo::{decode_memo, encode_memo, MemoError};
 
