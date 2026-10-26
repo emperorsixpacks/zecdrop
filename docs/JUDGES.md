@@ -12,6 +12,11 @@ Open <https://zecdrop-site.vercel.app>.
   so this is a live check, not a stored page. Expect "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ". The verifier runs on a
   teammate's server; if the page says it cannot reach it, use path 2, which needs only Docker.
 - **See a real receipt** opens `/r/demo?demo=real`, a saved copy of the same answer that works even when the verifier is down.
+- **Check a payslip:** [the Check a payslip page](https://zecdrop-site.vercel.app/payslip) loads a real payslip of that batch (one
+  recipient's proof of one payout) and checks it through the hosted verifier; a second button loads a copy with the amount changed
+  so you can watch it fail. Checking here shows the verifier the payslip's receiver, amount and the key to its memo; path 4
+  checks one offline.
+- **A tour** of the operator's screens, with what the public sees and what stays hidden at each step, is on the home page.
 - The site cannot run a payout, because the operator holds the keys and runs on your own computer (there is no wallet to
   connect).
 
