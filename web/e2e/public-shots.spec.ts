@@ -66,7 +66,7 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole("dialog").waitFor();
         await shoot(page, "home-appearance", w, name, false);
         await page.keyboard.press("Escape");
-        if (viewport.width < 640) {
+        if (viewport.width < 1024) {
           await page.getByRole("button", { name: "Menu" }).click();
           await page.getByRole("navigation", { name: "Menu" }).waitFor();
           await shoot(page, "home-menu", w, name, false);

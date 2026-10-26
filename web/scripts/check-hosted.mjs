@@ -1,7 +1,7 @@
 // Checks a deployed public copy of the app, and the verifier it talks to. Run it
 // after deploying; it changes nothing and needs no keys.
 //
-//   node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier> [--mainnet-tx <txid>]
+//   node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier> [--mainnet-tx <txid>] [--payslip]
 //
 // It prints one line per check and exits 1 if any failed. What it checks:
 //   - the page and the client routes answer 200 with HTML (the rewrites work)
@@ -14,6 +14,10 @@
 //   - with --mainnet-tx, that the verifier serves mainnet: it answers a receipt request for
 //     that mainnet transaction with a receipt. Any mainnet transaction id will do; the declared
 //     total and the commitment sent are placeholders, so what the receipt finds is not looked at.
+//   - with --payslip, that the verifier checks payslips for this site: it answers the browser's preflight for a
+//     JSON POST from this site's origin, answers the real batch's payslip 3 (public demo data, the page's
+//     sample) as verified or pending without repeating anything of it, and refuses the same payslip with one
+//     digit changed. It prints verdicts and statuses, never a receiver, an amount or a secret.
 //
 // The receipt request is built from the real sample's fixture (its txid, its
 // commitment and its declared total), the same values as the shareable link.
@@ -26,8 +30,9 @@ const option = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : u
 const site = option("--site")?.replace(/\/+$/u, "");
 const verifier = option("--verifier")?.replace(/\/+$/u, "");
 const mainnetTx = option("--mainnet-tx");
+const checkPayslips = args.includes("--payslip");
 if (!site || !verifier) {
-  console.error("usage: node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier> [--mainnet-tx <txid>]");
+  console.error("usage: node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier> [--mainnet-tx <txid>] [--payslip]");
   process.exit(2);
 }
 if (args.includes("--mainnet-tx") && !/^[0-9a-f]{64}$/u.test(mainnetTx ?? "")) {
@@ -59,7 +64,7 @@ const home = await get(`${site}/`);
 const html = await home.text();
 report(home.status === 200 && (home.headers.get("content-type") ?? "").includes("text/html"), "the page answers", `${String(home.status)} ${home.headers.get("content-type") ?? ""}`);
 
-for (const path of ["/r/demo?demo=real", "/privacy", "/campaigns", "/new/basics", "/campaign/c-1", "/audit"]) {
+for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/campaigns", "/new/basics", "/campaign/c-1", "/audit"]) {
   const response = await get(`${site}${path}`);
   const body = await response.text();
   report(response.status === 200 && body.includes('<div id="root">'), `client route ${path}`, String(response.status));
@@ -128,6 +133,85 @@ if (mainnetTx !== undefined) {
     }
   } catch (error) {
     report(false, what, `no answer (${error instanceof Error ? error.message : String(error)})`);
+  }
+}
+
+// ---- payslips, when asked ---------------------------------------------------------
+if (checkPayslips) {
+  // Payslip 3 of the real batch: the demo recipients are throwaway accounts, and it is the page's own sample.
+  const slip = JSON.parse(readFileSync(join(root, dir.name, "payslips", "payslip-3.json"), "utf8"));
+  const endpoint = `${verifier}/v1/payslip`;
+  const reason = (error) => `no answer (${error instanceof Error ? error.message : String(error)})`;
+
+  // What a browser asks before it POSTs JSON from another origin: may this site send POST with a content-type?
+  const preflightWhat = "the verifier lets this site POST a payslip (CORS preflight)";
+  try {
+    const preflight = await fetch(endpoint, {
+      method: "OPTIONS",
+      headers: { Origin: siteOrigin, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
+    });
+    const origin = preflight.headers.get("access-control-allow-origin");
+    const methods = (preflight.headers.get("access-control-allow-methods") ?? "").toUpperCase();
+    const headers = (preflight.headers.get("access-control-allow-headers") ?? "").toLowerCase();
+    const allowed = preflight.ok && (origin === siteOrigin || origin === "*") && (methods.includes("POST") || methods === "*") && (headers.includes("content-type") || headers === "*");
+    report(allowed, preflightWhat, allowed ? String(preflight.status) : `HTTP ${String(preflight.status)}, allow-origin ${origin ?? "none"}, allow-methods ${methods || "none"}, allow-headers ${headers || "none"}`);
+  } catch (error) {
+    report(false, preflightWhat, reason(error));
+  }
+
+  /** POST a payslip as the page does, from this site's origin. */
+  const post = async (payslip) => {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", Origin: siteOrigin },
+      body: JSON.stringify(payslip),
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
+    });
+    const text = await response.text();
+    let answer = null;
+    try {
+      answer = JSON.parse(text);
+    } catch {
+      /* not JSON */
+    }
+    return { response, text, answer, code: typeof answer?.error?.code === "string" ? answer.error.code : undefined };
+  };
+  const refused = ({ response, code }) =>
+    response.status === 400 && code === "network_not_configured" ? `verifier is not serving ${slip.network} (HTTP 400 ${code})` : `HTTP ${String(response.status)}${code === undefined ? "" : ` ${code}`}`;
+
+  const realWhat = "the verifier checks the real batch's payslip";
+  let answered = false;
+  try {
+    const real = await post(slip);
+    const { answer } = real;
+    const verdict = answer?.verdict;
+    answered = real.response.status === 200 && answer !== null;
+    const good = answered && (verdict === "verified" || verdict === "pending") && answer.txid === slip.txid && Array.isArray(answer.not_proven) && answer.not_proven.length > 0;
+    // The answer is about the transaction. It must not give back what the payslip names.
+    const echoes = [slip.receiver, slip.rseed].some((secret) => real.text.includes(secret));
+    const allowed = real.response.headers.get("access-control-allow-origin");
+    if (!answered) report(false, realWhat, refused(real));
+    else if (!good) report(false, realWhat, `verdict ${String(verdict)}${typeof answer.reason === "string" ? ` ${answer.reason}` : ""}`);
+    else if (echoes) report(false, realWhat, "the answer repeats something the payslip names");
+    else if (allowed !== siteOrigin && allowed !== "*") report(false, realWhat, `no access-control-allow-origin for this site (${allowed ?? "none"})`);
+    else report(true, realWhat, `${verdict}, ${String(answer.confirmations)} confirmation(s), final at ${String(answer.required_depth)}`);
+  } catch (error) {
+    report(false, realWhat, reason(error));
+  }
+
+  // The same payslip with the amount one zatoshi higher must not verify, or the check proves nothing.
+  if (answered) {
+    const changedWhat = "the verifier refuses the same payslip with the amount changed";
+    try {
+      const changed = await post({ ...slip, value: String(BigInt(slip.value) + 1n) });
+      const ok = changed.response.status === 200 && changed.answer?.verdict === "invalid" && changed.answer?.reason === "does_not_match";
+      report(ok, changedWhat, ok ? "invalid, does_not_match" : changed.response.status === 200 ? `verdict ${String(changed.answer?.verdict)}` : refused(changed));
+    } catch (error) {
+      report(false, changedWhat, reason(error));
+    }
   }
 }
 

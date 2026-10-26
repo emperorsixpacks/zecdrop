@@ -26,6 +26,7 @@ const OPERATOR_LINKS: readonly NavItem[] = [
 const PUBLIC_LINKS: readonly NavItem[] = [
   { to: "/", label: "Home", end: true },
   { to: SAMPLE_RECEIPT_HREF, label: "Sample receipt" },
+  { to: "/payslip", label: "Check a payslip" },
   { to: "/privacy", label: "How privacy works" },
 ];
 
@@ -50,12 +51,13 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "text-foreground after:scale-x-100" : "text-muted-foreground after:scale-x-0 hover:text-foreground hover:after:scale-x-100",
   );
 
-/** The public menu on a phone: one button, with the links in a panel, so the header is one row. */
+/** The public menu on a phone or a tablet: one button, with the links in a panel, so the header is one row.
+ * With four links the inline menu needs about 57rem to stay on one row, so it starts at the large breakpoint. */
 function PhoneMenu() {
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-base font-semibold hover:bg-secondary sm:hidden">
+      <PopoverTrigger className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-base font-semibold hover:bg-secondary lg:hidden">
         Menu
         <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="m6 9 6 6 6-6" />
@@ -133,7 +135,7 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
         ) : (
           <>
             <PhoneMenu />
-            <nav aria-label="Primary" className="hidden sm:block">
+            <nav aria-label="Primary" className="hidden lg:block">
               <ul className="flex gap-x-1">
                 {PUBLIC_LINKS.map((link) => (
                   <li key={link.to}>

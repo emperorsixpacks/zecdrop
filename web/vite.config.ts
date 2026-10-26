@@ -16,7 +16,7 @@ const fsAllow = [
   here("../examples"), // the public 8-payout sample list the home page's lens shows
   // The Rust sources whose user-facing strings the tests compare against.
   // Only while testing; the dev server has no reason to serve them.
-  ...(process.env["VITEST"] ? [here("../crates/drop-core/src"), here("../crates/drop-operator/src"), here("../crates/drop-zcash/src"), here("../docs")] : []),
+  ...(process.env["VITEST"] ? [here("../crates/drop-core/src"), here("../crates/drop-operator/src"), here("../crates/drop-verifier/src"), here("../crates/drop-verify/src"), here("../crates/drop-zcash/src"), here("../docs")] : []),
 ];
 
 export default defineConfig({

@@ -6,7 +6,7 @@ public accountability"). The same bundle serves two roles:
 - **Operator** routes (`/campaigns`, `/new/*`, `/campaign/:id`, `/audit`),
   served by the local operator binary that holds the spend keys. They need the
   operator's bearer token (below).
-- **Public** routes (`/`, `/r/:id`, `/privacy`), safe to serve from the separate,
+- **Public** routes (`/`, `/r/:id`, `/payslip`, `/privacy`), safe to serve from the separate,
   key-less hosted verifier.
 
 There is no wallet-connect and no EVM code in this app.
@@ -95,20 +95,43 @@ address. The real sample's "Details" say explorers are third parties and can lag
 mainnet. Only the label differs; the arithmetic is the same bigint zatoshi
 (`src/lib/units.ts`).
 
+## The payslip page
+
+`/payslip` ("Check a payslip") is public too. A payslip is the small JSON file one recipient can show to prove one payout to
+them, with no viewing key and without revealing anyone else's (`../docs/PRIVACY_BOUNDARY.md`, "Payslips"). The page reads
+the pasted file strictly in the browser (the seven fields the verifier knows, lowercase hex, a known network, at most 4 KiB;
+`src/api/payslip-input.ts`) and only then sends it, once, as the body of `POST /v1/payslip` on the verifier
+(`src/api/payslip.ts`: JSON, no credentials, no cache, no referrer, no redirect, 15 s). A paste that is not a payslip gets
+a plain message and sends nothing, and so does a viewing key. The verifier answers 200 with a verdict (`verified`,
+`pending`, `not_found`, or `invalid` with a reason that never says which field was wrong), read by the same kind of strict
+schema as the receipt (`src/api/payslip-answer.ts`). The page shows it with the amount and a short receiver **as the
+payslip states them** (the answer holds neither), the confirmations and the depth, and a link to the transaction on the
+network's explorer. "What this does not prove" is always on the page: before a check it is a copy of the verifier's
+`NOT_PROVEN` sentences (a test compares it with the Rust source), after one it is the answer's own.
+
+Checking here hands the receiver, the amount and the secret that also opens the output's memo to whoever runs the verifier.
+The page says so next to the button, and points to `drop-operator verify-payslip --payslip FILE --tx FILE`, which needs no
+network. The payslip lives in the component's state only: not in a URL, storage, the query cache or the console, and the box
+is empty again when the person leaves. "Load a sample" is payslip 3 of the real 8-recipient testnet batch (the one the sample
+receipt shows, bundled from `../fixtures/testnet-ironwood-batch-8/`); "Load a changed copy" is the same with the amount one
+zatoshi higher, so a visitor can watch the check fail.
+
 ## Hosting a public copy (receipt viewer only)
 
-A public, static copy of the app serves the home page, `/privacy`, the sample receipts and live receipt links (answered
-by a hosted verifier). Nothing is deployed from this repository by itself; the owner does that. The steps are in
+A public, static copy of the app serves the home page, `/privacy`, the sample receipts, live receipt links and the payslip
+check (answered by a hosted verifier). Nothing is deployed from this repository by itself; the owner does that. The steps are in
 [`../docs/runbooks/hosted-demo.md`](../docs/runbooks/hosted-demo.md). In short:
 
 ```bash
 VITE_API_URL=https://<verifier-host> VITE_ZEC_NETWORK=testnet VITE_PUBLIC_ONLY=true npm run build:hosted
 node scripts/serve-hosted.mjs --dir dist --port 4174      # look at it with the real headers first
 npx vercel deploy dist --prod                              # owner step
-node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier-host> [--mainnet-tx <txid>]
+node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier-host> [--mainnet-tx <txid>] [--payslip]
 ```
 
 `--mainnet-tx` also asks the verifier about that mainnet transaction and fails if the verifier does not serve mainnet.
+`--payslip` also checks that the verifier answers the browser's preflight for a JSON POST from the site, checks the real batch's
+payslip 3 (public demo data, the page's sample) and refuses it with one digit changed; it prints verdicts, never the payslip.
 
 `build:hosted` also writes `dist/vercel.json`: the rewrites for the client routes, caching, and a
 Content-Security-Policy (`default-src 'self'`, `connect-src 'self'` plus the verifier's origin taken from
@@ -169,6 +192,11 @@ batch totals, fees, transaction ids, the manifest commitment and privacy
 warnings only. `features/wizard/draft.test.ts` and `e2e/operator/flow.spec.ts`
 plant sentinel recipients and fail if any of them turns up anywhere.
 
+The payslip page is the one deliberate exception, and it is the person's own: a payslip they paste names their receiver, their
+amount and a secret, and is sent to the verifier on request, in one POST body (see "The payslip page"). It is shown back only as
+an amount and a short receiver, and kept nowhere. `features/payslip/PayslipPage.test.tsx` and `e2e/payslip.spec.ts` carry a
+payslip through a check and fail if any of it turns up in storage, an address, the console, the query cache or a second request.
+
 The viewing key (for an auditor) is the one thing that discloses everything. It
 is requested only after the person ticks "I understand ..." (a fresh tick for
 every reveal), is held in the component's state and nowhere else (not in the
@@ -201,19 +229,22 @@ its hook mention storage, navigation, logging or a cache.
   findings, phase labels, the disclosure warning) are word for word the core's,
   and tests compare them with the Rust source. A test also fails if the operator
   can raise an error code the page has no sentence for, or if a field is added
-  to `CampaignView`.
+  to `CampaignView`. The same goes for the verifier's payslip answer: its fields, its reasons and the five
+  "does not prove" sentences are compared with `crates/drop-verifier/src/api.rs` and `crates/drop-verify/src/payslip.rs`.
 - `npm run e2e` runs three Playwright projects in real Chromium. It needs a
   one-time `npx playwright install chromium`, and (for the operator project) a
   built `../target/debug/drop-operator` (`cargo build -p drop-operator`); it
   builds `dist/` itself.
   - **public**: the public pages over `vite preview`, both themes, 360px and
     1280px: no console errors, no requests leaving the origin, no sideways
-    scrolling, zero axe WCAG 2.2 A/AA violations, tab order and focus.
+    scrolling, zero axe WCAG 2.2 A/AA violations, tab order and focus. The payslip page is
+    checked in every state of its result (the browser answers for the verifier), from the keyboard, and for where the payslip goes.
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
     rewrites of the `vercel.json` generated for it, against a stub verifier on another origin
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
     live receipt link, that the policy is really in force (a request to any other origin is blocked and reported), that
-    the operator pages explain themselves and call nothing, and that `scripts/check-hosted.mjs` passes.
+    the operator pages explain themselves and call nothing, that a payslip is checked against the stub (preflight, one POST of
+    JSON, Verified for the sample, a refusal for the changed copy) with no violation, and that `scripts/check-hosted.mjs` passes.
   - **operator**: `e2e/operator/global-setup.ts` starts the real binary on a
     free loopback port with a temporary store, reads the token from its start-up banner,
     seeds three campaigns, and stops it afterwards. `flow.spec.ts` creates a
@@ -236,6 +267,7 @@ its hook mention storage, navigation, logging or a cache.
 src/
   api/          wire types + strict zod validators (types, findings, warnings),
                 receipt link + fetch (receipt-query, receipt, endpoints, demo);
+                the payslip check (payslip-input: the paste, payslip-answer, payslip: the POST, payslip-sample);
     operator/   the operator API: schemas (strict, from captured responses),
                 client, session (in-memory token), events (SSE over fetch)
   components/   app chrome (TopBar, Footer, AppShell), CopyButton, Zec, TxActions;
@@ -243,6 +275,7 @@ src/
   features/
     home/       "/"             public pitch
     receipt/    "/r/:id"        PUBLIC receipt viewer
+    payslip/    "/payslip"      "Check a payslip": the paste box, the verdict, what it does not prove
     privacy/    "/privacy"      "Privacy boundary" page
     operator/   the token gate, hooks, wording (messages.ts),
                 batch list, funding and start panels

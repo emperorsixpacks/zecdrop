@@ -9,6 +9,7 @@ import { expect, test, type Page, type Response } from "@playwright/test";
 
 import { TOUR_LOOKS, TOUR_SHOTS, TOUR_WIDTH, tourImageSrc } from "../../src/features/home/tour-steps.js";
 import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { dumpBrowserState } from "../operator/privacy.js";
 
 // A public copy of the app, built the way a deployment is built and served WITH
 // the headers and rewrites of the vercel.json made for it (scripts/hosted-config.mjs,
@@ -28,6 +29,9 @@ const sample = JSON.parse(sampleText) as {
   manifest_commitment: string;
   declared_total: string;
 };
+// Payslip 3 of the same batch, which the stub verifier knows to be true (e2e/hosted/stub-verifier.mjs).
+const payslipText = readFileSync(join(sampleRoot, sampleDir?.name ?? "", "payslips", "payslip-3.json"), "utf8");
+const payslip = JSON.parse(payslipText) as { txid: string; receiver: string; rseed: string; value: string; network: string; action: number; version: number };
 const LIVE_PATH =
   `/r/real-8?network=testnet&tx=${sample.batches[0]?.txid ?? ""}` +
   `&commitment=${sample.manifest_commitment}&declared_total=${sample.declared_total}`;
@@ -93,7 +97,7 @@ test("a built asset is cached as immutable, and client routes are rewritten to t
   expect(file.status()).toBe(200);
   expect(file.headers()["cache-control"]).toBe("public, max-age=31536000, immutable");
 
-  for (const path of ["/r/demo?demo=real", "/privacy", "/campaigns", "/new/check", "/campaign/c-1", "/audit", "/r/anything/else"]) {
+  for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/campaigns", "/new/check", "/campaign/c-1", "/audit", "/r/anything/else"]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(200);
     expect(await response.text(), path).toContain('<div id="root">');
@@ -123,6 +127,7 @@ test.describe("the policy breaks nothing", () => {
     ["the first real batch", "/r/demo?demo=real-smoke", /Payout receipt/u],
     ["the findings sample", "/r/demo?demo=findings", /Payout receipt/u],
     ["the privacy page", "/privacy", /How privacy works/u],
+    ["the payslip page", "/payslip", /Check a payslip/u],
   ];
 
   for (const [name, path, heading] of PAGES) {
@@ -254,6 +259,126 @@ test.describe("the policy breaks nothing", () => {
   });
 });
 
+test.describe("the payslip page on a public copy", () => {
+  /** Every request to the verifier, as the browser made it. */
+  function watchVerifier(page: Page) {
+    const sent: { method: string; url: string; type: string | undefined; body: string | null; cookie: boolean }[] = [];
+    page.on("request", (r) => {
+      if (r.url().startsWith(STUB)) {
+        sent.push({ method: r.method(), url: r.url(), type: r.headers()["content-type"], body: r.postData(), cookie: "cookie" in r.headers() });
+      }
+    });
+    return sent;
+  }
+
+  test("checks the sample against the verifier on its own origin and sees Verified, then the changed copy fails, and the policy reports nothing", async ({ page }) => {
+    const seen = await watch(page);
+    const sent = watchVerifier(page);
+    await page.goto("/payslip");
+    await expect(page.getByRole("heading", { level: 1, name: "Check a payslip" })).toBeVisible();
+    const before = await page.getByTestId("not-proven").getByRole("listitem").allInnerTexts();
+    expect(before).toHaveLength(5);
+
+    await page.getByRole("button", { name: "Load a sample" }).click();
+    await expect(page.getByLabel("Payslip")).toHaveValue(payslipText);
+    await page.getByRole("button", { name: "Check payslip" }).click();
+    const verified = page.getByRole("heading", { level: 2, name: "Verified", exact: true });
+    await expect(verified).toBeVisible();
+    await expect(verified).toBeFocused();
+    const result = page.getByTestId("payslip-result");
+    await expect(result).toContainText("Action 5 of this transaction pays the receiver and amount this payslip states.");
+    await expect(result).toContainText("0.0009 TAZ");
+    await expect(result).toContainText("19 (final at 3)");
+    await expect(result.getByRole("link", { name: /Open in the explorer/u })).toHaveAttribute("href", `https://testnet.zecblock.com/tx/${payslip.txid}`);
+    // What is not proven is the verifier's own list now, and it is the list the page showed before.
+    expect(await page.getByTestId("not-proven").getByRole("listitem").allInnerTexts()).toEqual(before);
+
+    await page.getByRole("button", { name: "Load a changed copy" }).click();
+    await page.getByRole("button", { name: "Check payslip" }).click();
+    const failed = page.getByRole("heading", { level: 2, name: "Not verified", exact: true });
+    await expect(failed).toBeVisible();
+    await expect(failed).toBeFocused();
+    await expect(page.getByText("This payslip does not match what that output of the transaction holds.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toHaveCount(0);
+
+    // The browser sent two POSTs of JSON to the verifier and nothing else: the payslip is the body, whole,
+    // and the second is the first with the amount one zatoshi higher.
+    const posts = sent.filter((r) => r.method === "POST");
+    expect(posts).toHaveLength(2);
+    for (const post of posts) {
+      expect(new URL(post.url).origin).toBe(STUB);
+      expect(new URL(post.url).pathname).toBe("/v1/payslip");
+      expect(new URL(post.url).search).toBe("");
+      expect(post.type).toBe("application/json");
+      expect(post.cookie).toBe(false);
+    }
+    expect(JSON.parse(posts[0]?.body ?? "null")).toEqual(payslip);
+    expect(JSON.parse(posts[1]?.body ?? "null")).toEqual({ ...payslip, value: String(BigInt(payslip.value) + 1n) });
+    expect(sent.filter((r) => r.method !== "POST" && r.method !== "OPTIONS")).toEqual([]);
+
+    // The page asked the verifier about nothing but the payslip.
+    expect([...new Set(sent.map((r) => new URL(r.url).pathname))]).toEqual(["/v1/payslip"]);
+
+    // The stub saw the preflight a browser sends before a JSON POST, from the page's origin, and the POSTs; no call
+    // carried a query. (The stub serves every test of this project at once, so this is only what is true of any call.)
+    const asked = (await stubCalls(page)).filter((c) => c.path === "/v1/payslip");
+    expect(asked.filter((c) => c.method === "POST").length).toBeGreaterThanOrEqual(2);
+    expect(asked.some((c) => c.method === "OPTIONS" && c.origin === SITE)).toBe(true);
+    expect(asked.every((c) => c.origin === SITE && c.search === "")).toBe(true);
+
+    expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
+    expect(seen.problems()).toEqual([]);
+  });
+
+  test("keeps the payslip nowhere in the browser", async ({ page }) => {
+    await page.goto("/payslip");
+    await page.getByRole("button", { name: "Load a sample" }).click();
+    await page.getByRole("button", { name: "Check payslip" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toBeVisible();
+    const kept = await dumpBrowserState(page);
+    for (const secret of [payslip.receiver, payslip.rseed]) {
+      expect(kept).not.toContain(secret);
+      expect(page.url()).not.toContain(secret);
+    }
+    expect(page.url()).toBe(`${SITE}/payslip`);
+  });
+
+  test("(control) a payslip cannot be posted to any other origin: the policy blocks it and reports it", async ({ page }) => {
+    const seen = await watch(page);
+    await page.goto("/payslip");
+    await page.getByRole("button", { name: "Load a sample" }).click();
+    // A page built for another verifier would ask one the policy does not name.
+    const outcome = await page.evaluate(async (body) => {
+      try {
+        await fetch("http://127.0.0.1:4176/v1/payslip", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+        return "allowed";
+      } catch {
+        return "blocked";
+      }
+    }, JSON.stringify(payslip));
+    expect(outcome).toBe("blocked");
+    // The browser reports the violation a moment after the request fails.
+    await expect.poll(async () => (await seen.violations()).some((v) => v.startsWith("connect-src blocked http://127.0.0.1:4176"))).toBe(true);
+  });
+
+  for (const viewport of VIEWPORTS) {
+    for (const theme of THEMES) {
+      test(`the result fits the screen and has no accessibility violation (${viewport.name}, ${theme} theme)`, async ({ page }) => {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await useTheme(page, theme);
+        await page.goto("/payslip");
+        await page.getByRole("button", { name: "Load a sample" }).click();
+        await page.getByRole("button", { name: "Check payslip" }).click();
+        await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toBeVisible();
+        const overflow = await overflowReport(page);
+        expect(overflow.wide).toEqual([]);
+        expect(overflow.page).toBeLessThanOrEqual(0);
+        expect(await axeViolations(page)).toEqual([]);
+      });
+    }
+  }
+});
+
 test.describe("the operator pages on a public copy", () => {
   for (const path of ["/campaigns", "/new", "/new/check", "/campaign/c-000000000001", "/audit"]) {
     test(`${path} explains that the operator runs on your own machine, and calls nothing`, async ({ page }) => {
@@ -312,6 +437,157 @@ test("the post-deploy check passes against this deployment and its verifier", ()
   expect(output).toContain(`shareable link: ${SITE}/r/real-8?network=testnet&tx=${sample.batches[0]?.txid ?? ""}`);
   // Without --mainnet-tx it asks nothing about mainnet.
   expect(output).not.toContain("serves mainnet");
+});
+
+test.describe("the post-deploy check with --payslip", () => {
+  const run = promisify(execFile);
+
+  /** The check against `verifier`, as its output and exit code (a failing check exits 1, which `execFile` calls an error). */
+  async function check(verifier: string, ...extra: string[]) {
+    try {
+      const { stdout } = await run("node", ["scripts/check-hosted.mjs", "--site", SITE, "--verifier", verifier, ...extra], { cwd: process.cwd(), encoding: "utf8" });
+      return { output: stdout, code: 0 };
+    } catch (error) {
+      const failed = error as { stdout?: string; code?: number };
+      return { output: failed.stdout ?? "", code: failed.code ?? -1 };
+    }
+  }
+
+  interface Behaviour {
+    /** Whether the payslip route exists. */
+    route?: boolean;
+    /** Whether the preflight lets this site POST a content-type. */
+    cors?: boolean;
+    /** What it answers a payslip with: its status and body. */
+    says: (slip: Record<string, unknown>) => { status: number; body: unknown };
+  }
+
+  /** The answer the real verifier gives for a payslip that checks out. */
+  const answered = (slip: Record<string, unknown>, change: Record<string, unknown> = {}) => ({
+    network: slip["network"],
+    txid: slip["txid"],
+    action: slip["action"],
+    verdict: "verified",
+    reason: null,
+    confirmations: 19,
+    required_depth: 3,
+    ironwood_actions: 8,
+    not_proven: ["The memo. The note commitment does not cover it."],
+    ...change,
+  });
+
+  /** A verifier of the test's own: the stub's testnet receipt, and a payslip route that behaves as the test says.
+   * Its address is not in the page's policy, so the checks about the policy fail beside the one under test. */
+  async function verifierWith(behaviour: Behaviour) {
+    const { route = true, cors = true, says } = behaviour;
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? "/", "http://verifier.test");
+      const send = (status: number, body: string, headers: Record<string, string> = {}) => {
+        response.writeHead(status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": SITE, ...headers });
+        response.end(body);
+      };
+      if (url.pathname === "/v1/health") send(200, '{"ok":true}');
+      else if (url.pathname === "/v1/receipt") send(200, sampleText);
+      else if (url.pathname === "/v1/payslip" && route && request.method === "OPTIONS") {
+        response.writeHead(cors ? 204 : 200, cors ? { "Access-Control-Allow-Origin": SITE, "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "content-type" } : {});
+        response.end();
+      } else if (url.pathname === "/v1/payslip" && route) {
+        const chunks: Buffer[] = [];
+        request.on("data", (chunk: Buffer) => chunks.push(chunk));
+        request.on("end", () => {
+          const reply = says(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>);
+          send(reply.status, JSON.stringify(reply.body));
+        });
+      } else send(404, "{}");
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const { port } = server.address() as AddressInfo;
+    return {
+      origin: `http://127.0.0.1:${String(port)}`,
+      close: () =>
+        new Promise<void>((done) => {
+          server.close(() => {
+            done();
+          });
+        }),
+    };
+  }
+
+  /** The check against a verifier that behaves as said, then the verifier is closed. */
+  async function against(behaviour: Behaviour) {
+    const verifier = await verifierWith(behaviour);
+    try {
+      return await check(verifier.origin, "--payslip");
+    } finally {
+      await verifier.close();
+    }
+  }
+
+  const truth = (slip: Record<string, unknown>) => slip["value"] === payslip.value;
+  const honest = (slip: Record<string, unknown>) =>
+    truth(slip)
+      ? { status: 200, body: answered(slip) }
+      : { status: 200, body: answered(slip, { verdict: "invalid", reason: "does_not_match", confirmations: null, ironwood_actions: null }) };
+
+  test("a verifier that checks payslips: three ok lines, no secret printed, and every other check still passes", async () => {
+    const { output, code } = await check(STUB, "--payslip");
+    expect(output).not.toMatch(/^FAIL/mu);
+    expect(output).toMatch(/^ok {3}the verifier lets this site POST a payslip \(CORS preflight\): 204$/mu);
+    expect(output).toMatch(/^ok {3}the verifier checks the real batch's payslip: verified, 19 confirmation\(s\), final at 3$/mu);
+    expect(output).toMatch(/^ok {3}the verifier refuses the same payslip with the amount changed: invalid, does_not_match$/mu);
+    for (const secret of [payslip.receiver, payslip.rseed]) expect(output).not.toContain(secret);
+    expect(output).toContain("ok   client route /payslip: 200");
+    expect(code).toBe(0);
+  });
+
+  test("without --payslip it asks nothing about payslips", async () => {
+    const { output } = await check(STUB);
+    expect(output).not.toContain("POST a payslip");
+    expect(output).not.toContain("the real batch's payslip");
+  });
+
+  test("a payslip that is not final yet is pending, and that is an ok line too", async () => {
+    const { output } = await against({ says: (slip) => (truth(slip) ? { status: 200, body: answered(slip, { verdict: "pending", confirmations: 1 }) } : honest(slip)) });
+    expect(output).toMatch(/^ok {3}the verifier checks the real batch's payslip: pending, 1 confirmation\(s\), final at 3$/mu);
+  });
+
+  test("a verifier without the payslip route fails the preflight and the check, and says the status", async () => {
+    const { output, code } = await against({ route: false, says: honest });
+    expect(output).toMatch(/^FAIL the verifier lets this site POST a payslip \(CORS preflight\): HTTP 404, .*allow-methods none, allow-headers none$/mu);
+    expect(output).toMatch(/^FAIL the verifier checks the real batch's payslip: HTTP 404$/mu);
+    expect(output).not.toContain("refuses the same payslip");
+    expect(code).toBe(1);
+  });
+
+  test("a verifier whose preflight does not let this site POST fails that line only", async () => {
+    const { output } = await against({ cors: false, says: honest });
+    expect(output).toMatch(/^FAIL the verifier lets this site POST a payslip \(CORS preflight\): HTTP 200, allow-origin none/mu);
+    expect(output).toMatch(/^ok {3}the verifier checks the real batch's payslip: verified/mu);
+  });
+
+  test("a verifier that is not set up for the payslip's network is called that", async () => {
+    const { output } = await against({ says: () => ({ status: 400, body: { error: { code: "network_not_configured", message: "x" } } }) });
+    expect(output).toMatch(/^FAIL the verifier checks the real batch's payslip: verifier is not serving testnet \(HTTP 400 network_not_configured\)$/mu);
+  });
+
+  test("a verifier that cannot read the chain names the status and the code", async () => {
+    const { output } = await against({ says: () => ({ status: 503, body: { error: { code: "chain_unavailable", message: "x" } } }) });
+    expect(output).toMatch(/^FAIL the verifier checks the real batch's payslip: HTTP 503 chain_unavailable$/mu);
+  });
+
+  test("a verifier that does not find the transaction, or says verified to everything, fails", async () => {
+    const missing = await against({ says: (slip) => ({ status: 200, body: answered(slip, { verdict: "not_found", confirmations: null, ironwood_actions: null }) }) });
+    expect(missing.output).toMatch(/^FAIL the verifier checks the real batch's payslip: verdict not_found$/mu);
+    const rubberStamp = await against({ says: (slip) => ({ status: 200, body: answered(slip) }) });
+    expect(rubberStamp.output).toMatch(/^ok {3}the verifier checks the real batch's payslip: verified/mu);
+    expect(rubberStamp.output).toMatch(/^FAIL the verifier refuses the same payslip with the amount changed: verdict verified$/mu);
+  });
+
+  test("a verifier that gives back what the payslip names fails, and the output does not repeat it", async () => {
+    const { output } = await against({ says: (slip) => ({ status: 200, body: answered(slip, { receiver: slip["receiver"] }) }) });
+    expect(output).toMatch(/^FAIL the verifier checks the real batch's payslip: the answer repeats something the payslip names$/mu);
+    for (const secret of [payslip.receiver, payslip.rseed]) expect(output).not.toContain(secret);
+  });
 });
 
 test.describe("the post-deploy check with --mainnet-tx", () => {

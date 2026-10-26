@@ -119,6 +119,16 @@ fingerprint, "What this proves and what it doesn't" (two short lists of three it
 docs/PRIVACY_BOUNDARY.md, banned phrases still enforced). Findings keep the Rust-sourced sentences, shown inside the
 verdict area and in details.
 
+**Payslip.** One column, like the privacy page. Above the button, in this order: the box (label, one line of help), the note that
+checking shares the payslip with whoever runs the verifier (a ruled note with the marker's rule, read before the button), then
+Check payslip and Clear; the two helpers (a sample, and a changed copy to watch fail) sit under a hairline with one line
+saying the sample is the real testnet batch's payslip 3. The result is one sheet with an ink rule on top, like a receipt
+without the torn edge: the verdict in large type (a drawn tick and the good colour for Verified, the bad colour for
+Not verified), one or two sentences, then ruled rows (the amount and a short receiver, labelled as what the payslip states,
+the transaction with its explorer link, the action, the confirmations). It is in a polite live region and takes the focus.
+"What this does not prove" is always the last block, whatever happened above it. A check that gets no answer is a calm
+notice, never the bad colour: it says nothing about the payslip.
+
 ## No wallet to connect
 
 ZecDrop has no "connect wallet" button on purpose: the operator on the person's own computer holds the keys (ADR 0002), and the
@@ -179,4 +189,6 @@ lens wipe and the stamp are real animations moved to stated fractions (`seek-*`)
 ## Header
 
 One line on a phone (name, a Menu button or the two operator links, the settings); the state of the chain on a quiet line of
-its own under it; the one button ("New payout") in the first line on a wide screen.
+its own under it; the one button ("New payout") in the first line on a wide screen. The public menu has four links (Home, Sample
+receipt, Check a payslip, How privacy works), which need about 57rem to sit on one row, so it is the Menu button below the large
+breakpoint (1024px) and inline from there: the header is one row at every width.

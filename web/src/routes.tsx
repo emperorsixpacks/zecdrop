@@ -7,6 +7,7 @@ import CampaignPage from "@/features/campaign/CampaignPage";
 import CampaignsPage from "@/features/campaigns/CampaignsPage";
 import HomePage from "@/features/home/HomePage";
 import { OperatorArea } from "@/features/operator/OperatorArea";
+import PayslipPage from "@/features/payslip/PayslipPage";
 import PrivacyPage from "@/features/privacy/PrivacyPage";
 import ReceiptPage from "@/features/receipt/ReceiptPage";
 import CheckStage from "@/features/wizard/CheckStage";
@@ -34,6 +35,7 @@ export function AppRoutes() {
       <Route element={<PublicLayout />}>
         <Route index element={<HomePage />} />
         <Route path="r/:id" element={<ReceiptPage />} />
+        <Route path="payslip" element={<PayslipPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

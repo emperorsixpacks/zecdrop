@@ -40,7 +40,7 @@ for (const viewport of VIEWPORTS) {
           await check(page, "the appearance panel", problems);
           await page.keyboard.press("Escape");
 
-          if (viewport.width < 640) {
+          if (viewport.width < 1024) {
             await page.getByRole("button", { name: "Menu" }).click();
             await expect(page.getByRole("navigation", { name: "Menu" })).toBeVisible();
             await check(page, "the phone menu", problems);

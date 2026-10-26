@@ -9,7 +9,8 @@
 // This renders every page and checks the TEXT A PERSON READS, including
 // visually hidden text, for phrases that over-claim.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -17,8 +18,12 @@ import "@/test/dom";
 import { OperatorApiError } from "@/api/operator/client";
 import { parseCampaign, parseOperatorError, type ProgressEvent } from "@/api/operator/schemas";
 import { clearSession } from "@/api/operator/session";
+import { parsePayslipAnswer, PAYSLIP_INVALID_REASONS, PAYSLIP_NOT_PROVEN } from "@/api/payslip-answer";
+import { PAYSLIP_PROBLEM_TEXT } from "@/api/payslip-input";
+import { SAMPLE_PAYSLIP_TEXT, samplePayslip } from "@/api/payslip-sample";
 import { TOUR_SHOTS } from "@/features/home/tour-steps";
 import { describeEvent, describeRun, explainFailure } from "@/features/operator/messages";
+import { FAILURE_TEXT, INVALID_TEXT, wording } from "@/features/payslip/wording";
 import { useWizardDraft } from "@/features/wizard/draft";
 import { lensRowsFrom } from "@/features/wizard/list";
 import { previewPayouts } from "@/lib/csv-preview";
@@ -34,6 +39,7 @@ import { AppRoutes } from "./routes";
 const PAGES: [name: string, path: string][] = [
   ["the home page", "/"],
   ["the privacy page", "/privacy"],
+  ["the payslip page", "/payslip"],
   ["the real testnet sample receipt", "/r/demo?demo=real"],
   ["the first real testnet batch", "/r/demo?demo=real-smoke"],
   ["the sample receipt", "/r/demo?demo=1"],
@@ -110,6 +116,84 @@ describe.each([
     for (const [label, pattern] of BANNED) {
       expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);
     }
+  });
+});
+
+// What the payslip page says when the verifier answers a payslip, for every verdict, and when it gives no answer.
+describe("the payslip page, after a check", () => {
+  const slip = samplePayslip();
+  const answer = (change: Record<string, unknown>) => ({
+    network: slip.network,
+    txid: slip.txid,
+    action: slip.action,
+    verdict: "verified",
+    reason: null,
+    confirmations: 19,
+    required_depth: 3,
+    ironwood_actions: 8,
+    not_proven: [...PAYSLIP_NOT_PROVEN],
+    ...change,
+  });
+  const none = { confirmations: null, ironwood_actions: null };
+  const cases: [name: string, status: number, body: unknown, heading: string][] = [
+    ["a verified payslip", 200, answer({}), "Verified"],
+    ["a pending payslip", 200, answer({ verdict: "pending", confirmations: 1 }), "Matches, not final yet"],
+    ["a transaction the verifier cannot find", 200, answer({ verdict: "not_found", ...none }), "Transaction not found"],
+    ...PAYSLIP_INVALID_REASONS.map((reason): [string, number, unknown, string] => [
+      `an invalid payslip (${reason})`,
+      200,
+      answer({ verdict: "invalid", reason, ...none }),
+      "Not verified",
+    ]),
+    ["a verifier that is not set up for the network", 400, { error: { code: "network_not_configured", message: "x" } }, "This verifier does not serve testnet"],
+    ["a verifier that cannot read the chain", 503, { error: { code: "chain_unavailable", message: "x" } }, "The verifier can't read the chain right now"],
+    ["a verifier that is busy", 503, { error: { code: "overloaded", message: "x" } }, "The verifier can't be reached right now"],
+    ["a payslip the verifier does not accept", 400, { error: { code: "invalid_payslip", message: "x" } }, "The verifier did not accept this payslip"],
+    ["a request the verifier calls too large", 413, { error: { code: "payload_too_large", message: "x" } }, "The verifier says the request is too large"],
+    ["an answer in the wrong format", 200, { hello: "there" }, "The verifier's answer wasn't in the expected format"],
+  ];
+
+  it.each(cases)("%s: makes none of the claims the public cannot back up", async (_name, status, body, heading) => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status }))));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/payslip"]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.change(await screen.findByLabelText("Payslip"), { target: { value: SAMPLE_PAYSLIP_TEXT } });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Check payslip" }));
+    await screen.findByRole("heading", { level: 2, name: heading });
+
+    const text = await readEverything();
+    expect(text.length).toBeGreaterThan(40);
+    for (const [label, pattern] of BANNED) {
+      expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+
+  const read = (words: string) => {
+    for (const [label, pattern] of BANNED) expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
+  };
+
+  it("every sentence it can say about an answer", () => {
+    for (const reason of PAYSLIP_INVALID_REASONS) read(INVALID_TEXT[reason]);
+    for (const change of [{}, { verdict: "pending", confirmations: 0 }, { verdict: "not_found", ...none }]) {
+      const said = wording(parsePayslipAnswer(answer(change)));
+      read(`${said.heading} ${said.lines.join(" ")}`);
+    }
+  });
+
+  it("every sentence it can say about a check that gets no answer, and about a paste it refuses", () => {
+    for (const network of ["testnet", "mainnet"] as const) {
+      for (const say of Object.values(FAILURE_TEXT)) {
+        const said = say(network);
+        read(`${said.title} ${said.text}`);
+      }
+    }
+    for (const sentence of Object.values(PAYSLIP_PROBLEM_TEXT)) read(sentence);
   });
 });
 
