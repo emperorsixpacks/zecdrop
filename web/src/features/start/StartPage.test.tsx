@@ -10,6 +10,14 @@ import { START_COMMANDS } from "./commands";
 
 const main = () => screen.getByRole("main");
 
+/** Everything the page says: its text, and the words it gives a screen reader or a pointer in attributes. */
+function saidAnywhere(root: HTMLElement): string {
+  const attributes = [...root.querySelectorAll("[aria-label], [title], [alt], [placeholder]")].flatMap((el) =>
+    ["aria-label", "title", "alt", "placeholder"].map((name) => el.getAttribute(name) ?? ""),
+  );
+  return [root.textContent ?? "", ...attributes].join(" ");
+}
+
 /** The words of the page, text node by text node (see HomePage.test.tsx). */
 function words(root: HTMLElement): string[] {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -34,17 +42,19 @@ describe("the page that says how to make a payout", () => {
   it("says why it runs there, what it needs, and what happens next", () => {
     renderApp("/start");
     expect(screen.getByText("ZecDrop runs on your own computer, so your keys and your list never leave it.")).toBeInTheDocument();
-    const docker = within(main()).getByRole("link", { name: "Docker Desktop" });
+    expect(screen.getByRole("heading", { level: 2, name: "You need Docker and git" })).toBeInTheDocument();
+    const docker = within(main()).getByRole("link", { name: /^Docker Desktop/u });
+    expect(docker).toHaveTextContent("(opens in a new tab)");
     expect(docker).toHaveAttribute("href", "https://www.docker.com/products/docker-desktop/");
     expect(docker).toHaveAttribute("rel", "noopener noreferrer");
-    expect(main()).toHaveTextContent("The first start builds ZecDrop, which takes a few minutes to half an hour.");
+    expect(main()).toHaveTextContent("On Windows, run the commands in WSL. The first start builds ZecDrop, which takes a few minutes to half an hour.");
     const next = within(screen.getByRole("region", { name: "ZecDrop opens in your browser" })).getAllByRole("listitem");
     expect(next.map((li) => li.textContent)).toEqual([
       "Add the people you're paying, or use the example list.",
-      "Fund the payout. Test coins are free from the testnet faucet.",
+      "Fund the payout. Test coins are free from the testnet faucet (opens in a new tab).",
       "Send it, and share the receipt.",
     ]);
-    expect(within(next[1] as HTMLElement).getByRole("link", { name: "testnet faucet" })).toHaveAttribute("href", TESTNET_FAUCET_URL);
+    expect(within(next[1] as HTMLElement).getByRole("link", { name: /^testnet faucet/u })).toHaveAttribute("href", TESTNET_FAUCET_URL);
     expect(main()).toHaveTextContent("Testnet only for now. Stop it with ./zecdrop down.");
   });
 
@@ -54,9 +64,9 @@ describe("the page that says how to make a payout", () => {
     expect(found.length, found.join(" ")).toBeLessThan(120);
   });
 
-  it("simulates nothing and says 'practice' nowhere", () => {
+  it("simulates nothing and says 'practice' nowhere, not even in a label", () => {
     renderApp("/start");
-    expect(main().textContent).not.toMatch(/practi[cs]e/iu);
+    expect(saidAnywhere(document.body)).not.toMatch(/practi[cs]e/iu);
     expect(within(main()).queryByRole("button", { name: /^Try /u })).toBeNull();
   });
 });

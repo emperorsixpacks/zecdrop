@@ -11,7 +11,7 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 | Campaign UFVK | Given to the auditor out of band | Never sent to a hosted service (REQ-VER-002); audit runs locally (REQ-AUD-001) |
 | NEAR 1Click JWT | Operator env var | Never committed, never sent to the browser |
 | Salt for the manifest commitment | Operator store | 32 bytes from OS randomness |
-| The launcher's folder (`./zecdrop up`, testnet) | `~/.zecdrop-app` (or `$ZECDROP_HOME`), 0700, on the payer's computer | Holds the encrypted store and the store's random passphrase in `env` (0600), which reaches Docker with `--env-file`, never on a command line; the container runs as the user, so the files stay theirs (REQ-RUN-001) |
+| The launcher's folder (`./zecdrop up`, testnet) | `~/.zecdrop-app` (or `$ZECDROP_HOME`), 0700, on the payer's computer | Holds the encrypted store and the store's random passphrase in `env` (0600), which reaches Docker with `--env-file`, never on a command line. Docker keeps it in the container's settings while the container exists (`docker inspect`), readable by whoever can use Docker on the computer, which is already everything of the user's. The container runs as the user, so the files stay theirs; `up` stops rather than make a new passphrase for a store that has one (REQ-RUN-001) |
 | Shielded deposit address wallets (testnet, `--zcash-devtool`) | One zcash-devtool wallet per payout under `<state-dir>/inbox/` | Its phrase and the identity it is encrypted to are derived from the operator's seed and reach zcash-devtool on stdin (the identity, for `init` alone, in a 0600 file deleted at once). Its wallet database (the inbox's viewing keys, notes and amounts) is **not encrypted**: each wallet directory is 0700, and the PCZT files a transaction is built from are deleted after use and at start-up (REQ-FUND-005, REQ-PRIV-004) |
 
 ## Actors and what they can do
@@ -42,10 +42,17 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
   without the patch's flags, run with a timeout and bounded output, its output never put in a log or an error; its wallet
   database is only ever read, read-only.
 - **The operator reached from elsewhere when it runs in Docker:** inside the container it listens on the container's own network
-  only when told it runs there (`--container`), which it refuses outside testnet; `./zecdrop` publishes the port on the
-  computer's loopback address only (`-p 127.0.0.1:…`, checked by `crates/drop-operator/tests/launcher.rs`), and the Host-header
-  check and the per-run token are unchanged, so a page from another site still gets 421 and a request without the token 401
-  (REQ-OPS-002, REQ-RUN-001). The launcher never runs on mainnet.
+  only when told it runs there (`--container`), which it refuses outside testnet. `./zecdrop` runs it on a Docker network of its
+  own and publishes the port on the computer's loopback address only (`-p 127.0.0.1:…`; no host network, no publish-all: checked
+  by `crates/drop-operator/tests/launcher.rs`). Another container on the same computer may still connect to the port (on Docker
+  Desktop 29.1.3, tested 2026-10-25, separate networks were not kept apart); without the token it gets the page's files and
+  `/api/health` (`ok`, the network, the mock flag) and a 401 for every other route, as any other program on the computer would. The Host-header check
+  and the per-run token are unchanged, so a page from another site still gets 421 and a request without the token 401
+  (REQ-OPS-002, REQ-RUN-001). The launcher never runs on mainnet. Limits: `--container` binds whatever it is told, so it is safe
+  only as the launcher runs it; on Linux, use Docker Engine 28.3.3 or later: before 28.0 another machine on the same local network
+  could reach a container's ports directly, and from 28.2.0 to 28.3.2 a firewalld reload could open ports published on
+  127.0.0.1 to other machines (CVE-2025-54388, Docker's release notes); and the link the launcher hands the browser holds the token, so on
+  a computer shared with other users they could see it while the browser starts (`./zecdrop logs` leaves it out).
 - **Secrets in git:** `.gitignore` blocks seeds and `.env`; pre-flip history scan (see `HACKATHON.md`).
 - **Hosted operator sandbox: NOT BUILT.** An earlier draft promised a hosted sandbox operator with a throwaway key and
   a spend cap. Neither exists. A hosted operator would also need a reverse proxy, which undoes the loopback-only and

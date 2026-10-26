@@ -12,7 +12,7 @@ openspec
 .git
 .github
 .private
-*.sqlite
-*.seed
-.env
-.env.*
+**/*.sqlite
+**/*.seed
+**/.env
+**/.env.*

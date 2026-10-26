@@ -250,9 +250,9 @@ views: **Personal** (family, gifts, a shared pot: type people in, split a total 
 | `./zecdrop down` | Stops it; your wallet and payouts stay |
 | `./zecdrop update` | Gets the latest ZecDrop, rebuilds it and starts it again |
 
-Your data stays in `~/.zecdrop-app`, which only you can read: the wallet, the encrypted store and its passphrase, which reaches
-Docker in a file, never on a command line. The page is published on your computer's loopback address only, behind a token that
-changes on every start, and the launcher never runs on mainnet. Receipt and payslip links name the public site, where anyone
+Your wallet and payouts are kept in `~/.zecdrop-app`, which only you can read, with the store's passphrase in a file there that
+Docker reads (it never appears on a command line). The page is published on your computer's loopback address only, behind a token
+that changes on every start, and the launcher never runs on mainnet. Receipt and payslip links name the public site, where anyone
 can check them. Step by step: [JUDGES.md, path 3](docs/JUDGES.md#3-make-a-payout-of-your-own-docker-one-command-free-test-coins).
 
 ## Try it
@@ -312,7 +312,7 @@ particular payouts. No key material is in the repository.
 - **Not audited.** Two independent reviews: one of the code (2026-10-07) and one of the shielded deposit address
   (2026-10-24). Their findings are fixed, or listed as open in [SECURITY.md](docs/SECURITY.md).
 - **Every requirement has a test.** 52 requirements in [openspec/](openspec), each named by a covering test
-  (`scripts/spec_drift.py`). At the last full run (2026-10-25): 784 Rust tests, 2,796 web unit tests and 568 tests in a real
+  (`scripts/spec_drift.py`). At the last full run (2026-10-25): 787 Rust tests, 2,798 web unit tests and 568 tests in a real
   browser.
 - **The live receipt check** asks the hosted verifier, on a teammate's server ([deploy/vps](deploy/vps/README.md)), which reads
   the public testnet node; the same verifier runs from the Docker command above.

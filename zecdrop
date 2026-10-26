@@ -17,8 +17,13 @@ umask 077
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA="${ZECDROP_HOME:-$HOME/.zecdrop-app}"
+# A folder Docker mounts must be named in full: a bare name would be a Docker volume, outside your folder.
+case "$DATA" in /*) ;; *) DATA="$PWD/$DATA" ;; esac
 IMAGE="${ZECDROP_IMAGE:-zecdrop-operator:local}"
 NAME="zecdrop"
+# A Docker network of its own, not the default one every container joins. Where Docker keeps networks apart, no other
+# container can reach the operator; where it does not (Docker Desktop 29, tested), the per-run token still guards everything.
+NET="zecdrop"
 ENDPOINT="https://testnet.zec.rocks:443"
 PORT=""
 NO_OPEN=""
@@ -82,19 +87,40 @@ prepare() {
   mkdir -p "$DATA"
   chmod 700 "$DATA"
   if [ ! -s "$DATA/env" ]; then
+    # A new passphrase cannot open a store made with another one.
+    [ -f "$DATA/zecdrop.sqlite" ] \
+      && fail "$DATA/env, which holds your store's passphrase, is missing or empty, but your store is there. Put the file back, or move $DATA away to start afresh."
     printf 'ZECDROP_PASSPHRASE=%s\n' "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')" > "$DATA/env"
     chmod 600 "$DATA/env"
   fi
   if [ ! -f "$DATA/zecdrop.sqlite" ]; then
     say "Creating your wallet (it stays in $DATA)."
-    docker run --rm --user "$(id -u):$(id -g)" -v "$DATA:/data" --env-file "$DATA/env" "$IMAGE" \
+    # Making the wallet needs no network at all.
+    docker run --rm --network none --user "$(id -u):$(id -g)" -v "$DATA:/data" --env-file "$DATA/env" "$IMAGE" \
       init-wallet --db /data/zecdrop.sqlite >/dev/null
   fi
+  docker network inspect "$NET" >/dev/null 2>&1 || docker network create "$NET" >/dev/null
 }
 
 # The page's link, from the operator's log: it carries a token that is new on every start.
 link() {
   docker logs "$NAME" 2>&1 | grep -o "http://127\.0\.0\.1:[0-9]*/#token=[0-9a-f]\{64\}" | tail -1 || true
+}
+
+# Open a link in the browser, the way this system does. Never fatal: the link is printed anyway.
+open_url() {
+  case "$(uname -s)" in
+    Darwin) open "$1" ;;
+    *)
+      if [ -n "${WSL_DISTRO_NAME:-}" ] && command -v wslview >/dev/null 2>&1; then
+        wslview "$1"
+      elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$1" >/dev/null 2>&1 &
+      else
+        return 1
+      fi
+      ;;
+  esac
 }
 
 open_page() {
@@ -103,15 +129,7 @@ open_page() {
   [ -n "$url" ] || fail "ZecDrop is running but has not printed its link yet. Try ./zecdrop open in a moment."
   say "ZecDrop: $url"
   [ -n "$NO_OPEN" ] && return 0
-  if command -v open >/dev/null 2>&1; then
-    open "$url"
-  elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$url" >/dev/null 2>&1 &
-  elif command -v wslview >/dev/null 2>&1; then
-    wslview "$url"
-  else
-    say "Open that link in your browser."
-  fi
+  open_url "$url" || say "Open that link in your browser."
 }
 
 up() {
@@ -128,7 +146,7 @@ up() {
   p="$(port)"
   # The operator listens inside the container (--container), and the page is published on this computer's loopback
   # address only: nothing else on your network can reach it.
-  docker run -d --name "$NAME" --user "$(id -u):$(id -g)" \
+  docker run -d --name "$NAME" --network "$NET" --user "$(id -u):$(id -g)" \
     -p "127.0.0.1:${p}:${p}" \
     -v "$DATA:/data" --env-file "$DATA/env" \
     "$IMAGE" --container --bind "0.0.0.0:${p}" \
@@ -168,7 +186,8 @@ case "$COMMAND" in
     ;;
   logs)
     need_docker
-    docker logs -f "$NAME"
+    # The link's token is left out, so the log can be shared: ./zecdrop open gives the link.
+    docker logs -f "$NAME" 2>&1 | awk '{ gsub(/#token=[0-9a-f]+/, "#token=(hidden: ./zecdrop open)"); print; fflush() }'
     ;;
   down)
     need_docker

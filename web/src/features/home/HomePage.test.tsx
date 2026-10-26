@@ -66,10 +66,13 @@ describe("the home page", () => {
   });
 
   // covers: REQ-RUN-002
-  it("simulates nothing: no button starts a pretend payout, and 'practice' is said nowhere", () => {
+  it("simulates nothing: no button starts a pretend payout, and 'practice' is said nowhere, not even in a label", () => {
     renderHome();
     expect(screen.queryByRole("button", { name: /^Try /u })).toBeNull();
-    expect(document.body.textContent).not.toMatch(/practi[cs]e/iu);
+    const labels = [...document.body.querySelectorAll("[aria-label], [title], [alt], [placeholder]")].flatMap((el) =>
+      ["aria-label", "title", "alt", "placeholder"].map((name) => el.getAttribute(name) ?? ""),
+    );
+    expect([document.body.textContent ?? "", ...labels].join(" ")).not.toMatch(/practi[cs]e/iu);
   });
 
   it("gives the real receipt and how privacy works", () => {

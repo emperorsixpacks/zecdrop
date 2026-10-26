@@ -582,6 +582,11 @@ test.describe("the page that says how to make a payout", () => {
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
       if (path.startsWith("/r/")) await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
       expect(await page.locator("body").innerText(), path).not.toMatch(/practi[cs]e/iu);
+      // Nor in what the page gives a screen reader or a pointer.
+      const labels = await page
+        .locator("[aria-label], [title], [alt], [placeholder]")
+        .evaluateAll((els) => els.flatMap((el) => ["aria-label", "title", "alt", "placeholder"].map((name) => el.getAttribute(name) ?? "")));
+      expect(labels.join(" "), path).not.toMatch(/practi[cs]e/iu);
       await expect(page.getByRole("button", { name: /^Try /u }), path).toHaveCount(0);
     }
   });

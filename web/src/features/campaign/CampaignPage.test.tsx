@@ -716,8 +716,9 @@ describe("a real chain", () => {
   it("on testnet points to the faucet, which pays this address directly", async () => {
     open({ "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json") }, realHealth);
     const faucet = await screen.findByTestId("faucet");
-    expect(faucet).toHaveTextContent("No test coins? The testnet faucet pays this address for free.");
-    const link = within(faucet).getByRole("link", { name: "testnet faucet" });
+    expect(faucet).toHaveTextContent("No test coins? The testnet faucet (opens in a new tab) pays this address for free.");
+    const link = within(faucet).getByRole("link", { name: /^testnet faucet/u });
+    expect(link).toHaveTextContent("(opens in a new tab)");
     expect(link).toHaveAttribute("href", TESTNET_FAUCET_URL);
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });

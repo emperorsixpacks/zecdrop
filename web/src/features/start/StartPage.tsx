@@ -19,14 +19,15 @@ export default function StartPage() {
 
       <section aria-labelledby="need-heading" className="space-y-2">
         <h2 id="need-heading" className="text-xl leading-tight font-bold tracking-[-0.01em]">
-          You need Docker
+          You need Docker and git
         </h2>
         <p className="text-base">
           Install{" "}
           <a href={DOCKER_URL} target="_blank" rel="noopener noreferrer" className={link}>
-            Docker Desktop
+            Docker Desktop<span className="sr-only"> (opens in a new tab)</span>
           </a>{" "}
-          and start it. The first start builds ZecDrop, which takes a few minutes to half an hour.
+          and start it. On Windows, run the commands in WSL. The first start builds ZecDrop, which takes a few minutes to half an
+          hour.
         </p>
       </section>
 
@@ -52,7 +53,7 @@ export default function StartPage() {
           <li>
             Fund the payout. Test coins are free from the{" "}
             <a href={TESTNET_FAUCET_URL} target="_blank" rel="noopener noreferrer" className={link}>
-              testnet faucet
+              testnet faucet<span className="sr-only"> (opens in a new tab)</span>
             </a>
             .
           </li>

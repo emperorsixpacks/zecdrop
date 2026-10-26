@@ -155,11 +155,14 @@ computer, which nobody else can open; the page says so.
 
 The launcher runs the same operator in Docker on the payer's own computer, on testnet only; it changes nothing above. The image is
 built there, from this repository. The wallet, the encrypted store and the store's passphrase are kept in a folder only the payer
-can read (`~/.zecdrop-app`), and the passphrase reaches Docker in a file, never on a command line. Inside the container the
-operator listens on the container's own network (`--container`, which it refuses outside testnet), and Docker publishes that port
-on the computer's loopback address only, so the page is no more reachable than when the operator runs without Docker; its check
-of the Host header and its per-run token are unchanged. Receipt links name the public site, so opening one asks the hosted
-verifier, which learns which receipt is viewed (limit 6 below).
+can read (`~/.zecdrop-app`). The passphrase reaches Docker in a file, never on a command line; Docker keeps it in the container's
+settings while the container exists, where whoever can use Docker on that computer can read it. Inside the container the operator
+listens on the container's own network (`--container`, which it refuses outside testnet), a Docker network of its own, and
+Docker publishes the port on the computer's loopback address only; the operator's check of the Host header and its per-run token
+are unchanged. Another container on the same computer may still connect to it (Docker Desktop 29 did not keep networks apart in
+our test): like any other program there, without the token it gets the page and `/api/health` (the network, and whether the chain
+is the mock one), and is refused everything else. `./zecdrop logs` leaves the token out of the log it shows. Receipt links name the
+public site, so opening one asks the hosted verifier, which learns which receipt is viewed (limit 6 below).
 
 ## Public (anyone can see, and the verifier recomputes)
 

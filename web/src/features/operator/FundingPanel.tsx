@@ -169,7 +169,7 @@ function RealChainFunding({ campaign, address, nested = false }: { campaign: Ope
         <p className="max-w-[64ch] text-base" data-testid="faucet">
           No test coins? The{" "}
           <a href={TESTNET_FAUCET_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-link underline underline-offset-4">
-            testnet faucet
+            testnet faucet<span className="sr-only"> (opens in a new tab)</span>
           </a>{" "}
           pays this address for free.
         </p>

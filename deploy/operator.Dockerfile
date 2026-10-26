@@ -43,4 +43,7 @@ COPY --from=web /src/web/dist /app/web
 # operator runs as you (`--user`), so the files there stay yours.
 WORKDIR /data
 EXPOSE 8787
+# The operator shuts down cleanly on Ctrl-C (SIGINT). As the container's first process it would ignore Docker's default
+# SIGTERM, and `docker stop` would kill it after ten seconds.
+STOPSIGNAL SIGINT
 ENTRYPOINT ["drop-operator"]

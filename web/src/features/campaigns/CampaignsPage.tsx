@@ -10,8 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useCampaigns, useHealth } from "@/features/operator/hooks";
 import { useWizardDraft } from "@/features/wizard/draft";
-import { EXAMPLE_LIST_NOTE, exampleListFor } from "@/features/wizard/example-list";
+import { EXAMPLE_LIST_NAME, EXAMPLE_LIST_NOTE, exampleListFor } from "@/features/wizard/example-list";
 import { peopleFromCsv } from "@/features/wizard/people";
+import { useAudience } from "@/lib/audience";
 
 import { sortCampaigns } from "./sort";
 
@@ -45,6 +46,8 @@ export default function CampaignsPage() {
   const query = useCampaigns();
   const navigate = useNavigate();
   const setPeople = useWizardDraft((s) => s.setPeople);
+  const setCsv = useWizardDraft((s) => s.setCsv);
+  const organisation = useAudience((s) => s.audience) === "organisation";
   const health = useHealth();
   const exampleList = exampleListFor(health.data?.network);
 
@@ -73,7 +76,10 @@ export default function CampaignsPage() {
                 type="button"
                 size="lg"
                 onClick={() => {
-                  setPeople(peopleFromCsv(exampleList));
+                  // An organisation's payout starts from a file, so the list arrives as one, as from the drop zone;
+                  // a personal one is the people list.
+                  if (organisation) setCsv(exampleList, EXAMPLE_LIST_NAME);
+                  else setPeople(peopleFromCsv(exampleList));
                   void navigate("/new");
                 }}
               >

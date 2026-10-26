@@ -371,7 +371,7 @@ src/
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
   lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, mode (public or the operator's own page, and where "Make a payout" leads), faucet, view-transition (a new page's cross-fade, where the browser has it), phase, fees, ids, explorer, theme, utils
-  test/         fake operator, fixture loader, Rust-source reader, render helper, leak watcher, the test copy of the CSV importer
+  test/         fake operator, fixture loader, Rust-source reader, render helper, the test copy of the CSV importer
   index.css     palette (Redacted paper, light and dark), roles, the screen's frame and the scale of curves, slips, motion, Tailwind map
 tests/          guard tests that run ESLint itself
 e2e/            Playwright specs (public pages) and e2e/operator/ (real operator)

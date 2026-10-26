@@ -96,15 +96,16 @@ testnet. Then:
 2. **Check, then fund.** The funding screen gives the payout's address and the amount to send. The free
    [testnet faucet](https://faucet.testnet.valargroup.dev) pays that address directly: 0.125 TAZ, once a day, where the
    example list needs 0.00545. The faucet pays from a shielded wallet, so the receipt will say the deposit came out of the
-   shielded pool. The screen says *Funded* once the payment has confirmed, a few minutes later.
+   shielded pool (on 2026-10-25 it was online and its last payouts went to transparent addresses like this one). If it has
+   already paid you today, or does not pay, any testnet wallet with TAZ can pay the address. The screen says *Funded* once the
+   payment has confirmed, a few minutes later.
 3. **Send.** One transaction pays all eight; the page follows it until it is confirmed, a few minutes later.
 4. **Share.** *Open public receipt* opens the payout's receipt on the public site, checked by its key-less verifier (or by
    your own, path 2). *Send payslips* gives each person a link to their own payslip (path 4 checks one).
 
 `./zecdrop down` stops it and keeps your payouts, and `./zecdrop up` starts it again with a new link; `./zecdrop help` lists
-the rest. Everything stays in `~/.zecdrop-app`, which only you can read: the wallet, the encrypted store and its passphrase.
-The page is published on your computer's loopback address only, behind a token that changes on every start, and the launcher
-never runs on mainnet. The steps of the first run through it, on 2026-10-25, are in
+the rest. Your wallet and payouts are kept in `~/.zecdrop-app`, which only you can read. The page is published on your
+computer's loopback address only, behind a token that changes on every start, and the launcher never runs on mainnet. The steps of the first run through it, on 2026-10-25, are in
 [`runbooks/testnet-demo.md`](runbooks/testnet-demo.md).
 
 ## 4. Check one recipient's payslip (no key, no coins)
