@@ -1,0 +1,29 @@
+# Hosted, key-less verifier (crates/drop-verifier) on Fly.io. No secrets, no volume.
+# Deploy from the repository root:
+#   fly deploy . --config deploy/fly.toml --dockerfile deploy/verifier.Dockerfile
+# Then name the site's exact origin so the browser may read the answers:
+#   fly secrets set CORS_ORIGIN=https://<site-origin> --config deploy/fly.toml
+app = "zecdrop-verifier"
+primary_region = "ams"
+
+[env]
+  PORT = "8080"
+  TESTNET_ENDPOINT = "https://testnet.zec.rocks:443"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/v1/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
