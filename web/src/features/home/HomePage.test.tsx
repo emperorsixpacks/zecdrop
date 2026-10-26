@@ -58,6 +58,22 @@ describe("the home page", () => {
     for (const item of items) expect((item.textContent ?? "").split(/\s+/u).length).toBeLessThanOrEqual(14);
   });
 
+  it("says how to run a payout, in order, and that there is no wallet to connect", () => {
+    renderHome();
+    const section = screen.getByRole("heading", { level: 2, name: "How to run a payout" }).closest("section") as HTMLElement;
+    expect(within(section).getByText("There is no wallet to connect: the operator on your own computer holds the keys.")).toBeInTheDocument();
+    const steps = within(section).getAllByRole("listitem");
+    expect(steps.map((li) => li.querySelector("h3")?.textContent)).toEqual([
+      "Start the operator",
+      "Add your payout list",
+      "Fund the address",
+      "Send and share",
+    ]);
+    // The page offers nothing to connect: no such button or link anywhere.
+    expect(screen.queryByRole("button", { name: /connect/iu })).toBeNull();
+    expect(screen.queryByRole("link", { name: /connect/iu })).toBeNull();
+  });
+
   it("keeps the count, the total and the fee readable, from the real receipt", () => {
     renderHome();
     const receipt = demoReceipt("real");

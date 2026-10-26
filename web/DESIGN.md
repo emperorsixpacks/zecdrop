@@ -4,6 +4,10 @@ Owner feedback (2026-10-08): the current UI is ugly, wordy, hard to navigate and
 interactive, with better screens. This plan replaces the presentation layer. API clients, schemas, stores, the
 privacy rules and the tests of behaviour stay; page layouts, copy and their copy-pinned tests are rewritten.
 
+Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
+default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
+operator screens inherit the tokens and get their own pass after. The structure, flow, copy rules and tests below are unchanged.
+
 ## Who and what
 
 A person who has to pay many people and keep amounts private (a DAO treasurer, a small payroll, a grant program). Not a
@@ -25,33 +29,30 @@ what the auditor lens would show). It replaces most explanatory paragraphs. Ever
 
 ## Tokens
 
-The look is **Midnight** (the owner's choice, 2026-10-08: "Midnight, Lively"). A deep indigo page, an electric-violet
-action, a teal second colour. Every colour is a role in `src/index.css` (`--p-*`), nothing in `src/` names one, and
-`src/colours.test.ts` computes the contrast of every pair of roles that meet in the app (text 4.5:1; a control's boundary
-and the ends of the gradient 3:1) and fails on a colour literal anywhere else.
+The look is **Redacted paper** (the owner's choice, 2026-10-15, replacing Midnight): a document on a desk. Every colour is a
+role in `src/index.css` (`--p-*`), nothing in `src/` names one, and `src/colours.test.ts` computes the contrast of every pair
+of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails on a colour literal anywhere else.
 
-- Midnight, dark (the default): bg `#0B0B1A`, surface `#15152E`, ink `#F1F1FF`, muted `#9A9AC4`, rule `#2A2A52`, accent
-  (electric violet) `#7658FF` with white ink on it (the lab's `#7C5CFF` is 4.35:1 against white; a hair deeper reaches
-  4.56:1), accent-2 (teal) `#2EE6D6`, bar `#2A2A52` with a faint diagonal hatch, good `#2EE6D6`, bad `#FF8A9B`.
-- Midnight, light (for people who switch, or whose system says light): the same family on a pale lavender-white: bg
-  `#F6F6FF`, surface `#FFFFFF`, ink `#12122A`, accent `#6A4CFF` (white ink, 5.1:1), accent-2 `#00877D` (the suggested
-  `#00A99D` is 2.7:1 on the page; this is 4.1:1, which the gradient's end needs), bar `#12122A`.
-- The default is dark; with nothing chosen, a system that says light gets the light set. There are no palette choices.
-- Accent: the one action, the revealed state, focus. The accent-to-accent-2 gradient is used on text **once per page** (one
-  emphasised word group: "private" on the home page) and as the logo dot and the receipt's flow line; nowhere else. A soft
-  glow of the two behind the page drifts slowly when Lively and is not drawn otherwise.
-- Type: **Schibsted Grotesk** (variable, self-hosted via `@fontsource-variable/schibsted-grotesk`) for everything, with
-  display weight 700 and tight tracking for big numbers; **IBM Plex Mono** (`@fontsource/ibm-plex-mono`) only for ids,
-  addresses and amount columns (tabular figures). Scale 14 / 16 / 20 / 28 / 44 / 72. Body line length at most 64
-  characters. Left aligned everywhere. No third-party font requests (CSP stays `'self'`): bundle the files; record
-  package names, versions and licences (OFL) in `PROVENANCE.md`.
-- Shape: soft corners (14px) on controls and pills for choices; **no card grid**. Structure comes from spacing, hairline rules and
-  large type, not from boxes around everything. Rows are ruled lines, not tiles.
+- Light (the default): desk `#F3F3F0`, sheet `#FFFFFF`, ink `#141414`, muted `#595954`, rule `#DAD9D3`, action `#141414`
+  with white ink, redaction bar `#000000`, marker `#FFD60A` (with ink `#141414` on it), good `#0B6B3A`, bad `#B3261E`.
+- Dark (after hours; chosen by the person, or by a system that says dark): desk `#121212`, sheet `#1B1B1B`, ink `#F2F2EE`,
+  muted `#A1A19B`, rule `#333330`, bar `#C9C9C2`, good `#4ADE80`, bad `#FF8A8A`. Black would vanish on this page, so the
+  **action is the marker** (`#FFD60A`, ink `#141414` on it).
+- The **marker** is what has been revealed (the lens lifts a bar and the text under it is highlighted) and where focus is
+  (an ink outline with a marker ring). It is not used for decoration. No gradient anywhere, no glow, no hatching on bars.
+- Type: **Archivo** (variable, with its width axis, self-hosted via `@fontsource-variable/archivo/wdth.css`) for everything;
+  headlines and big numbers are weight 800 at 88% width with tight tracking (`.display`). **IBM Plex Mono**
+  (`@fontsource/ibm-plex-mono`) only for ids, addresses and amount columns (tabular figures). Scale 14 / 16 / 20 / 28 / 44 / up
+  to 80. Body line length at most 64 characters. Left aligned everywhere. No third-party font requests (CSP stays
+  `'self'`): bundle the files; record package names, versions and licences (OFL) in `PROVENANCE.md`.
+- Shape: crisp corners (8px on controls, 4px on the sheet, 2px on bars), like a printed page. One white **sheet** holds the
+  lens on the home page; elsewhere structure comes from spacing, hairline rules and large type. Rows are ruled lines.
+- The mark: the logo is a small redaction bar next to the name.
 - Motion: **Lively** is the default, **Calm** is the other choice (kept in localStorage), and the system's
-  `prefers-reduced-motion` forces Calm and switches every animation off (no confetti, no glow). Allowed: the lens wipe
-  (bars lift and return in a stagger), numbers counting to their value, rows sliding in, accordions opening, the receipt's
-  flow line drawing itself, the sending timeline advancing, the sealed stamp with a short confetti burst, button press and
-  hover feedback, a sliding thumb on every segmented control, toasts. Not allowed: entrance fades on every section.
+  `prefers-reduced-motion` forces Calm and switches every animation off (no confetti). Allowed: the lens wipe (bars lift and
+  return in a stagger), numbers counting to their value, rows sliding in, accordions opening, the receipt's flow line drawing
+  itself, the sending timeline advancing, the sealed stamp with a short confetti burst, button press feedback, a sliding thumb
+  on every segmented control, toasts. Not allowed: entrance fades on every section, a background glow.
 
 ## Self-critique of the plan (done before building)
 
@@ -103,16 +104,35 @@ bar that can overlap content (it overlapped the stepper and the title in screens
 
 ## Public pages
 
-**Home.** Headline "Pay many people. Keep who got what private. Prove the total." Under it the lens demo on the real
+**Home.** Headline "Pay many people. Keep who got what private. Prove the total." in large heavy type, three lines on a wide
+screen. Below it, on the left the status line, the two buttons and three short lines; on the right one white sheet holding the
+lens demo (stacked, sheet before the lines, on a phone). The lens demo is on the real
 8-payout sample list (rows labelled Person 1..8; amounts from the public sample CSV), with the lens switch as the hero
 interaction. Two buttons: *See a real receipt* and *How it works*. Three short lines (what is public / hidden / checkable)
 and the one-sentence testnet status. No paragraphs of explanation above the fold.
 
-**Receipt.** A verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), a single funds-flow strip (Funded,
-Private pool, 8 outputs), the lens (public, with the note), then collapsed accordions: Transaction, Funding address, List
+**Receipt.** One white **sheet** with an ink rule on top and a torn bottom edge (`.receipt-sheet`, a mask). On the left a
+verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), then what the verifier found, then the funds flow as three
+stations down a line, like the lines of a receipt (Funded from, Private pool, 8 outputs); on the right the lens (public, with
+the note). On a phone it is one column, with dashed perforations between the parts. Below the sheet, on the desk, collapsed accordions: Transaction, Funding address, List
 fingerprint, "What this proves and what it doesn't" (two short lists of three items each at most, wording from
 docs/PRIVACY_BOUNDARY.md, banned phrases still enforced). Findings keep the Rust-sourced sentences, shown inside the
 verdict area and in details.
+
+## No wallet to connect
+
+ZecDrop has no "connect wallet" button on purpose: the operator on the person's own computer holds the keys (ADR 0002), and the
+hosted site only views and checks receipts. Two things make that clear and easy, neither of which touches the key rules:
+
+- The home page has a four-step "How to run a payout" that says so in one sentence.
+- The funding step has **Open in wallet**: a `zcash:<address>?amount=<ZEC>` link (ZIP-321, `src/lib/payment-uri.ts`) that opens
+  a wallet app with the address and amount filled in. It carries no memo and nothing about the payout, it is not shown if the
+  address or amount fails its check, and the page says what to do when no wallet app handles the link (copy the address). Whether
+  a given wallet app opens it, on testnet in particular, is **not verified**. Funding is still only "funded" when the operator
+  sees the coin on chain.
+
+A real wallet connection (a wallet signing the batch) would change how batches are signed (AGENTS.md invariants 1 to 4) and needs
+an OpenSpec change first. It is not built.
 
 ## Copy rules (hard)
 

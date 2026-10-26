@@ -97,7 +97,7 @@ for (const viewport of VIEWPORTS) {
         // Payouts: empty (the operator really has some, so answer the list with none).
         await page.route(/\/api\/campaigns$/u, (route) => (route.request().method() === "GET" ? route.fulfill({ json: [] }) : route.continue()));
         await load(page, operatorUrl("/campaigns", { token: true }));
-        await page.getByText("No payouts yet.").waitFor();
+        await page.getByText("No payouts yet").waitFor();
         await shoot(page, "payouts-empty", w, name);
         await page.unroute(/\/api\/campaigns$/u);
 

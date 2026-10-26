@@ -250,7 +250,7 @@ src/
     audit/      "/audit"        what the audit checks; the viewing-key card
   lib/          config, zod-config, zec (money), phase, fees, ids, explorer, theme, utils
   test/         fake operator, fixture loader, Rust-source reader, render helper
-  index.css     palettes (Midnight, Ocean, Sunrise, Paper, each light and dark), roles, motion, Tailwind map
+  index.css     palette (Redacted paper, light and dark), roles, motion, Tailwind map
 tests/          guard tests that run ESLint itself
 e2e/            Playwright specs (public pages) and e2e/operator/ (real operator)
 PROVENANCE.md   what is hand-written, what is generated, and by which tool
@@ -292,7 +292,7 @@ Other conventions worth knowing:
   cannot see that the money reached the people on the list. `src/copy.test.tsx`
   renders every page and fails on phrases that claim more ("everyone was paid",
   "verified payouts", ...).
-- No third-party requests: the two fonts (Schibsted Grotesk, IBM Plex Mono; OFL,
+- No third-party requests: the two fonts (Archivo, IBM Plex Mono; OFL,
   see PROVENANCE.md) are bundled with the page, nothing is loaded from a CDN.
 - Design tokens (in `src/index.css`) were contrast-checked against WCAG 2.2 AA
   in both themes. Re-check if you change a value.

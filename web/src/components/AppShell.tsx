@@ -33,7 +33,7 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
         {...(mock ? { mock } : {})}
         {...(modeUnknown ? { modeUnknown } : {})}
       />
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[60rem] flex-1 px-5 pt-8 pb-10 outline-none sm:pt-12">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[68rem] flex-1 px-5 pt-8 pb-10 outline-none sm:pt-12">
         {children}
       </main>
       <Footer showOperatorLink={!showOperatorNav} />

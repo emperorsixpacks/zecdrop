@@ -37,7 +37,7 @@ describe("the appearance menu", () => {
     const user = userEvent.setup();
     render(<AppearanceMenu />);
     await open(user);
-    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Light" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Lively" })).toBeChecked();
     expect(screen.queryByText("Palette")).toBeNull();
     expect(screen.queryByRole("radio", { name: /Ocean|Sunrise|Paper|Midnight/u })).toBeNull();
@@ -47,10 +47,10 @@ describe("the appearance menu", () => {
     const user = userEvent.setup();
     render(<AppearanceMenu />);
     await open(user);
-    await user.click(screen.getByRole("radio", { name: "Light" }));
-    expect(html()["theme"]).toBe("light");
     await user.click(screen.getByRole("radio", { name: "Dark" }));
     expect(html()["theme"]).toBe("dark");
+    await user.click(screen.getByRole("radio", { name: "Light" }));
+    expect(html()["theme"]).toBe("light");
     await user.click(screen.getByRole("radio", { name: "Calm" }));
     expect(html()["motion"]).toBe("calm");
   });

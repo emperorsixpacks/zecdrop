@@ -10,14 +10,8 @@ import { outputCount } from "./format";
 
 function Station({ index, label, help, children }: { index: number; label: ReactNode; help?: ReactNode; children: ReactNode }) {
   return (
-    <li
-      style={{ "--i": index } as CSSProperties}
-      className="relative border-l-2 border-border pb-6 pl-5 last:pb-0 sm:border-l-0 sm:pt-7 sm:pb-0 sm:pl-0 sm:pr-4"
-    >
-      <span
-        aria-hidden
-        className="flow-dot absolute top-0 -left-[9px] size-4 rounded-full border-[3px] border-primary bg-background sm:-top-[7px] sm:left-0"
-      />
+    <li style={{ "--i": index } as CSSProperties} className="relative pb-7 pl-9 last:pb-0">
+      <span aria-hidden className="flow-dot absolute top-1 left-0 size-4 rounded-full border-[3px] border-primary bg-card" />
       <div className="flex h-6 items-center gap-1 text-sm text-muted-foreground">
         {label}
         {/* The button is 44px for fingers; it hangs over the line above and below so the three stations stay level. */}
@@ -28,18 +22,18 @@ function Station({ index, label, help, children }: { index: number; label: React
   );
 }
 
-/** Three stations in a line: where it was funded from, what entered the private
- * pool, how many outputs came out. Only what the verifier read from the chain. The
- * line fills and the stations pop in, one after the other, when it scrolls into view. */
+/** Three stations down a line, like the lines of a receipt: where it was funded from, what
+ * entered the private pool, how many outputs came out. Only what the verifier read from the chain.
+ * The line fills and the stations pop in, one after the other, when it scrolls into view. */
 export function FundsFlow({ receipt }: { receipt: PublicReceipt }) {
   const outputs = outputCount(receipt);
   const [ref, inView] = useInView<HTMLDivElement>();
   return (
     <div ref={ref} data-in={inView} className="flow relative">
-      <div aria-hidden className="flow-line absolute top-[1px] right-1 left-1 hidden h-[3px] rounded-full bg-border sm:block">
+      <div aria-hidden className="flow-line absolute top-3 bottom-[2.5rem] left-[7px] w-[3px] rounded-full bg-border">
         <i />
       </div>
-      <ol aria-label="Where the funds went" className="grid sm:grid-cols-3">
+      <ol aria-label="Where the funds went">
         <Station index={0} label="Funded from">
           {receipt.fundingAddress === null ? (
             <Unknown />

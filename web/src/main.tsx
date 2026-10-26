@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 
 import { adoptTokenFromLocation } from "./api/operator/session";
 import App from "./App";
-import "@fontsource-variable/schibsted-grotesk/wght.css";
+import "@fontsource-variable/archivo/wdth.css";
 import "@fontsource/ibm-plex-mono/latin-400.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./index.css";

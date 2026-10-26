@@ -20,17 +20,16 @@ export function ReceiptVerdict({ receipt }: { receipt: PublicReceipt }) {
       <h2 id="status-heading" className="sr-only">
         Status
       </h2>
-      <p className="display flex max-w-[34ch] items-start gap-4 text-[1.75rem] leading-[1.1] text-balance sm:text-[2.75rem]" data-testid="verdict">
+      <p className="display flex max-w-[34ch] items-start gap-4 text-[1.625rem] leading-[1.1] text-balance sm:text-[2.25rem]" data-testid="verdict">
         {phase.phase === "settled" && (
           // The tick is drawn once, when the receipt appears: a settled batch, said with a picture too.
-          <svg aria-hidden viewBox="0 0 56 56" className="check-draw mt-1 size-9 shrink-0 sm:size-14">
+          <svg aria-hidden viewBox="0 0 56 56" className="check-draw mt-0.5 size-9 shrink-0 sm:size-12">
             <circle cx="28" cy="28" r="28" fill="var(--verified)" />
             <path d="M16 29l8 8 16-17" fill="none" stroke="var(--background)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
         <span>
-        {/* The one accented word on the page, when it is settled. */}
-        {phase.phase === "settled" ? <span className="gradient-text">{phaseLabel(phase.phase)}</span> : phaseLabel(phase.phase)}:{" "}
+        {phase.phase === "settled" ? <span className="text-verified">{phaseLabel(phase.phase)}</span> : phaseLabel(phase.phase)}:{" "}
         {batches === 0 ? (
           "no batches yet"
         ) : (

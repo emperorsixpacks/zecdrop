@@ -39,7 +39,7 @@ function SeenIcon({ seen }: { seen: Seen }) {
   if (seen === "hidden") return <span aria-hidden className="redacted block h-4 w-9" />;
   return (
     <span aria-hidden className="flex h-4 w-9 overflow-hidden rounded-sm">
-      <span className="w-1/2 bg-primary" />
+      <span className="w-1/2 bg-marker" />
       <span className="redacted block w-1/2 rounded-none" />
     </span>
   );
@@ -124,7 +124,7 @@ function Bullets({ items }: { items: readonly ReactNode[] }) {
 export default function PrivacyPage() {
   return (
     <>
-      <PageHeader title="How privacy works" emphasis="privacy" description="Who can see what, and what to keep in mind." />
+      <PageHeader title="How privacy works" description="Who can see what, and what to keep in mind." />
       <div className="space-y-14">
         <Matrix />
 

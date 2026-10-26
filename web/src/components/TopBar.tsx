@@ -109,12 +109,12 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
 
   return (
     <header className="border-b border-border">
-      <div className="mx-auto flex w-full max-w-[60rem] flex-wrap items-center gap-x-4 gap-y-0 px-5 py-2 sm:gap-x-6">
+      <div className="mx-auto flex w-full max-w-[68rem] flex-wrap items-center gap-x-4 gap-y-0 px-5 py-2 sm:gap-x-6">
         <Link
           to={showOperatorNav ? "/campaigns" : "/"}
           className="inline-flex min-h-11 items-center gap-2 text-xl font-bold tracking-[-0.03em]"
         >
-          <span aria-hidden className="size-3.5 rounded-full bg-[linear-gradient(135deg,var(--accent-text),var(--accent-2))]" />
+          <span aria-hidden className="h-3 w-5 rounded-[2px] bg-bar" />
           ZecDrop
         </Link>
 

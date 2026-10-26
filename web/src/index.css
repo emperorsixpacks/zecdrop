@@ -1,10 +1,9 @@
 @import "tailwindcss";
 
-/* Design tokens: see web/DESIGN.md. The colours are Midnight, dark and light, below; the
- * signature element is still the redaction bar, a hatched block that reads as a redaction in
- * either; the accent (violet) is the one action, the revealed state and focus; the second colour
- * (teal) is the gradient's end on one emphasised word per page. Text is Schibsted Grotesk and
- * IBM Plex Mono, bundled. */
+/* Design tokens: see web/DESIGN.md. The look is Redacted paper: a document page, black redaction
+ * bars, and a marker-yellow highlighter for what is revealed and where focus is. The action is ink
+ * on paper (black) and, in the dark set, the marker itself. Text is Archivo (with its width
+ * axis, for the headlines) and IBM Plex Mono, both bundled. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
@@ -31,7 +30,9 @@
   --color-link: var(--link);
   --color-bar: var(--bar);
   --color-highlighter: var(--highlighter);
-  --color-accent-2: var(--accent-2);
+  --color-marker: var(--p-marker);
+  --color-marker-ink: var(--p-marker-ink);
+  --color-accent-2: var(--p-marker); /* the older name for the marker */
   --color-accent-text: var(--accent-text);
   --color-verified: var(--verified);
   --color-problem: var(--problem);
@@ -39,18 +40,18 @@
   --color-status-shielded: var(--muted-foreground);
   --color-status-done: var(--verified);
 
-  /* Soft corners on controls, pills for choices; nothing else has a box. */
-  --radius: 0.875rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.125rem;
-  --radius-2xl: 1.5rem;
-  --radius-3xl: 1.5rem;
-  --radius-4xl: 1.5rem;
+  /* Crisp corners, like a printed page: 8px on controls, 4px on the sheet and the bars. */
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1rem;
+  --radius-4xl: 1rem;
 
   /* Bundled (src/main.tsx imports the font files): no request to any other host. */
-  --font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --font-heading: var(--font-sans);
 
@@ -64,72 +65,77 @@
 }
 
 /* ---- The colours ----------------------------------------------------------------------------
- * Midnight: a deep indigo page, an electric-violet action and a teal second colour. It is the
- * look; the dark set below is what the page is, and the light set is the same family on a pale
- * lavender-white, for people who switch the theme or whose system is light. Nothing in the app
- * names a colour, it names a role; <html data-theme="dark|light"> (src/lib/theme.ts) picks the
- * set, and the roles below read it. src/colours.test.ts computes the contrast of every pair of
- * roles that meet in the app, in both sets, and fails below WCAG 2.2 AA (text 4.5:1, a control's
- * boundary and the gradient's ends 3:1); it also fails on a colour literal anywhere else.
+ * Redacted paper. Light is the page: a cool grey desk with a white sheet on it, ink, and black
+ * redaction bars. Dark is the same page after hours: near-black, light ink, and the marker as
+ * the action. The marker (a highlighter yellow) is what has been revealed and where focus is, in
+ * both. Nothing in the app names a colour, it names a role; <html data-theme="dark|light">
+ * (src/lib/theme.ts) picks the set, and the roles below read it. src/colours.test.ts computes the
+ * contrast of every pair of roles that meet in the app, in both sets, and fails below WCAG 2.2 AA
+ * (text 4.5:1, a control's boundary 3:1); it also fails on a colour literal anywhere else.
  *
- *   bg, surface     the page, and what sits on it (cards, sheets, fields)
+ *   bg, surface     the desk, and the sheet that sits on it (cards, sheets, fields)
  *   ink, muted      text, and quieter text
  *   rule, control   hairlines, and the boundary of a control (>= 3:1)
  *   accent          the one action: its fill; accent-ink is the text on it
- *   accent-text     the accent as a TEXT colour (>= 4.5:1); accent-2 is the second colour
+ *   accent-text     the accent as a TEXT colour (>= 4.5:1)
+ *   marker          the highlighter: revealed text, focus; marker-ink is the text on it
  *   bar             the redaction bar
  *   good, bad       "verified" and "problem", as text
  *
- * Before the script has set the attribute the page is the dark set, so nothing flashes. */
+ * Before the script has set the attribute the page is the light set, so nothing flashes for the
+ * default. */
 :root {
-  color-scheme: dark;
-  --p-bg: #0b0b1a;
-  --p-surface: #15152e;
-  --p-ink: #f1f1ff;
-  --p-muted: #9a9ac4;
-  --p-rule: #2a2a52;
-  --p-control: #7474a8;
-  --p-accent: #7658ff;
+  color-scheme: light;
+  --p-bg: #f3f3f0;
+  --p-surface: #ffffff;
+  --p-ink: #141414;
+  --p-muted: #595954;
+  --p-rule: #dad9d3;
+  --p-control: #85847d;
+  --p-accent: #141414;
   --p-accent-ink: #ffffff;
-  --p-accent-2: #2ee6d6;
-  --p-accent-text: #9b84ff;
-  --p-bar: #2a2a52;
-  --p-good: #2ee6d6;
-  --p-bad: #ff8a9b;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --p-bg: #0b0b1a;
-  --p-surface: #15152e;
-  --p-ink: #f1f1ff;
-  --p-muted: #9a9ac4;
-  --p-rule: #2a2a52;
-  --p-control: #7474a8;
-  --p-accent: #7658ff;
-  --p-accent-ink: #ffffff;
-  --p-accent-2: #2ee6d6;
-  --p-accent-text: #9b84ff;
-  --p-bar: #2a2a52;
-  --p-good: #2ee6d6;
-  --p-bad: #ff8a9b;
+  --p-accent-text: #141414;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
+  --p-bar: #000000;
+  --p-good: #0b6b3a;
+  --p-bad: #b3261e;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --p-bg: #f6f6ff;
+  --p-bg: #f3f3f0;
   --p-surface: #ffffff;
-  --p-ink: #12122a;
-  --p-muted: #5c5a8a;
-  --p-rule: #dcdaf5;
-  --p-control: #7a78ad;
-  --p-accent: #6a4cff;
+  --p-ink: #141414;
+  --p-muted: #595954;
+  --p-rule: #dad9d3;
+  --p-control: #85847d;
+  --p-accent: #141414;
   --p-accent-ink: #ffffff;
-  --p-accent-2: #00877d;
-  --p-accent-text: #5b38e8;
-  --p-bar: #12122a;
-  --p-good: #0a7a62;
+  --p-accent-text: #141414;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
+  --p-bar: #000000;
+  --p-good: #0b6b3a;
   --p-bad: #b3261e;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --p-bg: #121212;
+  --p-surface: #1b1b1b;
+  --p-ink: #f2f2ee;
+  --p-muted: #a1a19b;
+  --p-rule: #333330;
+  --p-control: #77776f;
+  --p-accent: #ffd60a;
+  --p-accent-ink: #141414;
+  --p-accent-text: #ffd60a;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
+  --p-bar: #c9c9c2;
+  --p-good: #4ade80;
+  --p-bad: #ff8a8a;
 }
 
 /* ---- Roles: what the app asks for -------------------------------------------------------- */
@@ -157,10 +163,9 @@
 
   --link: var(--p-ink);
   --bar: var(--p-bar); /* redaction bar */
-  --highlighter: var(--p-accent);
+  --highlighter: var(--p-marker);
   --verified: var(--p-good);
   --problem: var(--p-bad);
-  --accent-2: var(--p-accent-2);
   --accent-text: var(--p-accent-text);
 }
 
@@ -179,11 +184,12 @@
     line-height: 1.5;
   }
 
-  /* Big type: display weight and tight tracking. Not tabular: the font gives a decimal
-   * point a digit's width under tabular figures, which breaks "0.005" apart. A number that
-   * counts up sets its own digits tabular (CountUp). */
+  /* Big type: heavy and a little condensed (Archivo's width axis), with tight tracking. Not
+   * tabular: the font gives a decimal point a digit's width under tabular figures, which breaks
+   * "0.005" apart. A number that counts up sets its own digits tabular (CountUp). */
   .display {
-    font-weight: 700;
+    font-weight: 800;
+    font-stretch: 88%;
     letter-spacing: -0.03em;
     line-height: 1;
   }
@@ -217,15 +223,14 @@
 html { --motion: 1; }
 html[data-motion="calm"] { --motion: 0.35; }
 
-/* The redaction bar: a block of the bar colour with a faint diagonal hatch, so it
- * reads as a redaction in the dark set too. It holds no text. */
+/* The redaction bar: a plain block of the bar colour, black on the page and ink-coloured in the
+ * dark set. It holds no text. */
 .redacted {
   position: relative;
   display: inline-block;
   color: transparent;
   background-color: var(--bar);
-  background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--background) 16%, transparent) 6px 12px);
-  border-radius: 5px;
+  border-radius: 2px;
   user-select: none;
 }
 
@@ -266,9 +271,9 @@ html[data-motion="calm"] { --motion: 0.35; }
   animation-delay: calc(var(--i, 0) * 70ms * var(--motion));
 }
 
-/* Rows answer the pointer with a tint of the accent. No lift: a row is not a card. */
+/* Rows answer the pointer with a faint tint of the ink. No lift: a row is not a card. */
 .row-hover { transition: background-color 200ms; }
-.row-hover:hover { background-color: color-mix(in srgb, var(--primary) 12%, transparent); }
+.row-hover:hover { background-color: color-mix(in srgb, var(--foreground) 5%, transparent); }
 
 /* The slider thumb of a segmented control glides to the chosen option. */
 .segmented-glide {
@@ -280,8 +285,7 @@ html[data-motion="calm"] { --motion: 0.35; }
 /* The primary button lifts a little under the pointer, when Lively. */
 .lift { transition: transform 150ms, box-shadow 250ms, filter 200ms; }
 html[data-motion="lively"] .lift:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--primary) 80%, transparent);
+  transform: translateY(-1px);
 }
 
 /* ...and gives under a press. */
@@ -311,10 +315,10 @@ dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(
 
 /* The receipt's flow of funds draws itself when it scrolls into view: the line fills,
  * and the three stations pop in one after the other. Before that they are not drawn. */
-.flow-line > i { display: block; height: 100%; width: 0; border-radius: inherit; background-image: linear-gradient(90deg, var(--accent-text), var(--accent-2)); }
-.flow[data-in="true"] .flow-line > i { width: 100%; transition: width calc(1200ms * var(--motion)) ease; }
+.flow-line > i { display: block; width: 100%; height: 0; border-radius: inherit; background-color: var(--foreground); }
+.flow[data-in="true"] .flow-line > i { height: 100%; transition: height calc(1200ms * var(--motion)) ease; }
 .flow:not([data-in="true"]) .flow-dot { transform: scale(0); }
-.flow[data-in="true"] .flow-dot { animation: pop calc(500ms * var(--motion)) both; animation-delay: calc(var(--i, 0) * 350ms * var(--motion)); }
+.flow[data-in="true"] .flow-dot { animation: pop calc(500ms * var(--motion)) both; animation-delay: calc(var(--i, 0) * 550ms * var(--motion)); }
 @keyframes pop {
   from { transform: scale(0); }
 }
@@ -323,6 +327,15 @@ dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(
 .check-draw path { stroke-dasharray: 40; stroke-dashoffset: 0; animation: draw calc(600ms * var(--motion)) 200ms ease backwards; }
 @keyframes draw {
   from { stroke-dashoffset: 40; }
+}
+
+/* A receipt is a sheet with a torn bottom edge: saw teeth, 14px high. Only the mask's alpha matters,
+ * so the colours here are keywords, not colours. The sheet needs at least a tooth of padding under
+ * its last line. */
+.receipt-sheet {
+  --tooth: 14px;
+  -webkit-mask: conic-gradient(from -45deg at bottom, transparent, black 1deg 89deg, transparent 90deg) 50% / calc(var(--tooth) * 2) 100%;
+  mask: conic-gradient(from -45deg at bottom, transparent, black 1deg 89deg, transparent 90deg) 50% / calc(var(--tooth) * 2) 100%;
 }
 
 /* The stamp that comes down once when a campaign settles. */
@@ -355,37 +368,6 @@ dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(
 }
 @keyframes burst {
   to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; }
-}
-
-/* The one word of the headline that carries the accent: from the accent's text colour to the
- * second colour. Both ends are checked against the page (src/colours.test.ts). */
-.gradient-text {
-  background-image: linear-gradient(90deg, var(--accent-text), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* A soft glow behind the page. Drawn only when Lively (and never under "reduce motion", where it
- * would stay still and be plain decoration): it drifts slowly. It is behind everything, and
- * is not an element, so no text is ever measured against it. */
-html[data-motion="lively"] body::before {
-  content: "";
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 32rem;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(32rem 20rem at 18% 28%, color-mix(in srgb, var(--primary) 20%, transparent), transparent 70%),
-    radial-gradient(32rem 20rem at 82% 8%, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 70%);
-  animation: drift 14s ease-in-out infinite alternate;
-}
-@keyframes drift {
-  to { transform: translate3d(40px, 24px, 0) scale(1.08); }
-}
-@media (prefers-reduced-motion: reduce) {
-  html body::before { display: none; }
 }
 
 /* The practice-mode pill: hatched, so it reads as "not real". */

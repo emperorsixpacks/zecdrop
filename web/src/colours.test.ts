@@ -1,4 +1,4 @@
-// The colours, as the stylesheet has them, checked: Midnight, dark and light, must be
+// The colours, as the stylesheet has them, checked: Redacted paper, light and dark, must be
 // complete, and every pair of roles that meet in the app must be readable (WCAG 2.2 AA:
 // text 4.5:1, the boundary of a control and the ends of a gradient 3:1). The values are read
 // out of index.css itself, so this fails the moment a colour there is changed carelessly.
@@ -31,8 +31,9 @@ const ROLES = [
   "control",
   "accent",
   "accent-ink",
-  "accent-2",
   "accent-text",
+  "marker",
+  "marker-ink",
   "bar",
   "good",
   "bad",
@@ -75,7 +76,7 @@ function mix(a: string, b: string, pct: number): string {
 
 const colours = (mode: string) => block(`:root[data-theme="${mode}"]`);
 
-describe("Midnight is complete, in both modes", () => {
+describe("Redacted paper is complete, in both modes", () => {
   for (const m of MODES) {
     it(m, () => {
       const c = colours(m);
@@ -84,20 +85,19 @@ describe("Midnight is complete, in both modes", () => {
     });
   }
 
-  it("the page before any script has run is the dark set", () => {
-    expect(block(":root {\n  color-scheme: dark;")).toEqual(colours("dark"));
+  it("the page before any script has run is the light set", () => {
+    expect(block(":root {\n  color-scheme: light;")).toEqual(colours("light"));
   });
 
-  it("is the colours the owner chose: the lab's indigo, violet and teal", () => {
-    const dark = colours("dark");
-    expect(dark?.bg).toBe("#0b0b1a");
-    expect(dark?.surface).toBe("#15152e");
-    expect(dark?.ink).toBe("#f1f1ff");
-    expect(dark?.["accent-2"]).toBe("#2ee6d6");
-    expect(dark?.bar).toBe("#2a2a52");
-    // The violet is the lab's, a hair deeper so that white text on it is readable (4.5:1).
-    expect(dark?.accent).toBe("#7658ff");
-    expect(dark?.["accent-ink"]).toBe("#ffffff");
+  it("is the look the owner chose on 2026-10-15: white sheet, black bars, a marker-yellow highlighter", () => {
+    const light = colours("light");
+    expect(light?.surface).toBe("#ffffff");
+    expect(light?.bar).toBe("#000000");
+    expect(light?.marker).toBe("#ffd60a");
+    // The action is ink on paper; in the dark set, where black would vanish, it is the marker.
+    expect(light?.accent).toBe(light?.ink);
+    expect(colours("dark")?.accent).toBe(colours("dark")?.marker);
+    expect(colours("dark")?.["accent-ink"]).toBe("#141414");
   });
 });
 
@@ -125,8 +125,7 @@ describe("every pair of roles that meet in the app is readable", () => {
         ["'problem' text on a surface", c.bad, c.surface, 4.5],
         ["a control's boundary on the page", c.control, c.bg, 3],
         ["a control's boundary on a surface", c.control, c.surface, 3],
-        ["the second colour, the gradient's end, on the page", c["accent-2"], c.bg, 3],
-        ["the accent, the gradient's start, on the page", c["accent-text"], c.bg, 3],
+        ["text on the marker (revealed text, highlighted rows)", c["marker-ink"], c.marker, 4.5],
         ["the focus ring on the page", c.ink, c.bg, 3],
         ["the redaction bar is seen against the page", c.bar, c.bg, 1.4],
       ];

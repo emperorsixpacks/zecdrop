@@ -5,11 +5,11 @@ import { initAppearance, useAppearance } from "./appearance";
 import { MOTION_STORAGE_KEY } from "./motion";
 import { THEME_STORAGE_KEY } from "./theme";
 
-function system(opts: { light?: boolean; reduced?: boolean }) {
+function system(opts: { dark?: boolean; reduced?: boolean }) {
   vi.stubGlobal(
     "matchMedia",
     vi.fn((query: string) => ({
-      matches: (opts.light === true && query.includes("light")) || (opts.reduced === true && query.includes("reduce")),
+      matches: (opts.dark === true && query.includes("dark")) || (opts.reduced === true && query.includes("reduce")),
       media: query,
     })),
   );
@@ -28,23 +28,23 @@ afterEach(() => {
 });
 
 describe("the appearance, as it starts", () => {
-  it("is dark and Lively when nothing has been chosen", () => {
+  it("is light and Lively when nothing has been chosen", () => {
     initAppearance();
-    expect(html()).toMatchObject({ theme: "dark", motion: "lively" });
-    expect(useAppearance.getState()).toMatchObject({ theme: "dark", motion: "lively" });
+    expect(html()).toMatchObject({ theme: "light", motion: "lively" });
+    expect(useAppearance.getState()).toMatchObject({ theme: "light", motion: "lively" });
   });
 
-  it("is light when the system says light", () => {
-    system({ light: true });
+  it("is dark when the system says dark", () => {
+    system({ dark: true });
     initAppearance();
-    expect(html()["theme"]).toBe("light");
+    expect(html()["theme"]).toBe("dark");
   });
 
   it("comes back as it was left", () => {
-    localStorage.setItem(THEME_STORAGE_KEY, "light");
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
     localStorage.setItem(MOTION_STORAGE_KEY, "calm");
     initAppearance();
-    expect(html()).toMatchObject({ theme: "light", motion: "calm" });
+    expect(html()).toMatchObject({ theme: "dark", motion: "calm" });
   });
 
   it("is Calm under the system's reduced motion, and cannot be made Lively", () => {
@@ -64,10 +64,10 @@ describe("changing it", () => {
   });
 
   it("a theme takes effect at once and is remembered", () => {
-    useAppearance.getState().setTheme("light");
-    expect(html()["theme"]).toBe("light");
-    expect(useAppearance.getState().theme).toBe("light");
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+    useAppearance.getState().setTheme("dark");
+    expect(html()["theme"]).toBe("dark");
+    expect(useAppearance.getState().theme).toBe("dark");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
   });
 
   it("motion takes effect at once and is remembered", () => {
