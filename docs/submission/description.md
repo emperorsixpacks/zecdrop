@@ -1,6 +1,6 @@
 # Submission description (draft)
 
-**Status: DRAFT, refreshed 2026-10-15.** The testnet run below was done on 2026-10-08; the test counts and the live site were re-checked on 2026-10-15. Remaining [brackets] are links only; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
+**Status: DRAFT, refreshed 2026-10-18.** The testnet run below was done on 2026-10-08; the test counts and the live site were re-checked on 2026-10-18 (the hosted verifier still runs the 2026-10-16 build until it is updated). Remaining [brackets] are links only; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
 
 ## One-line
 
@@ -32,7 +32,7 @@ singleton batches and the review step warns. The recipient count of a batch is p
 **How it is built.** Rust workspace on librustzcash: a chain-agnostic domain core with a resumable, crash-safe
 engine; a local operator service with an encrypted store; a transaction builder using the Ironwood pool; a key-less
 verifier whose dependency closure is checked by a test to contain no key-decoding or storage crate. Requirements
-carry IDs and are tied to tests by a drift check in CI: all 29 are implemented and covered by tests. The web app (React, Tailwind)
+carry IDs and are tied to tests by a drift check in CI: all 37 are implemented and covered by tests (700 Rust tests, about 2,000 web tests). The web app (React, Tailwind)
 has no wallet connection on purpose: the operator holds the keys on the user's own machine, and the public site only views
 and checks receipts. Funding from another coin through NEAR Intents is an optional stretch, wired into the operator.
 
@@ -43,8 +43,20 @@ outputs, 0.00045 TAZ fee, one funding address) and rejects a wrong declared tota
 against the payout list and the salted commitment, and each recipient's key decrypted exactly its own payout. A mainnet run has
 not been done.
 
-**Honest limits.** Not audited (one independent code review was done; see `docs/SECURITY.md`). Testnet-first; nothing has
-run on mainnet. Campaigns larger than one batch need a funding-split step that is not built. NEAR Intents funding shows a
+**Payslips.** A recipient can prove one output of a public batch to a third party without a viewing key and without revealing any
+other recipient. A payslip carries the transaction id, the output's position, the recipient's receiver, the amount and the note's
+secret; the key-less check rebuilds the note and compares its commitment with the one the transaction publishes. The eight payslips
+of the real testnet batch each open exactly their own output (a test in CI checks them against the transaction as mined), and the
+verifier, run locally against public testnet, answered one as verified and a copy with one zatoshi changed as invalid. A payslip
+is a bearer document and also opens its output's memo, so a hosted check shows the verifier the receiver, the amount and the memo's
+key; the offline command does not.
+
+**Scale.** One batch carries up to 330 payouts. Building and proving 330 payouts took 142 seconds on a laptop; the transaction is 1 MB and
+the network fee is 0.01655 ZEC (`docs/BENCHMARKS.md`).
+
+**Honest limits.** Not audited (one independent code review was done; see `docs/SECURITY.md`). Testnet-first; no transaction has been
+sent to mainnet. The code can run there behind an explicit gate, a 0.1 ZEC cap per campaign and start-up checks of the node, and is
+tested offline at mainnet parameters and read-only against the real mainnet node's data, but that is not a payout. Campaigns larger than one batch need a funding-split step that is not built. NEAR Intents funding shows a
 live price preview on testnet and creates nothing; its mainnet quote and status paths have only run against a fake service.
 Released wallets probably cannot sync current testnet, so the recipient side is shown with our own tool. The hosted
 verifier runs on a single teammate's server, so live receipt links depend on that server and on the public testnet node it
