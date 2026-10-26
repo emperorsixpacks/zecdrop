@@ -134,7 +134,7 @@ and works even if the verifier is down.
 
 ```bash
 cd web
-node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier-host>
+node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier-host> [--mainnet-tx <txid>]
 node scripts/check-explorer-links.mjs
 ```
 

@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ZecNetwork } from "@/lib/config";
 import { useCoinUnit, type CoinUnit } from "@/lib/units";
 import { zecFromZatoshi } from "@/lib/zec";
 import { shortId } from "@/lib/ids";
@@ -114,6 +115,18 @@ export function RejectedNotice() {
   return (
     <Notice title="The verifier couldn't read this link" actions={sampleLink}>
       <p>The request was refused as malformed. Ask whoever sent the link for a fresh one.</p>
+    </Notice>
+  );
+}
+
+export function NetworkNotServedNotice({ network }: { network: ZecNetwork }) {
+  return (
+    <Notice title="This verifier does not serve that network" actions={sampleLink}>
+      <p>
+        The link is for {network}, and this verifier is not set up to read that chain. That says nothing
+        about the campaign itself.
+      </p>
+      <p>Ask whoever sent the link which verifier to use for it.</p>
     </Notice>
   );
 }

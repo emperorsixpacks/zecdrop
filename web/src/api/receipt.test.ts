@@ -141,6 +141,55 @@ describe("failures are sorted into kinds", () => {
   });
 });
 
+// covers: REQ-VER-005
+describe("a 400 from the verifier", () => {
+  const refusal = (code: unknown) => ({ error: { code, message: "words the page must not keep" } });
+
+  it("is 'network_not_served' when its code says it is not set up for the link's network", async () => {
+    respond(400, refusal("network_not_configured"));
+    const error = await failureOf(fetchReceipt({ ...query, network: "mainnet" }));
+    expect(error.kind).toBe("network_not_served");
+    expect(error.status).toBe(400);
+  });
+
+  it.each(["invalid_parameter", "missing_parameter", "unknown_parameter", "query_too_long", "too_many_transactions", "invalid_request", "viewing_key_refused"])(
+    "stays 'rejected' for the code %s",
+    async (code) => {
+      respond(400, refusal(code));
+      expect((await failureOf(fetchReceipt(query))).kind).toBe("rejected");
+    },
+  );
+
+  it.each([
+    ["an empty body", ""],
+    ["text that is not JSON", "<html>bad gateway</html>"],
+    ["JSON without an error", {}],
+    ["an error without a code", { error: { message: "x" } }],
+    ["a code that is not text", refusal(7)],
+    ["a code in the wrong place", { code: "network_not_configured" }],
+  ])("stays 'rejected' for %s", async (_label, body) => {
+    respond(400, body);
+    expect((await failureOf(fetchReceipt(query))).kind).toBe("rejected");
+  });
+
+  it("only a 400 can say so: the same code on any other status is sorted by the status alone", async () => {
+    for (const [status, kind] of [
+      [404, "not_found"],
+      [422, "rejected"],
+      [503, "unreachable"],
+    ] as const) {
+      respond(status, refusal("network_not_configured"));
+      expect((await failureOf(fetchReceipt(query))).kind, String(status)).toBe(kind);
+    }
+  });
+
+  it("keeps nothing the verifier said", async () => {
+    respond(400, refusal("network_not_configured"));
+    const error = await failureOf(fetchReceipt(query));
+    expect(`${error.message} ${JSON.stringify(error)}`).not.toContain("words the page must not keep");
+  });
+});
+
 describe("timeout and cancellation", () => {
   /** A fetch that never answers but honours its abort signal. */
   const hang = () =>

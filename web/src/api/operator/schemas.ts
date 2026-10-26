@@ -211,6 +211,7 @@ export const KNOWN_ERROR_CODES = [
   "plan_failed",
   "batch_size_too_large",
   "amount_too_large",
+  "mainnet_cap_exceeded",
   "csv_too_large",
   "body_too_large",
   "import_failed",

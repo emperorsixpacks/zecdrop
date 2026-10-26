@@ -1,6 +1,9 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join, resolve } from "node:path";
+import { promisify } from "node:util";
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -18,7 +21,8 @@ const STUB = "http://127.0.0.1:4175";
 
 const sampleRoot = resolve(process.cwd(), "..", "fixtures", "testnet-ironwood-batch-8");
 const [sampleDir] = readdirSync(sampleRoot, { withFileTypes: true }).filter((e) => e.isDirectory() && /^[0-9a-f]{64}$/u.test(e.name));
-const sample = JSON.parse(readFileSync(join(sampleRoot, sampleDir?.name ?? "", "receipt.json"), "utf8")) as {
+const sampleText = readFileSync(join(sampleRoot, sampleDir?.name ?? "", "receipt.json"), "utf8");
+const sample = JSON.parse(sampleText) as {
   batches: { txid: string }[];
   manifest_commitment: string;
   declared_total: string;
@@ -26,6 +30,16 @@ const sample = JSON.parse(readFileSync(join(sampleRoot, sampleDir?.name ?? "", "
 const LIVE_PATH =
   `/r/real-8?network=testnet&tx=${sample.batches[0]?.txid ?? ""}` +
   `&commitment=${sample.manifest_commitment}&declared_total=${sample.declared_total}`;
+
+// The stub answers the same link as a mainnet receipt when it says network=mainnet (e2e/hosted/stub-verifier.mjs),
+// with a funding address in mainnet form. The page was built for testnet, as a hosted copy is by default.
+const TXID = sample.batches[0]?.txid ?? "";
+const MAINNET_PATH =
+  `/r/mainnet-8?network=mainnet&tx=${TXID}` +
+  `&commitment=${sample.manifest_commitment}&declared_total=${sample.declared_total}`;
+const MAINNET_FUNDING_ADDRESS = "t1cFrgk2qsbNHgNSmV8DNauWTCe6EKRLW9L";
+// The mainnet explorer's host and paths: DEFAULT_EXPLORER_TX_URL.mainnet and DEFAULT_EXPLORER_ADDRESS_URL.mainnet in src/lib/config.ts.
+const MAINNET_EXPLORER = "https://mainnet.zcashexplorer.app";
 
 /** Record every Content-Security-Policy violation the page reports, and every console problem. */
 async function watch(page: Page) {
@@ -49,6 +63,9 @@ async function watch(page: Page) {
 
 const stubCalls = async (page: Page): Promise<{ method: string; path: string; search: string; origin: string | null }[]> =>
   (await (await page.request.get(`${STUB}/__calls`)).json()) as never;
+
+/** The top bar: the header around the primary navigation (a receipt page has a header of its own). */
+const topBar = (page: Page) => page.getByRole("navigation", { name: "Primary" }).locator("xpath=ancestor::header");
 
 test("the page is served with the security headers and the policy names the stub verifier", async ({ request }) => {
   const response = await request.get("/");
@@ -112,6 +129,9 @@ test.describe("the policy breaks nothing", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
     await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
     await expect(page.getByRole("heading", { name: "What the verifier found" })).toHaveCount(0);
+    // A testnet receipt keeps the quiet testnet label.
+    await expect(topBar(page).getByText("Zcash testnet", { exact: true }).filter({ visible: true })).toHaveCount(1);
+    await expect(topBar(page).getByText("Zcash mainnet")).toHaveCount(0);
     await page.getByRole("button", { name: "Funding address" }).click();
     await expect(page.getByTestId("funding-address")).toHaveText("tmU6c1aX…B3nkZGkD");
 
@@ -122,6 +142,44 @@ test.describe("the policy breaks nothing", () => {
     expect(receiptCalls[0]?.search).toContain(`tx=${sample.batches[0]?.txid ?? ""}`);
     // And it asked for nothing but the receipt: no operator route.
     expect(calls.filter((c) => !["/v1/receipt", "/v1/health"].includes(c.path))).toEqual([]);
+
+    expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
+    expect(seen.problems()).toEqual([]);
+  });
+
+  test("a mainnet receipt link: the loud mainnet label, amounts in ZEC, and links to the mainnet explorer", async ({ page }) => {
+    const seen = await watch(page);
+    await page.goto(MAINNET_PATH);
+    await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
+    await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
+
+    // The header says mainnet, though this copy was built for testnet.
+    await expect(topBar(page).getByText("Zcash mainnet", { exact: true }).filter({ visible: true })).toHaveCount(1);
+    await expect(topBar(page).getByText("Zcash testnet")).toHaveCount(0);
+
+    // Amounts are in ZEC, and nothing explains a testnet coin.
+    await expect(page.getByTestId("verdict")).toHaveText("Settled: 8 payouts, 0.005 ZEC, fee 0.00045 ZEC");
+    expect(await page.locator("main").innerText()).not.toMatch(/TAZ|testnet coin/u);
+
+    // The transaction and the funding address go to the mainnet explorer, and nothing on the page to a testnet one.
+    await page.getByRole("button", { name: "Transaction", exact: true }).click();
+    const tx = page.locator(`a[href="${MAINNET_EXPLORER}/transactions/${TXID}"]`).first();
+    await expect(tx).toBeVisible();
+    await expect(tx).toHaveAttribute("target", "_blank");
+    await page.getByRole("button", { name: "Funding address" }).click();
+    await expect(page.getByTestId("funding-address")).toHaveText("t1cFrgk2…6EKRLW9L");
+    await expect(page.getByTestId("funding-section").getByRole("link", { name: /Explorer/u })).toHaveAttribute(
+      "href",
+      `${MAINNET_EXPLORER}/address/${MAINNET_FUNDING_ADDRESS}`,
+    );
+    const hrefs = await page.locator("a[href]").evaluateAll((links) => links.map((a) => a.getAttribute("href") ?? ""));
+    expect(hrefs.filter((href) => /testnet/u.test(href))).toEqual([]);
+
+    // It asked the stub about mainnet, from the page's own origin, and the answer was accepted as it is.
+    const asked = (await stubCalls(page)).filter((c) => c.path === "/v1/receipt" && c.search.includes("network=mainnet"));
+    expect(asked.length).toBeGreaterThanOrEqual(1);
+    expect(asked[0]?.origin).toBe(SITE);
+    await expect(page.getByRole("heading", { name: "The chain and this link don't agree" })).toHaveCount(0);
 
     expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
     expect(seen.problems()).toEqual([]);
@@ -200,4 +258,105 @@ test("the post-deploy check passes against this deployment and its verifier", ()
   expect(output).not.toMatch(/^FAIL/mu);
   expect(output).toContain("ok   the verifier answers the real batch's receipt");
   expect(output).toContain(`shareable link: ${SITE}/r/real-8?network=testnet&tx=${sample.batches[0]?.txid ?? ""}`);
+  // Without --mainnet-tx it asks nothing about mainnet.
+  expect(output).not.toContain("serves mainnet");
+});
+
+test.describe("the post-deploy check with --mainnet-tx", () => {
+  const run = promisify(execFile);
+
+  /** The check against `verifier`, as its output and exit code (a failing check exits 1, which `execFile` calls an error). */
+  async function check(verifier: string, ...extra: string[]) {
+    try {
+      const { stdout } = await run("node", ["scripts/check-hosted.mjs", "--site", SITE, "--verifier", verifier, ...extra], { cwd: process.cwd(), encoding: "utf8" });
+      return { output: stdout, code: 0 };
+    } catch (error) {
+      const failed = error as { stdout?: string; code?: number };
+      return { output: failed.stdout ?? "", code: failed.code ?? -1 };
+    }
+  }
+
+  /** A verifier of the test's own: the stub's testnet receipt, and whatever the test says to a mainnet request
+   * (text is sent as it is, anything else as JSON). Its address is not in the page's policy, so the checks about
+   * the policy fail beside the one under test. */
+  async function verifierSaying(mainnet: { status: number; body: unknown }) {
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? "/", "http://verifier.test");
+      const send = (status: number, body: string) => {
+        response.writeHead(status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": SITE });
+        response.end(body);
+      };
+      if (url.pathname === "/v1/health") send(200, '{"ok":true}');
+      else if (url.pathname !== "/v1/receipt") send(404, "{}");
+      else if (url.searchParams.get("network") === "mainnet") {
+        send(mainnet.status, typeof mainnet.body === "string" ? mainnet.body : JSON.stringify(mainnet.body));
+      } else send(200, sampleText);
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const { port } = server.address() as AddressInfo;
+    return {
+      origin: `http://127.0.0.1:${String(port)}`,
+      close: () =>
+        new Promise<void>((done) => {
+          server.close(() => {
+            done();
+          });
+        }),
+    };
+  }
+
+  test("a verifier that serves mainnet: one ok line, and every other check still passes", async () => {
+    const { output, code } = await check(STUB, "--mainnet-tx", TXID);
+    expect(output).not.toMatch(/^FAIL/mu);
+    expect(output).toMatch(/^ok {3}the verifier serves mainnet: HTTP 200, phase settled$/mu);
+    expect(output.match(/serves mainnet/gu)).toHaveLength(1);
+    expect(code).toBe(0);
+  });
+
+  test("a verifier that is not set up for mainnet is called that", async () => {
+    const verifier = await verifierSaying({
+      status: 400,
+      body: { error: { code: "network_not_configured", message: "this verifier is not configured for that network" } },
+    });
+    try {
+      const { output, code } = await check(verifier.origin, "--mainnet-tx", TXID);
+      expect(output).toMatch(/^FAIL the verifier serves mainnet: verifier is not serving mainnet \(HTTP 400 network_not_configured\)$/mu);
+      expect(code).toBe(1);
+    } finally {
+      await verifier.close();
+    }
+  });
+
+  test("any other refusal names the status and the code", async () => {
+    const verifier = await verifierSaying({ status: 503, body: { error: { code: "chain_unavailable", message: "the chain data source is unavailable" } } });
+    try {
+      const { output, code } = await check(verifier.origin, "--mainnet-tx", TXID);
+      expect(output).toMatch(/^FAIL the verifier serves mainnet: HTTP 503 chain_unavailable$/mu);
+      expect(output).not.toContain("not serving mainnet");
+      expect(code).toBe(1);
+    } finally {
+      await verifier.close();
+    }
+  });
+
+  test("an answer with no code names the status alone, and a 200 without a phase is not an answer", async () => {
+    const bare = await verifierSaying({ status: 502, body: "not json" });
+    const empty = await verifierSaying({ status: 200, body: { hello: "there" } });
+    try {
+      expect((await check(bare.origin, "--mainnet-tx", TXID)).output).toMatch(/^FAIL the verifier serves mainnet: HTTP 502$/mu);
+      expect((await check(empty.origin, "--mainnet-tx", TXID)).output).toMatch(/^FAIL the verifier serves mainnet: HTTP 200, the answer has no phase$/mu);
+    } finally {
+      await bare.close();
+      await empty.close();
+    }
+  });
+
+  test("the transaction id must be given, and must be one", () => {
+    for (const extra of [["--mainnet-tx"], ["--mainnet-tx", "nope"], ["--mainnet-tx", TXID.toUpperCase()]]) {
+      const result = spawnSync("node", ["scripts/check-hosted.mjs", "--site", SITE, "--verifier", STUB, ...extra], { cwd: process.cwd(), encoding: "utf8" });
+      expect(result.status, extra.join(" ")).toBe(2);
+      expect(result.stderr, extra.join(" ")).toContain("--mainnet-tx needs a transaction id");
+      expect(result.stdout, extra.join(" ")).toBe("");
+    }
+  });
 });

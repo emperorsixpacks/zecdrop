@@ -105,8 +105,10 @@ by a hosted verifier). Nothing is deployed from this repository by itself; the o
 VITE_API_URL=https://<verifier-host> VITE_ZEC_NETWORK=testnet VITE_PUBLIC_ONLY=true npm run build:hosted
 node scripts/serve-hosted.mjs --dir dist --port 4174      # look at it with the real headers first
 npx vercel deploy dist --prod                              # owner step
-node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier-host>
+node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier-host> [--mainnet-tx <txid>]
 ```
+
+`--mainnet-tx` also asks the verifier about that mainnet transaction and fails if the verifier does not serve mainnet.
 
 `build:hosted` also writes `dist/vercel.json`: the rewrites for the client routes, caching, and a
 Content-Security-Policy (`default-src 'self'`, `connect-src 'self'` plus the verifier's origin taken from

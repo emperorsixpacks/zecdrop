@@ -63,6 +63,39 @@ describe("explainFailure", () => {
     });
   });
 
+  describe("a mainnet campaign over the operator's cap", () => {
+    const over = (message: string) => new OperatorApiError("api", 422, { code: "mainnet_cap_exceeded", message });
+    // As the operator words it (crates/drop-operator/src/api.rs): the cap, what this campaign needs, and how to raise the cap.
+    const SAID =
+      "this operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC; raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to";
+    const FIRST =
+      "This operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC; raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to.";
+    const OTHER_WAY = "To get under the cap, shorten the list or lower the amounts.";
+
+    it("says the operator's own figures as the first sentence, then the other way out", () => {
+      expect(explainFailure(over(SAID), "ZEC")).toEqual({
+        title: "That campaign is over the mainnet limit",
+        detail: `${FIRST} ${OTHER_WAY}`,
+      });
+    });
+
+    it("has a sentence of its own whatever status it comes with, and never shows the code", () => {
+      for (const status of [400, 409, 418, 422]) {
+        const explained = explainFailure(new OperatorApiError("api", status, { code: "mainnet_cap_exceeded", message: SAID }), "ZEC");
+        expect(explained.title, String(status)).toBe("That campaign is over the mainnet limit");
+        expect(JSON.stringify(explained), String(status)).not.toContain("mainnet_cap_exceeded");
+      }
+    });
+
+    it("makes one clean sentence of the operator's words, whether or not they end in a full stop", () => {
+      expect(explainFailure(over(`${SAID}.`), "ZEC").detail).toBe(`${FIRST} ${OTHER_WAY}`);
+    });
+
+    it("still says something useful when the operator gave no words", () => {
+      expect(explainFailure(over(""), "ZEC").detail).toBe(`This operator caps how much one mainnet campaign may hold. ${OTHER_WAY}`);
+    });
+  });
+
   it("an insufficient_funding answer without figures still reads well", () => {
     const error = new OperatorApiError("api", 409, { code: "insufficient_funding", message: "the recorded deposit does not cover this plan" });
     expect(explainFailure(error).detail).toBe("the recorded deposit does not cover this plan");

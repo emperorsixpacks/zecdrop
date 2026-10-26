@@ -18,7 +18,7 @@ import {
   type FakeOperator,
   type RouteHandler,
 } from "@/test/fake-operator";
-import { fixtureJson } from "@/test/operator-fixtures";
+import { fixtureJson, goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
 
 const ID = FIXTURE_CAMPAIGN_ID;
@@ -199,6 +199,134 @@ describe("a funded campaign", () => {
     await screen.findByRole("heading", { level: 1, name: "Sentinel campaign" });
     expect(screen.queryByRole("button", { name: "Record mock deposit" })).toBeNull();
     expect(screen.getByText("Funded.")).toBeInTheDocument();
+  });
+});
+
+describe("a funded campaign on testnet", () => {
+  it.each([
+    ["the practice chain", mockHealth, "campaign-funded.json"],
+    ["a real testnet", realHealth, "campaign-real-funded.json"],
+  ] as const)("on %s the sheet has no box to tick, and its button is ready", async (_name, health, file) => {
+    const user = userEvent.setup();
+    open(
+      {
+        "GET /api/campaigns/:id": () => (file === "campaign-funded.json" ? replyWith(file) : replyWithGolden(file)),
+        "POST /api/campaigns/:id/start": () => ({ status: 202, body: fixtureJson("start-ok.json") }),
+        "GET /api/campaigns/:id/events": quietStream,
+      },
+      health,
+    );
+    await user.click(await screen.findByRole("button", { name: /^Send \d+ payouts$/u }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).queryByRole("checkbox")).toBeNull();
+    expect(within(sheet).getByRole("button", { name: /^Send \d+ payouts$/u })).toBeEnabled();
+  });
+});
+
+describe("a funded campaign on mainnet", () => {
+  const TICK = "This sends real ZEC and cannot be undone";
+  const SEND = "Send 3 payouts";
+  const asMainnet = (campaign: unknown): Json => ({ ...(campaign as Json), network: "mainnet" });
+  const mainnetHealth: RouteHandler = () => ({ body: { ...(goldenJson("health-real.json") as Json), network: "mainnet" } });
+
+  const routes = (campaign: () => Json = () => asMainnet(goldenJson("campaign-real-funded.json"))): Record<string, RouteHandler> => ({
+    "GET /api/campaigns/:id": () => ({ body: campaign() }),
+    "POST /api/campaigns/:id/start": () => ({ status: 202, body: fixtureJson("start-ok.json") }),
+    "GET /api/campaigns/:id/events": quietStream,
+  });
+
+  async function openSheet(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: SEND }));
+    return await screen.findByRole("dialog");
+  }
+
+  it("will not send until the box is ticked, and then sends once", async () => {
+    const user = userEvent.setup();
+    open(routes(), mainnetHealth);
+    const sheet = await openSheet(user);
+
+    const box = within(sheet).getByRole("checkbox", { name: TICK });
+    expect(box).not.toBeChecked();
+    expect(within(sheet).getByRole("button", { name: SEND })).toBeDisabled();
+    await user.click(within(sheet).getByRole("button", { name: SEND }));
+    expect(operator.to("POST", /\/start$/u)).toHaveLength(0);
+
+    await user.click(box);
+    expect(box).toBeChecked();
+    expect(within(sheet).getByRole("button", { name: SEND })).toBeEnabled();
+    await user.click(within(sheet).getByRole("button", { name: SEND }));
+    await waitFor(() => {
+      expect(operator.to("POST", /\/start$/u)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+  });
+
+  it("takes the tick back with a second click", async () => {
+    const user = userEvent.setup();
+    open(routes(), mainnetHealth);
+    const sheet = await openSheet(user);
+    await user.click(within(sheet).getByRole("checkbox", { name: TICK }));
+    await user.click(within(sheet).getByRole("checkbox", { name: TICK }));
+    expect(within(sheet).getByRole("button", { name: SEND })).toBeDisabled();
+  });
+
+  it("asks afresh each time the sheet opens: the tick does not carry over", async () => {
+    const user = userEvent.setup();
+    open(routes(), mainnetHealth);
+    const first = await openSheet(user);
+    await user.click(within(first).getByRole("checkbox", { name: TICK }));
+    await user.click(within(first).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    const second = await openSheet(user);
+    expect(within(second).getByRole("checkbox", { name: TICK })).not.toBeChecked();
+    expect(within(second).getByRole("button", { name: SEND })).toBeDisabled();
+    expect(operator.to("POST", /\/start$/u)).toHaveLength(0);
+  });
+
+  it("still says what it sends, in ZEC, and that it cannot be undone", async () => {
+    const user = userEvent.setup();
+    open(routes(), mainnetHealth);
+    const sheet = await openSheet(user);
+    expect(sheet).toHaveTextContent("This sends 3 payouts, 4.5 ZEC plus 0.0002 ZEC fee. It cannot be undone.");
+    expect(sheet.textContent).not.toMatch(/TAZ/u);
+  });
+
+  it.each([
+    ["the campaign says mainnet and the operator says testnet", routes(), realHealth],
+    ["the operator says mainnet and the campaign says testnet", routes(() => goldenJson("campaign-real-funded.json") as Json), mainnetHealth],
+  ])("asks when %s: either one is enough", async (_name, handlers, health) => {
+    const user = userEvent.setup();
+    open(handlers, health);
+    const sheet = await openSheet(user);
+    expect(within(sheet).getByRole("checkbox", { name: TICK })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: SEND })).toBeDisabled();
+  });
+
+  it("still asks while the operator has not said which network it is on, if the campaign says mainnet", async () => {
+    const user = userEvent.setup();
+    open(routes(), () => ({ status: 503, body: { error: { code: "chain_unavailable", message: "x" } } }));
+    const sheet = await openSheet(user);
+    expect(within(sheet).getByRole("button", { name: SEND })).toBeDisabled();
+  });
+
+  it("does not ask to resume a run that already started: that rebuilds nothing and sends nothing twice", async () => {
+    const user = userEvent.setup();
+    open(
+      {
+        ...routes(() => asMainnet(campaignWith("campaign-crashed.json", {}))),
+        "POST /api/campaigns/:id/start": () => ({ status: 202, body: fixtureJson("start-resume.json") }),
+      },
+      mainnetHealth,
+    );
+    await user.click(await screen.findByRole("button", { name: "Resume sending" }));
+    expect(operator.to("POST", /\/start$/u)).toHaveLength(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: TICK })).toBeNull();
   });
 });
 

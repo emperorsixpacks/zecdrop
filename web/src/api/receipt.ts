@@ -7,6 +7,8 @@
 // verifier answers 200 with a receipt whose `findings` say what is wrong
 // (REQ-VER-001). So the failures here are only about getting an answer at all.
 
+import { z } from "zod";
+
 import { RECEIPT_ENDPOINT } from "./endpoints";
 import { apiUrl } from "./client";
 import { receiptSearchParams, type ReceiptQuery } from "./receipt-query";
@@ -19,6 +21,8 @@ export type ReceiptFailureKind =
   | "not_found"
   /** The verifier refused the request as malformed. */
   | "rejected"
+  /** The verifier answered that it does not serve the network the link names. */
+  | "network_not_served"
   /** It answered, but not in the receipt format we accept. */
   | "invalid_response";
 
@@ -39,6 +43,22 @@ export function mapFailure(status: number): ReceiptFailureKind {
   if (status === 404) return "not_found";
   if (status === 400 || status === 422) return "rejected";
   return "unreachable"; // 5xx, 429 and anything unexpected: try again later
+}
+
+/** The verifier's refusal: `{"error": {"code", "message"}}`. Only the code is ever read. */
+const refusalWire = z.looseObject({ error: z.looseObject({ code: z.string() }) });
+
+/** What a refused request means. A 400 is "malformed" unless the verifier says, by its code,
+ * that it is not set up for the link's network. Its words are never read or kept. */
+async function refusalKind(response: Response): Promise<ReceiptFailureKind> {
+  const kind = mapFailure(response.status);
+  if (response.status !== 400) return kind;
+  try {
+    const refusal = refusalWire.safeParse(await response.json());
+    return refusal.success && refusal.data.error.code === "network_not_configured" ? "network_not_served" : kind;
+  } catch {
+    return kind;
+  }
 }
 
 export interface FetchReceiptOptions {
@@ -90,7 +110,7 @@ export async function fetchReceipt(
       throw new ReceiptFetchError("unreachable");
     }
 
-    if (!response.ok) throw new ReceiptFetchError(mapFailure(response.status), response.status);
+    if (!response.ok) throw new ReceiptFetchError(await refusalKind(response), response.status);
 
     let body: unknown;
     try {

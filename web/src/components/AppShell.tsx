@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation, useMatch } from "react-router";
 
+import { demoCase } from "@/api/demo";
+import { parseReceiptLink } from "@/api/receipt-query";
 import { Footer } from "@/components/Footer";
 import { Toaster } from "@/components/Toaster";
 import { TopBar } from "@/components/TopBar";
@@ -42,10 +44,25 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
   );
 }
 
-/** Routes that are safe to serve publicly (receipt, privacy, not found). */
+/** The network a receipt page's own address names, so the header says what the page is about.
+ * Nothing on any other page, on a sample (it asks no verifier) or on a link the page cannot
+ * read: those keep the build's network, as the receipt page itself does. */
+function useReceiptLinkNetwork(): ZecNetwork | undefined {
+  const route = useMatch("/r/:id");
+  const { search } = useLocation();
+  if (route === null) return undefined;
+  const params = new URLSearchParams(search);
+  if (demoCase(route.params.id, params) !== null) return undefined;
+  const link = parseReceiptLink(params);
+  return link.ok ? link.query.network : undefined;
+}
+
+/** Routes that are safe to serve publicly (receipt, privacy, not found). A mainnet receipt is
+ * headed "Zcash mainnet" whatever network the page was built for. */
 export function PublicLayout() {
+  const network = useReceiptLinkNetwork();
   return (
-    <Shell showOperatorNav={false}>
+    <Shell showOperatorNav={false} {...(network ? { network } : {})}>
       <Outlet />
     </Shell>
   );

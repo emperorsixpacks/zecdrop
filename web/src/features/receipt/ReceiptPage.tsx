@@ -9,7 +9,7 @@ import type { PublicReceipt } from "@/api/types";
 import { PageHeader } from "@/components/PageHeader";
 import { UnitProvider } from "@/components/UnitProvider";
 import { Button } from "@/components/ui/button";
-import { config } from "@/lib/config";
+import { config, type ZecNetwork } from "@/lib/config";
 import { isTerminalPhase } from "@/lib/phase";
 
 import { checkReceipt } from "./checks";
@@ -17,6 +17,7 @@ import {
   BadLinkNotice,
   InvalidResponseNotice,
   MismatchNotice,
+  NetworkNotServedNotice,
   NotFoundNotice,
   ReceiptLoading,
   RejectedNotice,
@@ -65,6 +66,7 @@ export default function ReceiptPage() {
         ) : result.isError ? (
           <FailureNotice
             error={result.error}
+            network={network}
             onRetry={() => void result.refetch()}
             retrying={result.isFetching}
           />
@@ -85,10 +87,13 @@ export default function ReceiptPage() {
 
 function FailureNotice({
   error,
+  network,
   onRetry,
   retrying,
 }: {
   error: unknown;
+  /** The network the link asked about. */
+  network: ZecNetwork;
   onRetry: () => void;
   retrying: boolean;
 }) {
@@ -100,6 +105,8 @@ function FailureNotice({
       return <NotFoundNotice />;
     case "rejected":
       return <RejectedNotice />;
+    case "network_not_served":
+      return <NetworkNotServedNotice network={network} />;
     case "invalid_response":
       return <InvalidResponseNotice />;
   }

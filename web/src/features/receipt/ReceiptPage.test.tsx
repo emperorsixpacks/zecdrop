@@ -958,6 +958,53 @@ describe("failure states are calm, specific and actionable", () => {
     expect(await screen.findByText("The verifier couldn't read this link")).toBeInTheDocument();
   });
 
+  it("a malformed request is still called malformed when the verifier gives another reason", async () => {
+    verifierSays(400, { error: { code: "invalid_parameter", message: "parameter `commitment` is not valid" } });
+    renderAt(GOOD_LINK);
+    expect(await screen.findByText("The verifier couldn't read this link")).toBeInTheDocument();
+    expect(screen.getByText(/refused as malformed/u)).toBeInTheDocument();
+    expect(screen.queryByText("This verifier does not serve that network")).toBeNull();
+  });
+
+  // covers: REQ-VER-005
+  describe("a verifier that does not serve the link's network", () => {
+    const answer = { error: { code: "network_not_configured", message: "this verifier is not configured for that network" } };
+    const mainnetLink = GOOD_LINK.replace("network=testnet", "network=mainnet");
+
+    it("says so plainly, names the network of the link, and does not call the link malformed", async () => {
+      verifierSays(400, answer);
+      renderAt(mainnetLink);
+      const alert = (await screen.findByText("This verifier does not serve that network")).closest("[role='alert']") as HTMLElement;
+      expect(alert).toHaveTextContent("The link is for mainnet, and this verifier is not set up to read that chain.");
+      expect(alert).toHaveTextContent("That says nothing about the campaign itself.");
+      expect(alert).toHaveTextContent("Ask whoever sent the link which verifier to use for it.");
+      expect(within(alert).getByRole("link", { name: "See a sample receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
+      expect(screen.queryByText("The verifier couldn't read this link")).toBeNull();
+      expect(document.body.textContent).not.toMatch(/malformed/u);
+    });
+
+    it("names testnet for a testnet link", async () => {
+      verifierSays(400, answer);
+      renderAt(GOOD_LINK);
+      expect(await screen.findByText(/The link is for testnet, and this verifier is not set up/u)).toBeInTheDocument();
+    });
+
+    it("asks once and offers no retry, because asking again will not change it", async () => {
+      const fetchMock = verifierSays(400, answer);
+      renderAt(mainnetLink);
+      await screen.findByText("This verifier does not serve that network");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    });
+
+    it("shows neither the verifier's code nor its words", async () => {
+      verifierSays(400, answer);
+      renderAt(mainnetLink);
+      await screen.findByText("This verifier does not serve that network");
+      expect(document.body.textContent).not.toMatch(/network_not_configured|is not configured for that network/u);
+    });
+  });
+
   it.each([
     ["no parameters at all", "/r/camp-01", /does not say which network/u],
     [

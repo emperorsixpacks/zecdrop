@@ -29,7 +29,8 @@ curl https://<your-name>/v1/health      # {"ok":true}
 
 Send the owner `https://<your-name>` (no trailing slash). They rebuild the site with
 `VITE_API_URL=https://<your-name>` and redeploy it, because the site's content-security policy names the verifier's origin.
-Then run `node web/scripts/check-hosted.mjs --site https://zecdrop-site.vercel.app --verifier https://<your-name>`.
+Then, from the repository's `web/` folder, run `node scripts/check-hosted.mjs --site https://zecdrop-site.vercel.app --verifier https://<your-name>`
+(add `--mainnet-tx <any mainnet txid>` once mainnet is turned on below).
 
 ## Serving mainnet receipts too
 

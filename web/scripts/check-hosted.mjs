@@ -1,7 +1,7 @@
 // Checks a deployed public copy of the app, and the verifier it talks to. Run it
 // after deploying; it changes nothing and needs no keys.
 //
-//   node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier>
+//   node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier> [--mainnet-tx <txid>]
 //
 // It prints one line per check and exits 1 if any failed. What it checks:
 //   - the page and the client routes answer 200 with HTML (the rewrites work)
@@ -10,6 +10,9 @@
 //   - a built asset is cached as immutable
 //   - the verifier answers /v1/health, and answers the real 8-output batch's receipt
 //     to this site's origin (CORS), as settled, with no findings and the funding address
+//   - with --mainnet-tx, that the verifier serves mainnet: it answers a receipt request for
+//     that mainnet transaction with a receipt. Any mainnet transaction id will do; the declared
+//     total and the commitment sent are placeholders, so what the receipt finds is not looked at.
 //
 // The receipt request is built from the real sample's fixture (its txid, its
 // commitment and its declared total), the same values as the shareable link.
@@ -21,8 +24,13 @@ const args = process.argv.slice(2);
 const option = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const site = option("--site")?.replace(/\/+$/u, "");
 const verifier = option("--verifier")?.replace(/\/+$/u, "");
+const mainnetTx = option("--mainnet-tx");
 if (!site || !verifier) {
-  console.error("usage: node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier>");
+  console.error("usage: node scripts/check-hosted.mjs --site https://<site> --verifier https://<verifier> [--mainnet-tx <txid>]");
+  process.exit(2);
+}
+if (args.includes("--mainnet-tx") && !/^[0-9a-f]{64}$/u.test(mainnetTx ?? "")) {
+  console.error("--mainnet-tx needs a transaction id: 64 lowercase hex characters");
   process.exit(2);
 }
 
@@ -87,6 +95,29 @@ if (body !== null) {
   report(Array.isArray(body.findings) && body.findings.length === 0, "the receipt has no findings", JSON.stringify(body.findings));
   report(typeof body.funding_address === "string" && body.funding_address === sample.funding_address, "the receipt carries the funding address", String(body.funding_address));
   report(body.batches?.[0]?.txid === txid, "the receipt is for the batch asked about");
+}
+
+// ---- mainnet, when asked ----------------------------------------------------------
+if (mainnetTx !== undefined) {
+  const what = "the verifier serves mainnet";
+  const probe = new URLSearchParams({ network: "mainnet" });
+  probe.append("tx", mainnetTx);
+  probe.set("declared_total", "1");
+  probe.set("commitment", "0".repeat(64));
+  try {
+    const response = await get(`${verifier}/v1/receipt?${probe.toString()}`, { Origin: siteOrigin, Accept: "application/json" });
+    const answer = await response.json().catch(() => null);
+    const code = typeof answer?.error?.code === "string" ? answer.error.code : undefined;
+    if (response.status === 200 && answer?.phase !== undefined && answer.phase !== null) {
+      report(true, what, `HTTP 200, phase ${String(answer.phase.phase ?? answer.phase)}`);
+    } else if (response.status === 400 && code === "network_not_configured") {
+      report(false, what, `verifier is not serving mainnet (HTTP 400 ${code})`);
+    } else {
+      report(false, what, `HTTP ${String(response.status)}${code === undefined ? "" : ` ${code}`}${response.status === 200 ? ", the answer has no phase" : ""}`);
+    }
+  } catch (error) {
+    report(false, what, `no answer (${error instanceof Error ? error.message : String(error)})`);
+  }
 }
 
 console.log(`\nshareable link: ${site}/r/real-8?${query.toString()}`);

@@ -23,7 +23,7 @@ import { lensRowsFrom } from "@/features/wizard/list";
 import { previewPayouts } from "@/lib/csv-preview";
 import { CAMPAIGN_PHASES, phaseLabel, phaseProgress, phaseSentence, type PhaseState } from "@/lib/phase";
 import { installFakeOperator, replyWith, replyWithStream, type RouteHandler } from "@/test/fake-operator";
-import { CSV, fixtureJson, INDEX } from "@/test/operator-fixtures";
+import { CSV, fixtureJson, goldenJson, INDEX } from "@/test/operator-fixtures";
 import { BANNED } from "@/test/banned-phrases";
 import { readEverything } from "@/test/read-everything";
 import { renderApp } from "@/test/render-app";
@@ -76,6 +76,31 @@ describe.each(PAGES)("%s", (_name, path) => {
   });
 });
 
+// What the receipt page says when the verifier gives no receipt, one sentence per kind of refusal.
+describe.each([
+  ["a verifier that does not serve the link's network", 400, { error: { code: "network_not_configured", message: "x" } }, "This verifier does not serve that network"],
+  ["a request the verifier refused as malformed", 400, { error: { code: "invalid_parameter", message: "x" } }, "The verifier couldn't read this link"],
+  ["transactions the verifier has no record of", 404, {}, "The verifier has no record of these transactions"],
+] as const)("the receipt page with %s", (_name, status, body, title) => {
+  it("makes none of the claims the public cannot back up", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status }))));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[`/r/x?network=mainnet&tx=${"a".repeat(64)}&commitment=${"e".repeat(64)}&declared_total=1`]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("heading", { name: title });
+    const text = await readEverything();
+    expect(text.length).toBeGreaterThan(40);
+    for (const [label, pattern] of BANNED) {
+      expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+});
+
 // The operator pages as a signed-in person sees them, with real captured responses.
 const OPERATOR_PAGES: [name: string, path: string, campaign: string, settle: () => Promise<unknown>][] = [
   ["the payouts list", "/campaigns", "campaign-settled.json", () => screen.findByRole("list", { name: "Payouts" })],
@@ -120,6 +145,24 @@ describe.each(OPERATOR_PAGES)("operator: %s", (_name, path, campaign, settle) =>
   });
 });
 
+describe("operator: a funded mainnet campaign", () => {
+  it("reads, with its sheet open, none of the claims the public cannot back up", async () => {
+    installFakeOperator({
+      "GET /api/health": () => ({ body: { ...(goldenJson("health-real.json") as object), network: "mainnet" } }),
+      "GET /api/campaigns/:id": () => ({ body: { ...(goldenJson("campaign-real-funded.json") as object), network: "mainnet" } }),
+      "GET /api/campaigns/:id/events": () => replyWithStream("events-settled.sse.txt"),
+    });
+    renderApp("/campaign/c-000000000001", { signedIn: true });
+    await screen.findByRole("button", { name: "Send 3 payouts" });
+
+    const text = await readEverything();
+    expect(text).toContain("This sends real ZEC and cannot be undone");
+    for (const [label, pattern] of BANNED) {
+      expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+});
+
 describe("the operator's wording", () => {
   const read = (words: string) => {
     for (const [label, pattern] of BANNED) expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
@@ -130,6 +173,16 @@ describe("the operator's wording", () => {
       const explained = explainFailure(new OperatorApiError("api", entry.status, parseOperatorError(fixtureJson(entry.file))));
       read(`${explained.title} ${explained.detail}`);
     }
+  });
+
+  it("the sentence for a mainnet campaign over the operator's limit", () => {
+    const over = new OperatorApiError("api", 422, {
+      code: "mainnet_cap_exceeded",
+      message:
+        "this operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC; raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to",
+    });
+    const explained = explainFailure(over, "ZEC");
+    read(`${explained.title} ${explained.detail}`);
   });
 
   it("every run state", () => {

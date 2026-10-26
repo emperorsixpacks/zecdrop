@@ -389,6 +389,30 @@ describe("Stage 1: Payouts", () => {
     expect(useWizardDraft.getState().csvText).toBe(VALID_CSV);
   });
 
+  // covers: REQ-OPS-003
+  it("says in words when a mainnet campaign is over the operator's limit, and keeps the list to fix", async () => {
+    const said =
+      "this operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC; raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to";
+    operator = installFakeOperator({
+      "GET /api/health": mockHealth,
+      "POST /api/campaigns": () => ({ status: 422, body: { error: { code: "mainnet_cap_exceeded", message: said } } }),
+    });
+    const user = userEvent.setup();
+    renderApp("/new", { signedIn: true });
+    await pasteList(user, VALID_CSV);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const alert = (await screen.findByRole("heading", { name: "That campaign is over the mainnet limit" })).closest("[role='alert']") as HTMLElement;
+    expect(alert).toHaveTextContent("This operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC;");
+    expect(alert).toHaveTextContent("To get under the cap, shorten the list or lower the amounts.");
+    expect(alert.textContent).not.toContain("mainnet_cap_exceeded");
+    // Nothing was created, the list is still there to fix, and the same button tries again.
+    expect(useWizardDraft.getState().created).toBeNull();
+    expect(useWizardDraft.getState().csvText).toBe(VALID_CSV);
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expectNoSentinels(outsideTheList(), "after the cap refusal");
+  });
+
   it("on a real chain, says one batch per campaign", async () => {
     installFakeOperator({ "GET /api/health": realHealth, "POST /api/campaigns": created });
     const user = userEvent.setup();

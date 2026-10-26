@@ -21,8 +21,8 @@ Tick only after the work is verified (tests run, behaviour probed). Evidence goe
 - [x] V2 `MAINNET_ENDPOINT` reaches the container command; compose and VPS README updated — verified: the command line, compose and README; the rollout on the VPS is the teammate's step (not yet done)
 
 ## web
-- [ ] W1 Header names the receipt's network; mainnet Start needs an explicit tick; texts for `mainnet_cap_exceeded` and `network_not_configured`
-- [ ] W2 Hosted e2e: a mainnet receipt renders ZEC and mainnet explorer links
+- [x] W1 Header names the receipt's network; mainnet Send needs an explicit tick; texts for `mainnet_cap_exceeded` and `network_not_configured` — verified: unit tests (header on mainnet and testnet links, samples and other pages unchanged; the tick gates the sheet's button on either the campaign's or the operator's network and resets on each opening; the cap text in the wizard; the not-served notice only for that code, other 400s keep the old text), and the tests fail when each piece is switched off
+- [x] W2 Hosted e2e: a mainnet receipt renders ZEC and mainnet explorer links — verified: Playwright hosted project against the stub verifier (ZEC, loud mainnet header, mainnet explorer links for the transaction and the `t1…` funding address, no testnet link, no CSP violation); `check-hosted.mjs --mainnet-tx` against the stub (ok, not serving mainnet, 503, 502, no phase, bad id)
 
 ## live
 - [ ] L1 No-money preflight on mainnet (operator starts, preflight passes, campaign created from real wallet addresses)

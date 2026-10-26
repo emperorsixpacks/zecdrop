@@ -82,8 +82,9 @@ Wait for 3 confirmations (about 4 minutes at 75 seconds a block). The page chang
 
 ## 5. Send and watch
 
-Tick the confirmation and press Start. Proving takes 10 to 20 seconds; then the batch is built, checked, broadcast and confirmed;
-it settles at depth 3. Do not close the operator between Start and "broadcast". A transaction that was built but not sent expires
+Press **Send N payouts**. A sheet asks once; on mainnet its button stays disabled until you tick "This sends real ZEC and
+cannot be undone", then press the same button. Proving takes 10 to 20 seconds; then the batch is built, checked, broadcast and
+confirmed; it settles at depth 3. Do not close the operator between sending and "broadcast". A transaction that was built but not sent expires
 after about 50 minutes, and a stopped campaign does not rebuild it (a restart re-sends the stored bytes).
 
 ## 6. Check it three ways

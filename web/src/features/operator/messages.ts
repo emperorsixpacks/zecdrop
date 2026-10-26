@@ -114,6 +114,15 @@ function explainApi(error: OperatorApiError, unit: CoinUnit): Explained {
       };
     case "amount_too_large":
       return { title: "An amount is too large", detail: "The totals would exceed the most Zcash that can exist. Check the amounts." };
+    case "mainnet_cap_exceeded": {
+      // The operator words its own limit and what this campaign needs, figures the page cannot know, and says how
+      // to raise the cap; its words are the first sentence. The page adds the other way out.
+      const said = api.message.trim().replace(/\.+$/u, "") || "this operator caps how much one mainnet campaign may hold";
+      return {
+        title: "That campaign is over the mainnet limit",
+        detail: `${said.charAt(0).toUpperCase()}${said.slice(1)}. To get under the cap, shorten the list or lower the amounts.`,
+      };
+    }
     case "csv_too_large":
     case "body_too_large":
       return { title: "The file is too large", detail: "The operator accepts files up to 32 MB." };
