@@ -20,6 +20,7 @@ const PAGES: [name: string, path: string, h1: string][] = [
   ["the real testnet sample receipt", "/r/demo?demo=real", "Payout receipt"],
   ["the first real testnet batch", "/r/demo?demo=real-smoke", "Payout receipt"],
   ["the sample receipt", "/r/demo?demo=1", "Payout receipt"],
+  ["the get-paid page", "/get-paid", "Get paid in ZEC"],
   ["the payslip page", "/payslip", "Check a payslip"],
   ["the privacy page", "/privacy", "How privacy works"],
 ];

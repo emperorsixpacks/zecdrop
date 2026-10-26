@@ -26,6 +26,7 @@ const OPERATOR_LINKS: readonly NavItem[] = [
 const PUBLIC_LINKS: readonly NavItem[] = [
   { to: "/", label: "Home", end: true },
   { to: SAMPLE_RECEIPT_HREF, label: "Sample receipt" },
+  { to: "/get-paid", label: "Get paid" },
   { to: "/payslip", label: "Check a payslip" },
   { to: "/privacy", label: "How privacy works" },
 ];

@@ -15,6 +15,7 @@ export const PAGES: readonly PageUnderTest[] = [
   { name: "real testnet sample receipt", path: "/r/demo?demo=real", h1: "Payout receipt", ready: "Status" },
   { name: "first real testnet batch", path: "/r/demo?demo=real-smoke", h1: "Payout receipt", ready: "Status" },
   { name: "sample receipt", path: "/r/demo?demo=1", h1: "Payout receipt", ready: "Status" },
+  { name: "get paid", path: "/get-paid", h1: "Get paid in ZEC" },
   { name: "check a payslip", path: "/payslip", h1: "Check a payslip" },
   { name: "how privacy works", path: "/privacy", h1: "How privacy works" },
   { name: "incomplete receipt link", path: "/r/not-a-real-link", h1: "Payout receipt", ready: "This receipt link is incomplete" },

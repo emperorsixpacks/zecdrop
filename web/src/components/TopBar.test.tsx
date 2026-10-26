@@ -21,11 +21,11 @@ afterEach(() => {
 });
 
 describe("the public header", () => {
-  it("is the name, the four links, the network, the theme and the appearance panel", () => {
+  it("is the name, the five links, the network, the theme and the appearance panel", () => {
     show({ showOperatorNav: false });
     expect(screen.getByRole("link", { name: "ZecDrop" })).toHaveAttribute("href", "/");
     const nav = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Sample receipt", "Check a payslip", "How privacy works"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Sample receipt", "Get paid", "Check a payslip", "How privacy works"]);
     expect(screen.getByText("Zcash testnet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Switch to (dark|light) theme$/u })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Appearance" })).toBeInTheDocument();
@@ -36,7 +36,7 @@ describe("the public header", () => {
     show({ showOperatorNav: false });
     await user.click(screen.getByRole("button", { name: "Menu" }));
     const menu = await screen.findByRole("navigation", { name: "Menu" });
-    expect(within(menu).getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Sample receipt", "Check a payslip", "How privacy works"]);
+    expect(within(menu).getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Sample receipt", "Get paid", "Check a payslip", "How privacy works"]);
     await user.click(within(menu).getByRole("link", { name: "How privacy works" }));
     expect(screen.queryByRole("navigation", { name: "Menu" })).toBeNull();
   });

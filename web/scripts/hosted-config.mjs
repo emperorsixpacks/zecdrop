@@ -55,7 +55,7 @@ export function contentSecurityPolicy(apiUrl) {
 }
 
 /** The routes the app handles in the browser; the host must answer them all with index.html. */
-export const CLIENT_ROUTES = ["/r/:path*", "/privacy", "/payslip", "/campaigns", "/new/:path*", "/campaign/:path*", "/audit"];
+export const CLIENT_ROUTES = ["/r/:path*", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new/:path*", "/campaign/:path*", "/audit"];
 
 export function buildHostedConfig({ apiUrl }) {
   return {

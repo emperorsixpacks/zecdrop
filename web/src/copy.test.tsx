@@ -22,7 +22,9 @@ import { parsePayslipAnswer, PAYSLIP_INVALID_REASONS, PAYSLIP_NOT_PROVEN } from 
 import { PAYSLIP_PROBLEM_TEXT } from "@/api/payslip-input";
 import { SAMPLE_PAYSLIP_TEXT, samplePayslip } from "@/api/payslip-sample";
 import { TOUR_SHOTS } from "@/features/home/tour-steps";
+import { classifyAddress } from "@/lib/address-shape";
 import { describeEvent, describeRun, explainFailure } from "@/features/operator/messages";
+import { BUTTONS_HINT, describeShape, FEEDBACK_TEXT, PROMISE, SHAPE_NOTE, shareText, WHY_TEXT } from "@/features/get-paid/wording";
 import { FAILURE_TEXT, INVALID_TEXT, wording } from "@/features/payslip/wording";
 import { useWizardDraft } from "@/features/wizard/draft";
 import { lensRowsFrom } from "@/features/wizard/list";
@@ -40,6 +42,7 @@ const PAGES: [name: string, path: string][] = [
   ["the home page", "/"],
   ["the privacy page", "/privacy"],
   ["the payslip page", "/payslip"],
+  ["the get-paid page", "/get-paid"],
   ["the real testnet sample receipt", "/r/demo?demo=real"],
   ["the first real testnet batch", "/r/demo?demo=real-smoke"],
   ["the sample receipt", "/r/demo?demo=1"],
@@ -194,6 +197,57 @@ describe("the payslip page, after a check", () => {
       }
     }
     for (const sentence of Object.values(PAYSLIP_PROBLEM_TEXT)) read(sentence);
+  });
+});
+
+// What the get-paid page says about each address a person can paste, and what it says after Share or Copy.
+describe("the get-paid page, after an address is pasted", () => {
+  const BECH32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  const addresses: [name: string, text: string][] = [
+    ["a real-money unified address", `u1${BECH32.repeat(4).slice(0, 104)}`],
+    ["a practice testnet address", `utest1${BECH32.repeat(4).slice(0, 104)}`],
+    ["a transparent address", "t1cFrgk2qsbNHgNSmV8DNauWTCe6EKRLW9L"],
+    ["a Sapling address", `zs1${BECH32.repeat(3).slice(0, 75)}`],
+    ["something that is not an address", "hello there"],
+    ["an address that is too short", "u1qpz"],
+    ["an address in mixed case", `U1${BECH32.repeat(4).slice(0, 104)}`],
+  ];
+
+  it.each(addresses)("%s: makes none of the claims the public cannot back up", async (_name, text) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/get-paid"]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.change(await screen.findByLabelText("Your address"), { target: { value: text } });
+    await screen.findByTestId("shape");
+
+    const words = await readEverything();
+    expect(words.length).toBeGreaterThan(200);
+    for (const [label, pattern] of BANNED) {
+      expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+
+  const read = (words: string) => {
+    for (const [label, pattern] of BANNED) expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
+  };
+
+  it("every sentence it can say about an address", () => {
+    for (const [, text] of addresses) {
+      const said = describeShape(classifyAddress(text));
+      if (said !== null) read(`${said.title} ${said.text}`);
+    }
+    for (const sentence of Object.values(WHY_TEXT)) read(sentence);
+    read(`${PROMISE} ${SHAPE_NOTE} ${BUTTONS_HINT}`);
+  });
+
+  it("every sentence it can say after Share or Copy, and what it shares", () => {
+    for (const sentence of Object.values(FEEDBACK_TEXT)) read(sentence);
+    read(shareText("u1".padEnd(106, "q")));
   });
 });
 

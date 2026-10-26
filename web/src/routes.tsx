@@ -5,6 +5,7 @@ import { NotFoundPage } from "@/components/NotFoundPage";
 import AuditPage from "@/features/audit/AuditPage";
 import CampaignPage from "@/features/campaign/CampaignPage";
 import CampaignsPage from "@/features/campaigns/CampaignsPage";
+import GetPaidPage from "@/features/get-paid/GetPaidPage";
 import HomePage from "@/features/home/HomePage";
 import { OperatorArea } from "@/features/operator/OperatorArea";
 import PayslipPage from "@/features/payslip/PayslipPage";
@@ -35,6 +36,7 @@ export function AppRoutes() {
       <Route element={<PublicLayout />}>
         <Route index element={<HomePage />} />
         <Route path="r/:id" element={<ReceiptPage />} />
+        <Route path="get-paid" element={<GetPaidPage />} />
         <Route path="payslip" element={<PayslipPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />

@@ -3,7 +3,7 @@
 Tick only after the work is verified (tests run, behaviour probed). Evidence goes after "— verified:".
 
 ## web: the get-paid page
-- [ ] G1 `/get-paid`: wallet, address, shape check, share; no request and no storage (REQ-ONB-001)
+- [x] G1 `/get-paid`: wallet, address, shape check, share; no request and no storage (REQ-ONB-001) — verified: unit tests spy on fetch, XMLHttpRequest, sendBeacon, WebSocket, Image, window.open, storage, cookies, history and the console while an address of every shape is pasted and shared; the e2e counts the requests the loaded page makes (none) under the hosted CSP; the classifier is tested at every edge length, in odd characters and with fuzzed input; phone width, both themes, axe clean
 
 ## web: scan to fund, share proof
 - [ ] Q1 A QR code for the funding request beside the funding address (REQ-FUND-003)

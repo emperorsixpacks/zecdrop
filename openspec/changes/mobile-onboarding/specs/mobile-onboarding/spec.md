@@ -1,7 +1,7 @@
 # mobile-onboarding
 
 ### REQ-ONB-001 — The get-paid page keeps the recipient's address on the recipient's device
-Status: planned
+Status: implemented
 The "get paid" page SHALL check the shape of a pasted address and offer to share it entirely in the browser: it SHALL make no
 request to any server, SHALL store nothing (no cookie, no local or session storage), SHALL say that its check is of shape only
 and not a guarantee that the address is valid, and SHALL tell a person that a transparent address does not suit payouts. A

@@ -129,6 +129,14 @@ the transaction with its explorer link, the action, the confirmations). It is in
 "What this does not prove" is always the last block, whatever happened above it. A check that gets no answer is a calm
 notice, never the bad colour: it says nothing about the payslip.
 
+**Get paid.** For a recipient on a phone, so one column and thumb-sized controls (nothing under 44px) from 360px up. A promise
+in one paragraph in larger type, then four numbered steps with a plain title each (Get a wallet, Copy your address, Give it to
+whoever is paying you, When you are paid); the number is a small ink square (the marker in the dark set), drawn and not read, level
+with the top of its title. Step 3 is the one sheet: the box, a line that says the check is of shape only, the result as a ruled note
+(the ink rule for a real-money address, the marker's rule for a practice, Sapling or unrecognised one, the bad colour for the one
+that would publish every payment), Share and Copy, and the line that says when they turn on. Share is the main button where the
+phone has a share sheet, Copy where it has none. There is no picture, no third-party font and no link out but the wallet's.
+
 ## No wallet to connect
 
 ZecDrop has no "connect wallet" button on purpose: the operator on the person's own computer holds the keys (ADR 0002), and the
@@ -189,6 +197,7 @@ lens wipe and the stamp are real animations moved to stated fractions (`seek-*`)
 ## Header
 
 One line on a phone (name, a Menu button or the two operator links, the settings); the state of the chain on a quiet line of
-its own under it; the one button ("New payout") in the first line on a wide screen. The public menu has four links (Home, Sample
-receipt, Check a payslip, How privacy works), which need about 57rem to sit on one row, so it is the Menu button below the large
-breakpoint (1024px) and inline from there: the header is one row at every width.
+its own under it; the one button ("New payout") in the first line on a wide screen. The public menu has five links (Home, Sample
+receipt, Get paid, Check a payslip, How privacy works); four of them needed about 57rem to sit on one row, so it is the Menu button below the large
+breakpoint (1024px) and inline from there: the header is one row at every width. With a fifth link (Get paid) the inline menu
+still fits at 1024px, with about 75px to spare.

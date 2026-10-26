@@ -90,7 +90,7 @@ describe("buildHostedConfig", () => {
   it("answers every client route with index.html", () => {
     expect(config.rewrites.map((r) => r.source)).toEqual([...CLIENT_ROUTES]);
     for (const rewrite of config.rewrites) expect(rewrite.destination).toBe("/index.html");
-    for (const path of ["/r/c-1", "/r/demo", "/privacy", "/payslip", "/campaigns", "/new", "/new/basics", "/campaign/c-1", "/audit"]) {
+    for (const path of ["/r/c-1", "/r/demo", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new", "/new/basics", "/campaign/c-1", "/audit"]) {
       expect(
         config.rewrites.some((r) => matchSource(r.source, path)),
         path,

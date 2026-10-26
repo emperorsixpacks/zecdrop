@@ -31,6 +31,7 @@ const PUBLIC_HEADINGS: [path: string, heading: string][] = [
   ["/r/demo?demo=1", "Payout receipt"],
   ["/r/demo?demo=real", "Payout receipt"],
   ["/r/demo?demo=real-smoke", "Payout receipt"],
+  ["/get-paid", "Get paid in ZEC"],
   ["/payslip", "Check a payslip"],
   ["/privacy", "How privacy works"],
 ];
@@ -140,7 +141,7 @@ describe("layouts", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
   });
 
-  it.each(["/", "/r/abc123", "/r/demo?demo=1", "/payslip", "/privacy", "/nope"])(
+  it.each(["/", "/r/abc123", "/r/demo?demo=1", "/get-paid", "/payslip", "/privacy", "/nope"])(
     "shows only the public menu on %s",
     (path) => {
       renderAt(path);
@@ -149,6 +150,7 @@ describe("layouts", () => {
         "href",
         SAMPLE_RECEIPT_HREF,
       );
+      expect(within(nav).getByRole("link", { name: "Get paid" })).toHaveAttribute("href", "/get-paid");
       expect(within(nav).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
       expect(within(nav).getByRole("link", { name: "How privacy works" })).toHaveAttribute("href", "/privacy");
       expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");

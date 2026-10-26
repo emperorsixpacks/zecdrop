@@ -97,7 +97,7 @@ test("a built asset is cached as immutable, and client routes are rewritten to t
   expect(file.status()).toBe(200);
   expect(file.headers()["cache-control"]).toBe("public, max-age=31536000, immutable");
 
-  for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/campaigns", "/new/check", "/campaign/c-1", "/audit", "/r/anything/else"]) {
+  for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new/check", "/campaign/c-1", "/audit", "/r/anything/else"]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(200);
     expect(await response.text(), path).toContain('<div id="root">');
@@ -128,6 +128,7 @@ test.describe("the policy breaks nothing", () => {
     ["the findings sample", "/r/demo?demo=findings", /Payout receipt/u],
     ["the privacy page", "/privacy", /How privacy works/u],
     ["the payslip page", "/payslip", /Check a payslip/u],
+    ["the get-paid page", "/get-paid", /Get paid in ZEC/u],
   ];
 
   for (const [name, path, heading] of PAGES) {
@@ -370,6 +371,63 @@ test.describe("the payslip page on a public copy", () => {
         await page.getByRole("button", { name: "Load a sample" }).click();
         await page.getByRole("button", { name: "Check payslip" }).click();
         await expect(page.getByRole("heading", { level: 2, name: "Verified", exact: true })).toBeVisible();
+        const overflow = await overflowReport(page);
+        expect(overflow.wide).toEqual([]);
+        expect(overflow.page).toBeLessThanOrEqual(0);
+        expect(await axeViolations(page)).toEqual([]);
+      });
+    }
+  }
+});
+
+test.describe("the get-paid page on a public copy", () => {
+  // A unified address of the right shape (it is not anyone's), and a share sheet that takes whatever it is given.
+  const ADDRESS = `u1${"qpzry9x8gf2tvdw0s3jn54khce6mua7l".repeat(4).slice(0, 104)}`;
+
+  test("loads under the policy, takes an address, shares and copies it, and asks no one for anything", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const seen = await watch(page);
+    const requests: string[] = [];
+    page.on("request", (request) => requests.push(request.url()));
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "share", { configurable: true, value: () => Promise.resolve() });
+    });
+    await page.goto("/get-paid");
+    await expect(page.getByRole("heading", { level: 1, name: "Get paid in ZEC" })).toBeVisible();
+    // A font is fetched the first time a letter of it is drawn, so draw the box's once before counting.
+    await page.getByLabel("Your address").fill(ADDRESS);
+    await page.getByLabel("Your address").fill("");
+    await page.waitForLoadState("networkidle");
+    const loaded = requests.length;
+
+    await page.getByLabel("Your address").fill(ADDRESS);
+    await expect(page.getByTestId("shape")).toHaveAttribute("data-kind", "mainnet_unified");
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    await page.getByRole("button", { name: "Copy", exact: true }).click();
+    await expect(page.getByTestId("share-feedback")).toHaveText("Address copied.");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(ADDRESS);
+    await page.waitForLoadState("networkidle");
+
+    // Every request was to the page's own origin, none after it had loaded, and none to the verifier.
+    expect(requests.filter((url) => !url.startsWith(SITE) && !url.startsWith("data:"))).toEqual([]);
+    expect(requests.slice(loaded)).toEqual([]);
+    expect(requests.filter((url) => url.startsWith(STUB))).toEqual([]);
+    expect(requests.join(" ")).not.toContain(ADDRESS);
+    expect(page.url()).toBe(`${SITE}/get-paid`);
+    expect(await dumpBrowserState(page)).not.toContain(ADDRESS);
+
+    expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
+    expect(seen.problems()).toEqual([]);
+  });
+
+  for (const viewport of VIEWPORTS) {
+    for (const theme of THEMES) {
+      test(`fits the screen and has no accessibility violation, with an address pasted (${viewport.name}, ${theme} theme)`, async ({ page }) => {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await useTheme(page, theme);
+        await page.goto("/get-paid");
+        await page.getByLabel("Your address").fill(ADDRESS);
+        await expect(page.getByTestId("shape")).toHaveAttribute("data-kind", "mainnet_unified");
         const overflow = await overflowReport(page);
         expect(overflow.wide).toEqual([]);
         expect(overflow.page).toBeLessThanOrEqual(0);

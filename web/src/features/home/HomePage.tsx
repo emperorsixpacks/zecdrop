@@ -85,6 +85,11 @@ export default function HomePage() {
                 <Link to="/privacy">How privacy works</Link>
               </Button>
             </div>
+            <p className="text-base">
+              <Link to="/get-paid" className="inline-flex min-h-11 items-center font-medium text-link underline underline-offset-4">
+                Being paid? Start here
+              </Link>
+            </p>
           </div>
 
           {/* The one sheet: a payout list as a document, seen through whichever lens is chosen. */}

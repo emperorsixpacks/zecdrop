@@ -6,7 +6,7 @@ public accountability"). The same bundle serves two roles:
 - **Operator** routes (`/campaigns`, `/new/*`, `/campaign/:id`, `/audit`),
   served by the local operator binary that holds the spend keys. They need the
   operator's bearer token (below).
-- **Public** routes (`/`, `/r/:id`, `/payslip`, `/privacy`), safe to serve from the separate,
+- **Public** routes (`/`, `/r/:id`, `/get-paid`, `/payslip`, `/privacy`), safe to serve from the separate,
   key-less hosted verifier.
 
 There is no wallet-connect and no EVM code in this app.
@@ -116,10 +116,30 @@ is empty again when the person leaves. "Load a sample" is payslip 3 of the real 
 receipt shows, bundled from `../fixtures/testnet-ironwood-batch-8/`); "Load a changed copy" is the same with the amount one
 zatoshi higher, so a visitor can watch the check fail.
 
+## The get-paid page
+
+`/get-paid` ("Get paid in ZEC") is for someone who is going to be paid by a ZecDrop payout, on a phone, and may never have used
+Zcash. It is static: it says what a shielded wallet is, names Zodl as the example (the one wallet whose release notes have been
+read; the only link out is `https://zodl.com`, in a new tab, and no app-store link is made up), says which address to copy
+(`u1…`, real money; `utest1…` is practice; `t1…`/`t3…` are transparent and do not suit payouts; `zs1…` is an older Sapling
+address) and what to expect when the payout arrives, with a link to the payslip page. The one thing it does is look at an
+address the person pastes: `src/lib/address-shape.ts` says what it **looks like** from its prefix, its characters and its
+length, and nothing more. It does not decode the address or test its checksum, so the page says in plain words that it checks
+the shape only, not that the address is valid or yours, and that the payer's tool checks it fully. Share (the Web Share API, where
+the phone has one, with one sentence and the address) and Copy turn on only for a `u1` or `utest1` shape; closing the share sheet
+says nothing, and a share that fails falls back to copying.
+
+The page makes **no request to any server**, stores nothing (no cookie, no `localStorage` or `sessionStorage`), writes nothing to
+the console and puts nothing in the address bar: the address lives in the component's state and goes only where the person sends
+it (openspec REQ-ONB-001). `features/get-paid/GetPaidPage.test.tsx` watches `fetch`, `XMLHttpRequest`, `sendBeacon`, storage, the
+cookie, the history and the console while an address is pasted, checked, shared and copied, and scans the source of the page, its
+wording and the address check for each of them; `e2e/get-paid.spec.ts` and the hosted spec count the requests the real page makes
+after it has loaded (none).
+
 ## Hosting a public copy (receipt viewer only)
 
-A public, static copy of the app serves the home page, `/privacy`, the sample receipts, live receipt links and the payslip
-check (answered by a hosted verifier). Nothing is deployed from this repository by itself; the owner does that. The steps are in
+A public, static copy of the app serves the home page, `/privacy`, `/get-paid`, the sample receipts, live receipt links and the
+payslip check (answered by a hosted verifier). Nothing is deployed from this repository by itself; the owner does that. The steps are in
 [`../docs/runbooks/hosted-demo.md`](../docs/runbooks/hosted-demo.md). In short:
 
 ```bash
@@ -192,7 +212,8 @@ batch totals, fees, transaction ids, the manifest commitment and privacy
 warnings only. `features/wizard/draft.test.ts` and `e2e/operator/flow.spec.ts`
 plant sentinel recipients and fail if any of them turns up anywhere.
 
-The payslip page is the one deliberate exception, and it is the person's own: a payslip they paste names their receiver, their
+The get-paid page keeps an address in the box and nowhere else (no request, no storage, no console, no address bar), and says so
+in a test that fails if that changes. The payslip page is the one deliberate exception, and it is the person's own: a payslip they paste names their receiver, their
 amount and a secret, and is sent to the verifier on request, in one POST body (see "The payslip page"). It is shown back only as
 an amount and a short receiver, and kept nowhere. `features/payslip/PayslipPage.test.tsx` and `e2e/payslip.spec.ts` carry a
 payslip through a check and fail if any of it turns up in storage, an address, the console, the query cache or a second request.
@@ -239,12 +260,15 @@ its hook mention storage, navigation, logging or a cache.
     1280px: no console errors, no requests leaving the origin, no sideways
     scrolling, zero axe WCAG 2.2 A/AA violations, tab order and focus. The payslip page is
     checked in every state of its result (the browser answers for the verifier), from the keyboard, and for where the payslip goes.
+    The get-paid page is checked with an address of every shape, with a share sheet that accepts, is closed and refuses, at 360px
+    for thumb-sized controls, and for the requests it makes after it has loaded (none).
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
     rewrites of the `vercel.json` generated for it, against a stub verifier on another origin
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
     live receipt link, that the policy is really in force (a request to any other origin is blocked and reported), that
     the operator pages explain themselves and call nothing, that a payslip is checked against the stub (preflight, one POST of
-    JSON, Verified for the sample, a refusal for the changed copy) with no violation, and that `scripts/check-hosted.mjs` passes.
+    JSON, Verified for the sample, a refusal for the changed copy) with no violation, that the get-paid page takes, shares and
+    copies an address under the policy and asks no one for anything, and that `scripts/check-hosted.mjs` passes.
   - **operator**: `e2e/operator/global-setup.ts` starts the real binary on a
     free loopback port with a temporary store, reads the token from its start-up banner,
     seeds three campaigns, and stops it afterwards. `flow.spec.ts` creates a
@@ -275,6 +299,7 @@ src/
   features/
     home/       "/"             public pitch
     receipt/    "/r/:id"        PUBLIC receipt viewer
+    get-paid/   "/get-paid"     "Get paid in ZEC": how to be paid, the address check, Share and Copy
     payslip/    "/payslip"      "Check a payslip": the paste box, the verdict, what it does not prove
     privacy/    "/privacy"      "Privacy boundary" page
     operator/   the token gate, hooks, wording (messages.ts),
@@ -283,7 +308,7 @@ src/
     wizard/     "/new/..."      three stages (Payouts, Check, Send), the in-memory draft, PrivacyWarnings
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
-  lib/          config, zod-config, zec (money), phase, fees, ids, explorer, theme, utils
+  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), phase, fees, ids, explorer, theme, utils
   test/         fake operator, fixture loader, Rust-source reader, render helper
   index.css     palette (Redacted paper, light and dark), roles, motion, Tailwind map
 tests/          guard tests that run ESLint itself

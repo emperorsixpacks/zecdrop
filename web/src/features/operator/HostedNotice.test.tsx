@@ -53,6 +53,7 @@ describe("the page is served from a hosted name", () => {
       expect(within(nav).queryByRole("link", { name: label })).toBeNull();
     }
     expect(within(nav).getByRole("link", { name: "Sample receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
+    expect(within(nav).getByRole("link", { name: "Get paid" })).toHaveAttribute("href", "/get-paid");
     expect(within(nav).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
     expect(within(nav).getByRole("link", { name: "How privacy works" })).toBeInTheDocument();
   });

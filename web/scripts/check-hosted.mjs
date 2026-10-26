@@ -64,7 +64,7 @@ const home = await get(`${site}/`);
 const html = await home.text();
 report(home.status === 200 && (home.headers.get("content-type") ?? "").includes("text/html"), "the page answers", `${String(home.status)} ${home.headers.get("content-type") ?? ""}`);
 
-for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/campaigns", "/new/basics", "/campaign/c-1", "/audit"]) {
+for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new/basics", "/campaign/c-1", "/audit"]) {
   const response = await get(`${site}${path}`);
   const body = await response.text();
   report(response.status === 200 && body.includes('<div id="root">'), `client route ${path}`, String(response.status));
