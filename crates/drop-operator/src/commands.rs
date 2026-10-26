@@ -36,6 +36,17 @@ pub enum CommandError {
     /// The campaign's keys could not be derived.
     #[error("the campaign's keys could not be derived")]
     Keys,
+    /// The tool was started for another network than the campaign's.
+    #[error(
+        "this is a {campaign} campaign but the tool was started for {tool}; pass --network \
+         {campaign} (mainnet also needs --allow-mainnet and ZECDROP_CONFIRM_MAINNET)"
+    )]
+    WrongNetwork {
+        /// The campaign's network.
+        campaign: drop_core::Network,
+        /// The network the tool was started for.
+        tool: drop_core::Network,
+    },
     /// The store failed.
     #[error(transparent)]
     Store(#[from] StoreError),
@@ -53,6 +64,25 @@ pub const DISCLOSURE_WARNING: &str =
     "A campaign viewing key lets its holder see every payout of this campaign: each \
 recipient address, amount and memo. Giving it away cannot be undone, and anyone it reaches \
 can keep it forever. Share it only with the auditor you intend, over a channel you trust.";
+
+/// A campaign belongs to one network, and a tool must be started for that network. Without this a
+/// mainnet campaign's viewing key could be exported with no mainnet flag at all, because the gate
+/// only looks at the network the tool was told (REQ-OPS-004).
+pub fn ensure_campaign_network(
+    store: &Store,
+    id: &str,
+    network: drop_core::Network,
+) -> Result<(), CommandError> {
+    let record = load_campaign(store, id)?;
+    if record.network == network {
+        Ok(())
+    } else {
+        Err(CommandError::WrongNetwork {
+            campaign: record.network,
+            tool: network,
+        })
+    }
+}
 
 fn load_campaign(store: &Store, id: &str) -> Result<crate::store::CampaignRecord, CommandError> {
     let id = CampaignId::new(id).map_err(|_| CommandError::NoSuchCampaign)?;

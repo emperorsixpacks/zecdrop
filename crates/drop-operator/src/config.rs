@@ -14,6 +14,7 @@ use drop_core::Network;
 use crate::crypto::MIN_PASSPHRASE_CHARS;
 use crate::error::ConfigError;
 use crate::mock::MockConfig;
+use crate::state::DEFAULT_MAINNET_MAX_FUNDING_ZAT;
 
 /// Environment variable that must hold [`CONFIRM_MAINNET_VALUE`] to run on mainnet.
 pub const CONFIRM_MAINNET_ENV: &str = "ZECDROP_CONFIRM_MAINNET";
@@ -106,6 +107,12 @@ pub struct Cli {
     /// Confirmations at which a batch counts as final.
     #[arg(long, default_value_t = 3)]
     pub required_depth: u32,
+
+    /// Mainnet only: the most a campaign may need in funding (the declared total plus the fee),
+    /// in zatoshi. Real money moves on mainnet and this code has not been audited, so a larger
+    /// campaign is refused when it is created. The default is 0.1 ZEC.
+    #[arg(long, default_value_t = DEFAULT_MAINNET_MAX_FUNDING_ZAT)]
+    pub mainnet_max_funding_zat: u64,
 
     /// Mock chain: polls that report "unconfirmed" before the first block.
     #[arg(long, default_value_t = 1)]
@@ -262,6 +269,8 @@ pub struct Config {
     pub funding_poll_interval: Duration,
     /// Confirmation depth at which a batch is final.
     pub required_depth: u32,
+    /// The most funding a mainnet campaign may need, in zatoshi.
+    pub mainnet_max_funding_zat: u64,
     /// Fake chain behaviour.
     pub mock: MockConfig,
     /// Simulated crash point, if any.
@@ -342,15 +351,13 @@ pub fn resolve_state_dir(
     }
 }
 
-/// Chooses the chain mode from the flags. Mainnet is refused for real chains: the Zcash
-/// adapter does not support it yet.
+/// Chooses the chain mode from the flags. A real chain needs `--lightwalletd-url` on either
+/// network; on mainnet the gate in [`check_network_gate`] has already passed by the time this
+/// runs, and the mock chain is refused separately (`MockOnMainnet`).
 pub fn chain_mode(cli: &Cli, network: Network) -> Result<ChainMode, ConfigError> {
     match (&cli.lightwalletd_url, cli.mock_chain) {
         (Some(_), true) => Err(ConfigError::ChainConflict),
         (Some(url), false) => {
-            if network == Network::Mainnet {
-                return Err(ConfigError::MainnetDisabled);
-            }
             drop_chain::ChainConfig::new(url.clone(), network)
                 .uri()
                 .map_err(|_| ConfigError::BadEndpoint)?;
@@ -400,6 +407,11 @@ impl Config {
                 "--poll-interval-ms must be at least 1",
             ));
         }
+        if cli.mainnet_max_funding_zat == 0 {
+            return Err(ConfigError::BadOption(
+                "--mainnet-max-funding-zat must be at least 1",
+            ));
+        }
         Ok(Config {
             network,
             bind,
@@ -413,6 +425,7 @@ impl Config {
             allow_mainnet: cli.allow_mainnet,
             funding_poll_interval: Duration::from_secs(cli.funding_poll_secs),
             required_depth: cli.required_depth,
+            mainnet_max_funding_zat: cli.mainnet_max_funding_zat,
             mock: MockConfig {
                 confirm_after_polls: cli.mock_confirm_after_polls,
                 ..MockConfig::default()
@@ -566,7 +579,7 @@ mod tests {
         // Testnet never needs either.
         assert_eq!(check_network_gate(Network::Testnet, false, None), Ok(()));
         // Past the gate, a fake chain is still refused on mainnet, and without a real
-        // backend in this build there is nothing to run, so the error is about that.
+        // chain there is nothing to run, so the error is about that.
         let args = ["--network", "mainnet", "--allow-mainnet"];
         let mut with_mock = args.to_vec();
         with_mock.push("--mock-chain");
@@ -681,9 +694,9 @@ mod tests {
         }
     }
 
-    // covers: REQ-OPS-001
+    // covers: REQ-OPS-001, REQ-OPS-003
     #[test]
-    fn mainnet_is_gated_first_and_then_refused_for_a_real_chain() {
+    fn mainnet_is_gated_first_and_then_runs_on_a_real_chain() {
         let mainnet = [
             "--network",
             "mainnet",
@@ -700,11 +713,49 @@ mod tests {
             Config::from_cli(cli(&allowed), None).unwrap_err(),
             ConfigError::MainnetNeedsConfirmation
         );
+        // A wrong confirmation value is as good as none.
         assert_eq!(
-            Config::from_cli(cli(&allowed), Some(CONFIRM_MAINNET_VALUE)).unwrap_err(),
-            ConfigError::MainnetDisabled,
-            "the Zcash adapter supports testnet only"
+            Config::from_cli(cli(&allowed), Some("yes")).unwrap_err(),
+            ConfigError::MainnetNeedsConfirmation
         );
+        // Flag and confirmation together: a real chain is accepted, with the default cap of
+        // 0.1 ZEC and the endpoint as given.
+        let config = Config::from_cli(cli(&allowed), Some(CONFIRM_MAINNET_VALUE)).unwrap();
+        assert_eq!(config.network, Network::Mainnet);
+        assert_eq!(
+            config.chain,
+            ChainMode::Lightwalletd("https://zec.rocks:443".to_owned())
+        );
+        assert_eq!(config.mainnet_max_funding_zat, 10_000_000);
+        // The endpoint is still validated, and a bare real chain still needs a URL.
+        let mut bad_url = allowed.clone();
+        bad_url[3] = "ftp://zec.rocks";
+        assert_eq!(
+            Config::from_cli(cli(&bad_url), Some(CONFIRM_MAINNET_VALUE)).unwrap_err(),
+            ConfigError::BadEndpoint
+        );
+    }
+
+    // covers: REQ-OPS-003
+    #[test]
+    fn the_mainnet_funding_cap_is_a_flag_with_a_floor() {
+        let base = [
+            "--network",
+            "mainnet",
+            "--allow-mainnet",
+            "--lightwalletd-url",
+            "https://zec.rocks:443",
+        ];
+        let mut args = base.to_vec();
+        args.extend(["--mainnet-max-funding-zat", "250000"]);
+        let config = Config::from_cli(cli(&args), Some(CONFIRM_MAINNET_VALUE)).unwrap();
+        assert_eq!(config.mainnet_max_funding_zat, 250_000);
+        let mut zero = base.to_vec();
+        zero.extend(["--mainnet-max-funding-zat", "0"]);
+        assert!(matches!(
+            Config::from_cli(cli(&zero), Some(CONFIRM_MAINNET_VALUE)).unwrap_err(),
+            ConfigError::BadOption(_)
+        ));
     }
 
     // covers: REQ-SEC-001

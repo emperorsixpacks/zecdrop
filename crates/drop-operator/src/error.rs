@@ -25,9 +25,6 @@ pub enum ConfigError {
     /// The lightwalletd URL is not usable.
     #[error("--lightwalletd-url must be an http or https URL with a host and no credentials")]
     BadEndpoint,
-    /// A real chain was requested on mainnet.
-    #[error("mainnet is disabled in this build: the Zcash adapter supports testnet only")]
-    MainnetDisabled,
     /// A seed file was given for mainnet.
     #[error("--seed-file is for testnet only")]
     SeedFileMainnet,
@@ -120,6 +117,17 @@ pub enum StoreError {
     /// No fresh account number could be reserved for the campaign.
     #[error(transparent)]
     Accounts(#[from] crate::accounts::AccountError),
+    /// The store holds a campaign of another network than the operator was started for.
+    #[error(
+        "this store holds {campaign} campaigns but the operator was started for {operator}; \
+         use a separate --db (and --state-dir) for each network"
+    )]
+    WrongNetwork {
+        /// The network of the campaign found in the store.
+        campaign: drop_core::Network,
+        /// The network the operator runs on.
+        operator: drop_core::Network,
+    },
 }
 
 impl From<rusqlite::Error> for StoreError {

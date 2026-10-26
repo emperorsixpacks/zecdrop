@@ -16,7 +16,7 @@ use drop_operator::audit::{read_ufvk, UfvkSource};
 use drop_operator::auth::Token;
 use drop_operator::chain::ChainBackend;
 use drop_operator::codec::LooseAddressCodec;
-use drop_operator::commands::{campaign_ufvk, run_audit, run_export_ufvk};
+use drop_operator::commands::{campaign_ufvk, ensure_campaign_network, run_audit, run_export_ufvk};
 use drop_operator::config::{
     chain_mode, check_network_gate, check_new_passphrase, check_passphrase, resolve_state_dir,
     take_env, AuditArgs, AuditTxArgs, ChainMode, Cli, Command, Config, ExportArgs,
@@ -33,7 +33,7 @@ use drop_operator::serve::{serve, startup_banner};
 use drop_operator::state::{AppParts, AppState, Options};
 use drop_operator::store::Store;
 use drop_operator::txaudit::{audit_transaction, read_prevouts, read_tx_hex};
-use drop_zcash::{zcash_network, ZcashAddressCodec};
+use drop_zcash::{zcash_network, MainnetPermit, ZcashAddressCodec};
 use tokio::net::TcpListener;
 use zeroize::Zeroizing;
 
@@ -129,8 +129,9 @@ fn export_ufvk(
     args: &ExportArgs,
     confirm: Option<&str>,
 ) -> Result<ExitCode, Box<dyn Error>> {
-    tool_network(cli, confirm)?;
+    let network = tool_network(cli, confirm)?;
     let store = open_store(&cli.db, false)?;
+    ensure_campaign_network(&store, &args.campaign, network)?;
     let seed = wallet_seed(cli.seed_file.as_deref(), false, &store)?;
     run_export_ufvk(
         &store,
@@ -193,6 +194,7 @@ async fn audit(
         return Err("audit reads the real chain: pass --lightwalletd-url".into());
     };
     let store = Arc::new(open_store(&cli.db, false)?);
+    ensure_campaign_network(&store, &args.campaign, network)?;
     let (source, _info) = LightwalletdSource::connect(&ChainConfig::new(url, network)).await?;
     let reconciled = run_audit(
         &store,
@@ -247,8 +249,15 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
                     "connected to the {} chain (tip {}, branch {:08x})",
                     config.network, info.tip_height, info.consensus_branch_id
                 ));
+                // Mainnet is real money: the backend only learns it may run mainnet campaigns here,
+                // after `Config::from_cli` has checked the flag and the confirmation.
+                let zcash = ZcashBackend::new(connector);
+                let zcash = match config.network {
+                    Network::Mainnet => zcash.allow_mainnet(MainnetPermit::after_operator_gate()),
+                    Network::Testnet => zcash,
+                };
                 (
-                    Arc::new(ZcashBackend::new(connector)),
+                    Arc::new(zcash),
                     Arc::new(ZcashAddressCodec::new(zcash_network(config.network))),
                 )
             }
@@ -273,6 +282,7 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
             required_depth: config.required_depth,
             poll_interval: config.poll_interval,
             crash_after_steps: config.crash_after_steps,
+            mainnet_max_funding_zat: config.mainnet_max_funding_zat,
             ..Options::default()
         },
         near: NearParts {

@@ -422,8 +422,28 @@ async fn create_campaign(
         FeePolicyName::Zip317Text => FeePolicy::zip317_text(),
         FeePolicyName::ZebraMain => FeePolicy::zebra_main(),
     };
-    funding_plan(&batches, &fee_policy)
+    let plan = funding_plan(&batches, &fee_policy)
         .map_err(|e| ApiError::unprocessable("amount_too_large", e.to_string()))?;
+    // Mainnet moves real money and this code has not been audited: a campaign above the cap is
+    // refused before anything is stored (REQ-OPS-003). The message carries totals only.
+    let cap = state.options().mainnet_max_funding_zat;
+    if state.network() == Network::Mainnet && plan.required.as_u64() > cap {
+        let zec = |zat: u64| {
+            Zatoshi::new(zat).map_or_else(
+                |_| format!("{zat} zat"),
+                |z| format!("{} ZEC", z.format_zec()),
+            )
+        };
+        return Err(ApiError::unprocessable(
+            "mainnet_cap_exceeded",
+            format!(
+                "this operator caps a mainnet campaign at {} of funding and this one needs {}; \
+                 raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to",
+                zec(cap),
+                zec(plan.required.as_u64())
+            ),
+        ));
+    }
 
     let seed_fingerprint = state.seed().fingerprint();
     let mut id_bytes = [0u8; 6];

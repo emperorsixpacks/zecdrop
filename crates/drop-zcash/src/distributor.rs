@@ -52,7 +52,7 @@ impl MainnetPermit {
 /// Distributor errors. Recipients are identified by their position in the batch only.
 #[derive(Debug, Error)]
 pub enum ZcashError {
-    #[error("mainnet is disabled in this build")]
+    #[error("this distributor was not given a mainnet permit, so it refuses mainnet keys")]
     MainnetDisabled,
     #[error("recipient #{index} has no Orchard receiver on this network")]
     UnpayableRecipient { index: usize },

@@ -42,7 +42,8 @@ authoritative. Testnet only; no real funds.
 ## Safety
 
 - Never paste the seed, a viewing key, the operator token or the passphrase into chat, issues or screenshots.
-- Mainnet needs `--allow-mainnet` and `ZECDROP_CONFIRM_MAINNET=I-UNDERSTAND`; this runbook does not use it.
+- Mainnet needs `--allow-mainnet` and `ZECDROP_CONFIRM_MAINNET=I-UNDERSTAND`; this runbook does not use it. A mainnet run is in
+  [`mainnet-run.md`](mainnet-run.md).
 - If a batch is stuck, restart the operator with the same passphrase: the engine resumes from its ledger and re-sends the
   stored bytes; it never rebuilds the transaction.
 - The audit and key-export commands print no key. The store, the seed file and the registry are mode 0600.

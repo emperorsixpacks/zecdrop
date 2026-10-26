@@ -19,8 +19,8 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use drop_chain::{ChainConfig, ChainError as LwdError, ChainInfo, LightwalletdSource};
 use drop_core::{FailureKind, OutPoint, Zatoshi};
-use drop_zcash::lightwalletd::{BackendError, LightwalletdBackend};
-use drop_zcash::{zcash_network, CampaignKeys, ZcashDistributor};
+use drop_zcash::lightwalletd::{preflight, BackendError, LightwalletdBackend};
+use drop_zcash::{zcash_network, CampaignKeys, MainnetPermit, ZcashDistributor};
 use tokio::runtime::{Builder, Runtime};
 
 use crate::chain::{ChainBackend, ChainError, ChainPort, FundingLayout, RunContext, UtxoSighting};
@@ -69,12 +69,25 @@ pub trait ZcashConnector: Send + Sync + 'static {
 /// The operator's [`ChainBackend`] over a [`ZcashConnector`].
 pub struct ZcashBackend<C: ZcashConnector> {
     connector: C,
+    mainnet: Option<MainnetPermit>,
 }
 
 impl<C: ZcashConnector> ZcashBackend<C> {
-    /// Wraps a connector.
+    /// Wraps a connector. The backend refuses mainnet campaigns until
+    /// [`ZcashBackend::allow_mainnet`] is called.
     pub fn new(connector: C) -> Self {
-        ZcashBackend { connector }
+        ZcashBackend {
+            connector,
+            mainnet: None,
+        }
+    }
+
+    /// Lets this backend run mainnet campaigns. Only start-up calls this, and only after
+    /// `--allow-mainnet` and the confirmation variable have both passed (REQ-OPS-001).
+    #[must_use]
+    pub fn allow_mainnet(mut self, permit: MainnetPermit) -> Self {
+        self.mainnet = Some(permit);
+        self
     }
 }
 
@@ -95,8 +108,13 @@ impl<C: ZcashConnector> ChainBackend for ZcashBackend<C> {
         )
         .map_err(permanent)?;
         let backend = self.connector.connect(&keys)?;
-        let distributor =
-            ZcashDistributor::new(keys, backend, &run.fee_policy).map_err(permanent)?;
+        let distributor = match (run.network, self.mainnet) {
+            (drop_core::Network::Mainnet, Some(permit)) => {
+                ZcashDistributor::new_for_mainnet(keys, backend, &run.fee_policy, permit)
+            }
+            _ => ZcashDistributor::new(keys, backend, &run.fee_policy),
+        }
+        .map_err(permanent)?;
         Ok(Box::new(distributor))
     }
 
@@ -129,17 +147,22 @@ pub struct LightwalletdConnector {
 }
 
 impl LightwalletdConnector {
-    /// Connects, and checks the server serves the configured network. Returns the live tip
-    /// and branch id too. Blocking: call it from a thread outside any tokio runtime (in the
-    /// async operator, from `spawn_blocking`).
+    /// Connects, and checks that the server serves the configured network, is on the upgrade
+    /// this build stamps for the next block, and serves the Ironwood tree state a batch needs
+    /// (REQ-OPS-004). Returns the live tip and branch id too. Blocking: call it from a thread
+    /// outside any tokio runtime (in the async operator, from `spawn_blocking`).
     pub fn connect(config: ChainConfig) -> Result<(Self, ChainInfo), ChainError> {
         let runtime = Builder::new_current_thread()
             .enable_all()
             .build()
             .map_err(|_| permanent("could not start the async runtime"))?;
-        let (source, info) = runtime
+        let (source, _) = runtime
             .block_on(LightwalletdSource::connect(&config))
             .map_err(from_lwd)?;
+        // Nobody should be shown a link, and so nobody should fund an address, while this build
+        // could not spend from it: a network upgrade it does not know, or a node without the
+        // Ironwood tree state, is found here and not after the deposit.
+        let info = runtime.block_on(preflight(&source)).map_err(from_backend)?;
         Ok((
             LightwalletdConnector {
                 config,

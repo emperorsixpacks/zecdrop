@@ -159,6 +159,7 @@ impl Default for Builder {
                 poll_interval: Duration::from_millis(1),
                 max_consecutive_errors: 5,
                 crash_after_steps: None,
+                mainnet_max_funding_zat: drop_operator::state::DEFAULT_MAINNET_MAX_FUNDING_ZAT,
             },
             seed: [0x5A; 32],
             real_backend: false,

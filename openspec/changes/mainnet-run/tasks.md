@@ -10,15 +10,15 @@ Tick only after the work is verified (tests run, behaviour probed). Evidence goe
 - [x] Z5 Mainnet offline build at the real tip: proofs and signatures verify, `t1`/`u1`/`uview1` strings, key-holder recovery (REQ-TX-001)
 
 ## drop-operator
-- [ ] O1 Real chain allowed on mainnet behind the existing gate; mock chain and seed file still refused (REQ-OPS-001)
-- [ ] O2 Start-up check of the node (network, branch id, Ironwood tree) before the link is printed (REQ-OPS-004)
-- [ ] O3 One network per store (REQ-OPS-004)
-- [ ] O4 Funding cap for mainnet campaigns (REQ-OPS-003)
-- [ ] O5 A full mainnet campaign on the in-memory chain: create, fund, start, settle, receipt verifies as `t1…`
+- [x] O1 Real chain allowed on mainnet behind the existing gate; mock chain and seed file still refused (REQ-OPS-001) — verified: config tests (flag and confirmation, endpoint validated, mock and seed file refused) and a full mainnet campaign on the in-memory chain
+- [x] O2 Start-up check of the node (network, branch id, Ironwood tree) before the link is printed (REQ-OPS-004) — verified: `preflight` against a fake node (match, other branch, no tree state, other network); `LightwalletdConnector::connect` calls it; the live start-up is L1
+- [x] O3 One network per store (REQ-OPS-004) — verified: a testnet store opened by a mainnet operator is refused at start-up with fixed text, and the tools (`export-ufvk`, `audit`) refuse a campaign of another network than the one they were started for
+- [x] O4 Funding cap for mainnet campaigns (REQ-OPS-003) — verified: above the cap 422 `mainnet_cap_exceeded` with nothing stored and no payout row in the message, exactly the cap allowed, no cap on testnet
+- [x] O5 A full mainnet campaign on the in-memory chain: create, fund, start, settle, receipt verifies as `t1…` — verified: `crates/drop-operator/tests/mainnet.rs` (NU6.3 branch, proofs and signatures, viewing-key recovery, no private data in any output); a node on another upgrade halts the run with nothing sent; no permit, no run
 
 ## drop-verifier and deploy
-- [ ] V1 One verifier serves both networks and routes each request to its own source (REQ-VER-005)
-- [ ] V2 `MAINNET_ENDPOINT` reaches the container command; compose and VPS README updated
+- [x] V1 One verifier serves both networks and routes each request to its own source (REQ-VER-005) — verified: in-process test with two fake nodes; the real binary run locally against `testnet.zec.rocks` and `zec.rocks` answered the real testnet batch as settled and a real mainnet transparent-to-Ironwood transaction as parsed (`t1…` funding address, 2 Ironwood actions)
+- [x] V2 `MAINNET_ENDPOINT` reaches the container command; compose and VPS README updated — verified: the command line, compose and README; the rollout on the VPS is the teammate's step (not yet done)
 
 ## web
 - [ ] W1 Header names the receipt's network; mainnet Start needs an explicit tick; texts for `mainnet_cap_exceeded` and `network_not_configured`

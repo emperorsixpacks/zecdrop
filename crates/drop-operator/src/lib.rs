@@ -30,7 +30,11 @@
 //!   to the campaign's change address. A campaign that needs several batches is refused with
 //!   `needs_funding_split`: a funding-split transaction (a transparent transaction creating one
 //!   exact output per batch, persisted in the ledger) is **not implemented yet**.
-//! * **Mainnet** is refused by this build.
+//! * **Mainnet** needs `--network mainnet --allow-mainnet`, `ZECDROP_CONFIRM_MAINNET=I-UNDERSTAND` and
+//!   a real chain (`--lightwalletd-url`); the mock chain and `--seed-file` are refused there. A mainnet
+//!   campaign may need at most `--mainnet-max-funding-zat` (default 0.1 ZEC) of funding, a store holds
+//!   one network's campaigns only, and at start-up the node's network, branch id and Ironwood tree state
+//!   are checked before the link is printed. See `docs/runbooks/mainnet-run.md`.
 //!
 //! ## Running a campaign on testnet
 //!
