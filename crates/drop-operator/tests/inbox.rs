@@ -193,6 +193,82 @@ async fn the_inbox_moves_exactly_the_funding_once_spendable_and_the_payout_funds
     assert_eq!(fake.lock().built.len(), 1);
 }
 
+// covers: REQ-FUND-006, REQ-FUND-008
+#[tokio::test]
+async fn a_mined_move_is_done_once_the_wallet_has_scanned_it_and_the_page_says_moved_as_soon_as_the_payout_funds(
+) {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (id, created, account) = create(&h).await;
+    let funding_address = created["funding_address"].as_str().unwrap().to_owned();
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    fake.deposit(account, REQUIRED + FEE, 990, 7);
+    inboxes.round(&h.state).await;
+    let txid = h
+        .state
+        .store()
+        .load_inbox(&id)
+        .unwrap()
+        .unwrap()
+        .pending
+        .unwrap()
+        .txid;
+
+    // The node has the move in a block the wallet has not scanned yet. There its note still looks unspent, so the move is
+    // still in flight: done now, the page would say the whole deposit is left over (as it did on testnet).
+    fake.mine(&txid, 1_001);
+    fake.lock().chain_tip = 1_001;
+    inboxes.round(&h.state).await;
+    let kept = h.state.store().load_inbox(&id).unwrap().unwrap();
+    assert!(kept.pending.is_some());
+    assert_eq!(kept.moved, None);
+    let v = view(&h, &id).await;
+    assert_eq!(v["inbox"]["state"], "moving");
+    assert_eq!(v["inbox"]["left"], "0");
+    assert_eq!(
+        send_back(&h, &id, &recipient_ua(5), true).await.json()["error"]["code"],
+        "inbox_busy"
+    );
+
+    // Scanned: the move is done, and nothing is left in the inbox.
+    fake.tip(1_001);
+    inboxes.round(&h.state).await;
+    let kept = h.state.store().load_inbox(&id).unwrap().unwrap();
+    assert!(kept.pending.is_none());
+    assert_eq!(kept.moved, Some(txid));
+    let v = view(&h, &id).await;
+    assert_eq!(
+        v["inbox"]["state"], "moving",
+        "moved; the payout is not funded yet"
+    );
+    assert_eq!(v["inbox"]["received"], "0");
+
+    // The payout funds from it: the next round says so, not ten minutes later.
+    put_deposit_tx(
+        &node,
+        &funding_address,
+        REQUIRED,
+        Some(1_001),
+        real_deposit("testnet-ironwood-batch"),
+    );
+    node.lock().tip = 1_003;
+    fake.tip(1_003);
+    assert_eq!(check(&h, &id).await["phase"]["phase"], "funded");
+    inboxes.round(&h.state).await;
+    let v = view(&h, &id).await;
+    assert_eq!(v["inbox"]["state"], "moved");
+    assert_eq!(v["inbox"]["left"], "0");
+
+    // From then on it rests: the wallet is synced every ten minutes, not every round.
+    let synced = fake.lock().refreshes;
+    inboxes.round(&h.state).await;
+    assert_eq!(fake.lock().refreshes, synced);
+}
+
 // covers: REQ-FUND-006
 #[tokio::test]
 async fn a_payout_paid_at_its_public_address_is_never_moved_into() {

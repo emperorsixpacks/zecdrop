@@ -402,13 +402,17 @@ impl Inboxes {
             return Ok(());
         };
 
-        // A funded payout with nothing in flight changes rarely: its inbox is looked at every ten minutes, not every round.
-        let settled = funded && inbox.pending.is_none();
-        if settled
+        // A funded payout with nothing in flight changes rarely: once the page has its final word on the inbox (moved, or
+        // not used), the inbox is looked at every ten minutes, not every round.
+        let finished = funded
+            && inbox.pending.is_none()
+            && self
+                .view(id)
+                .is_some_and(|view| matches!(view.state, InboxState::Moved | InboxState::Unused));
+        if finished
             && lock(&self.refreshed_at)
                 .get(id)
                 .is_some_and(|at| at.elapsed() < FINISHED_REFRESH)
-            && self.view(id).is_some()
         {
             return Ok(());
         }
@@ -419,22 +423,27 @@ impl Inboxes {
         // A transaction in flight: mined, dead, or still to be sent again.
         if let Some(pending) = inbox.pending.clone() {
             let txid: Txid = pending.txid.parse().map_err(|_| InboxError::Unavailable)?;
-            if self.backend.mined_height(&txid).await?.is_some() {
-                if pending.kind == InboxTxKind::Move {
-                    inbox.moved = Some(pending.txid.clone());
+            match self.backend.mined_height(&txid).await? {
+                // Done once the wallet has scanned the block it is in. zcash-devtool learns of it only from the chain, so
+                // until then the notes it spent still look unspent: it stays in flight (and a send-back stays refused).
+                Some(height) if snapshot.wallet_tip >= height => {
+                    if pending.kind == InboxTxKind::Move {
+                        inbox.moved = Some(pending.txid.clone());
+                    }
+                    inbox.pending = None;
+                    store
+                        .save_inbox(id, &inbox)
+                        .map_err(|_| InboxError::Unavailable)?;
                 }
-                inbox.pending = None;
-                store
-                    .save_inbox(id, &inbox)
-                    .map_err(|_| InboxError::Unavailable)?;
-            } else if snapshot.wallet_tip > pending.expiry_height {
+                Some(_) => {}
                 // Past its expiry on the scanned chain and not mined: it can never be mined now.
-                inbox.pending = None;
-                store
-                    .save_inbox(id, &inbox)
-                    .map_err(|_| InboxError::Unavailable)?;
-            } else {
-                self.resend(id, &pending).await;
+                None if snapshot.wallet_tip > pending.expiry_height => {
+                    inbox.pending = None;
+                    store
+                        .save_inbox(id, &inbox)
+                        .map_err(|_| InboxError::Unavailable)?;
+                }
+                None => self.resend(id, &pending).await,
             }
         }
 

@@ -47,6 +47,11 @@ pub struct Fake {
     pub returns: Vec<BuiltReturn>,
     pub broadcasts: Vec<Vec<u8>>,
     pub mined: HashMap<String, u32>,
+    /// The height at which each spent note's spend was mined. The wallet sees a spend (and the change beside it) only once
+    /// it has scanned that block, as zcash-devtool does: `pczt extract` does not record the transaction.
+    pub spent_at: HashMap<[u8; 32], u32>,
+    /// How many times the wallet was synced.
+    pub refreshes: u32,
     pub fail_setup: bool,
 }
 
@@ -76,20 +81,14 @@ impl FakeInbox {
             });
     }
 
-    /// The transaction `txid` is mined at `height`; if it is one of the moves built, the wallet sees what a real one would
-    /// after a sync: the notes it spent are spent, and its change (if any) arrives as a note of the inbox's own.
+    /// The transaction `txid` is mined at `height`. If it is one the fake built, the wallet sees what a real one would once
+    /// it has scanned that block: the notes it spent are spent, and its change (if any) arrives as a note of the inbox's own.
     pub fn mine(&self, txid: &str, height: u32) {
         let mut fake = self.lock();
         fake.mined.insert(txid.to_owned(), height);
         if let Some(index) = fake.returns.iter().position(|r| r.3 == txid) {
-            let (account, _, notes, _) = fake.returns[index].clone();
-            for note in fake.notes.entry(account).or_default().iter_mut() {
-                if note
-                    .nullifier
-                    .is_some_and(|nf| notes.iter().any(|(spent_nf, _)| *spent_nf == nf))
-                {
-                    note.spend = NoteSpend::Mined;
-                }
+            for (nf, _) in fake.returns[index].2.clone() {
+                fake.spent_at.insert(nf, height);
             }
             return;
         }
@@ -98,18 +97,12 @@ impl FakeInbox {
         };
         let (account, _, value, notes) = fake.built[index].clone();
         let spent: u64 = notes.iter().map(|n| n.1).sum();
-        let list = fake.notes.entry(account).or_default();
-        for note in list.iter_mut() {
-            if note
-                .nullifier
-                .is_some_and(|nf| notes.iter().any(|(spent_nf, _)| *spent_nf == nf))
-            {
-                note.spend = NoteSpend::Mined;
-            }
+        for (nf, _) in &notes {
+            fake.spent_at.insert(*nf, height);
         }
         let change = spent.saturating_sub(value + FEE);
         if change > 0 {
-            list.push(InboxNote {
+            fake.notes.entry(account).or_default().push(InboxNote {
                 value: change,
                 nullifier: Some([0xcc; 32]),
                 is_change: true,
@@ -150,10 +143,31 @@ impl InboxBackend for FakeInbox {
 
     fn refresh(&self, account: u32) -> BoxFuture<'_, Result<Snapshot, InboxError>> {
         Box::pin(async move {
-            let fake = self.lock();
+            let mut fake = self.lock();
+            fake.refreshes += 1;
+            let tip = fake.wallet_tip;
+            // Only what the wallet has scanned: a note from its block on, a spend from the block it was mined in on.
+            let notes = fake
+                .notes
+                .get(&account)
+                .into_iter()
+                .flatten()
+                .filter(|note| note.mined_height.is_none_or(|height| height <= tip))
+                .map(|note| {
+                    let mut note = note.clone();
+                    if note
+                        .nullifier
+                        .and_then(|nf| fake.spent_at.get(&nf))
+                        .is_some_and(|height| *height <= tip)
+                    {
+                        note.spend = NoteSpend::Mined;
+                    }
+                    note
+                })
+                .collect();
             Ok(Snapshot {
-                wallet_tip: fake.wallet_tip,
-                notes: fake.notes.get(&account).cloned().unwrap_or_default(),
+                wallet_tip: tip,
+                notes,
                 orchard: 0,
             })
         })
