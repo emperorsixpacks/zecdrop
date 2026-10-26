@@ -7,11 +7,14 @@ import { useCoinUnit } from "@/lib/units";
 import { cn } from "@/lib/utils";
 import { formatZec } from "@/lib/zec";
 
-// The redaction lens (web/DESIGN.md): one list, three ways of seeing it.
+import { THREE_VIEWS, type LensMode, type LensView } from "./views";
+
+// The redaction lens (web/DESIGN.md): one list, three or four ways of seeing it.
 //
 //   Public      names, addresses and amounts are bars; only counts and totals read
 //   One person  one row is revealed, the rest stay bars
-//   Auditor     everything is revealed
+//   Auditor     everything is revealed (with the payout's viewing key)
+//   Payer       everything is revealed (on the payer's own computer); only the home page shows it
 //
 // WHAT IS IN THE PAGE. A hidden cell contains no text from the row: not hidden by
 // CSS, absent. So the public lens of a real list is as private in the markup as it
@@ -21,7 +24,7 @@ import { formatZec } from "@/lib/zec";
 // with `intro` (the home page's first look) wipes its bars in once, row after row, over cells
 // that never held any text.
 
-export type LensMode = "public" | "recipient" | "auditor";
+export type { LensMode, LensView } from "./views";
 
 /** A person on the list. `address` and `amount` are absent when only the count is
  * known (the public receipt): such a row is always a bar. */
@@ -35,30 +38,35 @@ export interface LensRow {
   memo?: string | null;
 }
 
-const MODES: readonly { mode: LensMode; label: string; caption: string }[] = [
-  { mode: "public", label: "Public", caption: "What anyone can see." },
-  { mode: "recipient", label: "One person", caption: "What that person can see." },
-  { mode: "auditor", label: "Auditor", caption: "What someone with the viewing key sees." },
-];
-
-/** The three-way switch. The caption under it is read out when the view changes. */
+/** The switch between views. The caption under it is read out when the view changes. */
 export function LensSwitch({
   mode,
   onChange,
+  views = THREE_VIEWS,
   className,
 }: {
   mode: LensMode;
   onChange: (mode: LensMode) => void;
+  views?: readonly LensView[];
   className?: string;
 }) {
-  const caption = MODES.find((m) => m.mode === mode)?.caption ?? "";
+  const caption = views.find((m) => m.mode === mode)?.caption ?? "";
+  // Four views do not fit in one row on a phone. There they sit two by two, at a width of their own (not the caption's, which
+  // changes with the view), with the corner of a pill (half its 44px, plus the group's 3px and 1px edge); from `sm` up, one row.
+  const twoByTwo = views.length > 3;
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-2", twoByTwo && "w-full sm:w-auto", className)}>
       <Segmented
         label="Who is looking"
         value={mode}
         onValueChange={onChange}
-        options={MODES.map((m) => ({ value: m.mode, label: m.label }))}
+        options={views.map((m) => ({ value: m.mode, label: m.label }))}
+        {...(twoByTwo
+          ? {
+              className:
+                "grid w-full max-w-[22rem] grid-cols-2 rounded-[calc(1.375rem+4px)] sm:inline-flex sm:w-auto sm:max-w-none sm:rounded-full",
+            }
+          : {})}
       />
       <p className="text-sm text-muted-foreground" aria-live="polite">
         {caption}
@@ -152,7 +160,7 @@ export function LensList({ rows, mode, selectedId, onSelect, unit, intro = false
   return (
     <ul className={cn("divide-y divide-border border-y border-border", className)}>
       {rows.map((row, index) => {
-        const open = mode === "auditor" || (mode === "recipient" && row.id === selectedId);
+        const open = mode === "auditor" || mode === "payer" || (mode === "recipient" && row.id === selectedId);
         const address = open ? row.address : undefined;
         const amount = open && row.amount !== undefined ? formatZec(BigInt(row.amount)) : undefined;
         return (
@@ -207,6 +215,8 @@ interface RedactionLensProps {
   intro?: boolean;
   /** Where the switch sits: over the list, or under it (where the page's tab order needs it after what is beside the sheet). */
   controls?: "above" | "below";
+  /** The views on the switch; the public, one person and the auditor unless told otherwise. */
+  views?: readonly LensView[];
   className?: string;
 }
 
@@ -222,6 +232,7 @@ export function RedactionLens({
   note,
   intro = false,
   controls = "above",
+  views,
   className,
 }: RedactionLensProps) {
   const rows = limit === undefined ? all : all.slice(0, limit);
@@ -234,7 +245,7 @@ export function RedactionLens({
     <div className={cn("space-y-4", className)}>
       {controls === "below" && list}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <LensSwitch mode={mode} onChange={onModeChange} />
+        <LensSwitch mode={mode} onChange={onModeChange} {...(views === undefined ? {} : { views })} />
         {mode === "recipient" && (
           <div className="space-y-1">
             <label htmlFor={whoId} className="block text-sm font-semibold">

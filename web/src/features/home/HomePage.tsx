@@ -4,12 +4,14 @@ import { Link } from "react-router";
 import { demoReceipt, SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import { CountUp } from "@/components/CountUp";
 import { RedactionLens, type LensMode } from "@/components/lens/Lens";
+import { FOUR_VIEWS } from "@/components/lens/views";
 import { UnitNote, UnitProvider } from "@/components/UnitProvider";
 import { Button } from "@/components/ui/button";
 import type { Audience } from "@/lib/audience";
 import { shortId } from "@/lib/ids";
 import { isLively } from "@/lib/motion";
 import { useCoinUnit } from "@/lib/units";
+import { cn } from "@/lib/utils";
 import { formatZec } from "@/lib/zec";
 
 import { PracticeStart } from "./PracticeStart";
@@ -21,16 +23,18 @@ import { Tour } from "./Tour";
 // key-less verifier can compute, and the status line names the limit: a real run
 // on public testnet, nothing on mainnet.
 //
-// The page is the landing page (web/DESIGN.md, "Home"): the headline and the sheet, then who it is for (personal and
-// organisation, each a way into practice mode in its own view), a band in the bar's colours, the real run, the steps,
-// practice mode, what a recipient can do, and the tour.
+// The page is the landing page (web/DESIGN.md, "Home"), built on one idea: one payout, four views. The headline and the
+// sheet (the same list as everyone, one person, an auditor and the payer see it), then a band in the bar's colours saying how
+// each view is opened, how it compares with a public list and a private wallet, the real run, who it is for (personal and
+// organisation, each a way into practice mode in its own view), the steps, what a recipient can do, the tour, and an
+// invitation to try it.
 
 // The steps to a payout, in order. The first one says why there is no wallet to connect: the keys
 // live in the operator on the person's own computer (docs/ADR/0002), never on this site.
 const STEPS: readonly { title: string; text: string }[] = [
   { title: "Start the operator", text: "It runs on your own computer and holds the keys." },
   { title: "Add your payout list", text: "Type in who you're paying, or import a list. Then check it." },
-  { title: "Fund the address", text: "Send coins to the address it shows. Open in wallet fills in the amount." },
+  { title: "Fund the address", text: "Pay the address it shows from your shielded balance. Open in wallet fills in the amount." },
   { title: "Send and share", text: "One transaction sends all the payouts. Share the receipt link so anyone can check the total." },
 ];
 
@@ -54,10 +58,45 @@ const DOORS: readonly { audience: Audience; title: string; lead: string; uses: r
   },
 ];
 
-const LINES: readonly { lead: string; text: string }[] = [
-  { lead: "Public", text: "The total, the fee and how many payouts." },
-  { lead: "Hidden", text: "Who got paid, and how much each person got." },
-  { lead: "Checkable", text: "Anyone can recompute the total from the chain." },
+// Who sees what, and how each view is opened (docs/PRIVACY_BOUNDARY.md): the same four as the switch on the sheet.
+const VIEWS: readonly { who: string; sees: string; how: string }[] = [
+  {
+    who: "Everyone",
+    sees: "The total, the fee, how many were paid, and whether the deposit came out of the shielded pool.",
+    how: "From the receipt link, with no key.",
+  },
+  { who: "One person", sees: "Their own payout, and nobody else's.", how: "From their payslip, which proves it to anyone." },
+  {
+    who: "An auditor",
+    sees: "The whole list of this payout, checked against the public total.",
+    how: "With this payout's viewing key, and nothing from your other payouts.",
+  },
+  { who: "You", sees: "Every address, amount and note.", how: "On your own computer, where the keys stay." },
+];
+
+// Two ways to pay many people today, and ZecDrop. Each answer is what that way gives by itself, in plain words.
+const OPTIONS: readonly { key: "list" | "wallet" | "drop"; name: string; what: string }[] = [
+  { key: "list", name: "A public list", what: "An airdrop on a public chain" },
+  { key: "wallet", name: "A private wallet", what: "Paying from a shielded wallet" },
+  { key: "drop", name: "ZecDrop", what: "One payout, four views" },
+];
+
+const COMPARE: readonly { question: string; list: string; wallet: string; drop: string }[] = [
+  { question: "Anyone can check the total", list: "Yes", wallet: "No, the amounts are hidden", drop: "Yes, from the chain" },
+  { question: "Who got what stays private", list: "No, it is all public", wallet: "Yes", drop: "Yes" },
+  {
+    question: "One person can prove their own payout",
+    list: "Only as part of the public list",
+    wallet: "Not built in",
+    drop: "Yes, with a payslip",
+  },
+  {
+    question: "An auditor can check the list",
+    list: "Yes, like everyone",
+    wallet: "Only with a key to the whole wallet",
+    drop: "Yes, with a key to that payout only",
+  },
+  { question: "The payer's address stays off the chain", list: "No", wallet: "Yes", drop: "Yes, if you pay from a shielded balance" },
 ];
 
 // What a person being paid can do, each on its own page.
@@ -123,7 +162,12 @@ export default function HomePage() {
               <span className="block">Pay many people.</span> <span className="block">Keep who got what private.</span>{" "}
               <span className="block">Prove the total.</span>
             </h1>
-            <p className="max-w-[34ch] text-xl">A real 8-person payout ran on public testnet. Not tried on mainnet.</p>
+            {/* The three promises, one line each, under the three lines of the headline. */}
+            <div className="max-w-[36ch] space-y-1 text-xl">
+              <p>Anyone can check the total.</p>
+              <p>Each person can prove their own payout.</p>
+              <p>Only the auditor you choose sees the list.</p>
+            </div>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-3">
                 <Button asChild size="lg">
@@ -140,13 +184,15 @@ export default function HomePage() {
                 </Link>
               </p>
             </div>
+            {/* What has and has not been done, said once on the first screen: honest, and not the lead. */}
+            <p className="text-sm text-muted-foreground">A real 8-person payout ran on public testnet. Not tried on mainnet.</p>
           </div>
 
           {/* The one sheet: a payout list as a document, seen through whichever lens is chosen. */}
           <section aria-labelledby="lens-heading" className="slip space-y-6 p-4 sm:p-8">
             <div className="space-y-1">
               <h2 id="lens-heading" className="text-xl leading-tight font-bold tracking-[-0.01em]">
-                Same payout, three views
+                One payout, four views
               </h2>
               {txid !== null && (
                 <p className="text-sm text-muted-foreground">
@@ -164,10 +210,85 @@ export default function HomePage() {
               onSelect={setSelectedId}
               intro={intro}
               controls="below"
+              views={FOUR_VIEWS}
             />
             <UnitNote />
           </section>
         </div>
+
+        {/* Who sees what, across the screen in the redaction bar's colours: how each of the four views is opened. */}
+        <section aria-labelledby="views-heading" className="band py-14 sm:py-20">
+          <div className="space-y-2">
+            <h2 id="views-heading" className="text-xl leading-tight font-bold tracking-[-0.01em]">
+              Who sees what
+            </h2>
+            <p className="max-w-[52ch] text-lg">One transaction pays everyone. What each person sees depends on what they hold.</p>
+          </div>
+          <ul className="mt-10 grid gap-x-10 gap-y-10 md:grid-cols-2 lg:grid-cols-4" data-testid="four-views">
+            {VIEWS.map((view) => (
+              <li key={view.who} className="space-y-3 border-t border-island-muted/50 pt-5">
+                <span className="display block text-[2.5rem] leading-none [font-stretch:72%] lg:text-[2.75rem]">{view.who}</span>
+                <span className="block max-w-[30ch] text-lg">{view.sees}</span>
+                <span className="block max-w-[30ch] text-base text-island-muted">{view.how}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* How it compares: a table from md up, one question at a time on a phone (nothing wider than the screen). */}
+        <section aria-labelledby="compare-heading" className="space-y-8">
+          <div className="space-y-2">
+            <h2 id="compare-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
+              How it compares
+            </h2>
+            <p className="max-w-[48ch] text-lg">Two ways to pay many people today, and ZecDrop.</p>
+          </div>
+          <div className="slip hidden overflow-hidden md:block">
+            <table className="w-full text-left text-base" data-testid="compare-table">
+              <caption className="sr-only">ZecDrop compared with a public payout list and a private wallet</caption>
+              <thead>
+                <tr className="border-b border-border">
+                  <td className="w-[28%] p-5" />
+                  {OPTIONS.map((option) => (
+                    <th key={option.key} scope="col" className={cn("p-5 align-bottom", option.key === "drop" && "border-l border-foreground")}>
+                      <span className="block text-xl leading-tight font-bold tracking-[-0.01em]">{option.name}</span>
+                      <span className="block text-sm font-normal text-muted-foreground">{option.what}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {COMPARE.map((row) => (
+                  <tr key={row.question}>
+                    <th scope="row" className="p-5 font-semibold">
+                      {row.question}
+                    </th>
+                    <td className="p-5">{row.list}</td>
+                    <td className="p-5">{row.wallet}</td>
+                    <td className="border-l border-foreground p-5 font-semibold">{row.drop}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ul className="space-y-4 md:hidden" data-testid="compare-list">
+            {COMPARE.map((row) => (
+              <li key={row.question} className="slip space-y-3 p-5">
+                <h3 className="text-lg leading-snug font-bold">{row.question}</h3>
+                <dl className="space-y-2 text-base">
+                  {OPTIONS.map((option) => (
+                    <div key={option.key} className={cn("grid grid-cols-[8.5rem_1fr] gap-x-3", option.key === "drop" && "font-semibold")}>
+                      <dt className="text-muted-foreground">{option.name}</dt>
+                      <dd>{row[option.key]}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <RealRun />
 
         {/* Who it is for: two doors into the same app, each opening a practice payout in its own view. */}
         <section aria-labelledby="who-heading" className="space-y-8">
@@ -200,23 +321,6 @@ export default function HomePage() {
           </ul>
         </section>
 
-        {/* The redaction bar itself, across the screen: what the chain shows and what it keeps. */}
-        <section aria-labelledby="lines-heading" className="band py-14 sm:py-20">
-          <h2 id="lines-heading" className="text-xl leading-tight font-bold tracking-[-0.01em]">
-            Private amounts, public accountability.
-          </h2>
-          <ul className="mt-10 grid gap-x-10 gap-y-10 md:grid-cols-3">
-            {LINES.map((line) => (
-              <li key={line.lead} className="space-y-3 border-t border-island-muted/50 pt-5">
-                <span className="display block text-[3rem] [font-stretch:72%] lg:text-[4rem]">{line.lead}</span>
-                <span className="block max-w-[26ch] text-lg">{line.text}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <RealRun />
-
         <section aria-labelledby="steps-heading" className="space-y-6 border-t border-border pt-10">
           <div className="space-y-2">
             <h2 id="steps-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
@@ -237,24 +341,6 @@ export default function HomePage() {
           </ol>
         </section>
 
-        <section
-          aria-labelledby="practice-heading"
-          className="slip flex flex-col gap-6 p-6 sm:p-10 lg:flex-row lg:items-center lg:justify-between lg:gap-12"
-        >
-          <div className="space-y-4">
-            <h2 id="practice-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
-              Try it yourself
-            </h2>
-            <div className="max-w-[48ch] space-y-1 text-lg">
-              <p>Run a whole payout in this page, with no install, no wallet and no money.</p>
-              <p>It is a simulation in your browser, and every screen says so.</p>
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-3">
-            <PracticeStart label="Try it yourself in practice mode" />
-          </div>
-        </section>
-
         <section aria-labelledby="paid-heading" className="space-y-8 border-t border-border pt-10">
           <h2 id="paid-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
             For the people you pay
@@ -273,6 +359,24 @@ export default function HomePage() {
         </section>
 
         <Tour />
+
+        <section
+          aria-labelledby="practice-heading"
+          className="slip flex flex-col gap-6 p-6 sm:p-10 lg:flex-row lg:items-center lg:justify-between lg:gap-12"
+        >
+          <div className="space-y-4">
+            <h2 id="practice-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
+              Try it yourself
+            </h2>
+            <div className="max-w-[48ch] space-y-1 text-lg">
+              <p>Run a whole payout in this page, with no install, no wallet and no money.</p>
+              <p>It is a simulation in your browser, and every screen says so.</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <PracticeStart label="Try it yourself in practice mode" />
+          </div>
+        </section>
       </div>
     </UnitProvider>
   );

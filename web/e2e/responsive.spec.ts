@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { overflowReport } from "./helpers.js";
 
@@ -69,6 +69,44 @@ for (const width of WIDTHS) {
         await capsuleInside(page, width);
       });
     }
+  });
+}
+
+// The home page's switch has four views, which do not fit in one row on a phone: there they sit two by two, inside the sheet, and
+// the pill goes down to the second row with a choice there. From `sm` (640px) up they are one row.
+for (const [width, rows] of [
+  [320, 2],
+  [414, 2],
+  [640, 1],
+] as const) {
+  test.describe(`the four views at ${String(width)}px`, () => {
+    test.use({ viewport: { width, height: 700 } });
+
+    test(`sit in ${String(rows)} row${rows === 1 ? "" : "s"} inside the sheet, and the pill is on the one chosen`, async ({ page }) => {
+      await page.goto("/");
+      const group = page.getByRole("radiogroup", { name: "Who is looking" });
+      await expect(group).toBeVisible();
+      const box = async (locator: Locator) => (await locator.boundingBox()) as { x: number; y: number; width: number; height: number };
+      const sheet = await box(page.locator("section[aria-labelledby='lens-heading']"));
+      const switchBox = await box(group);
+      expect(switchBox.x, "the switch starts inside the sheet").toBeGreaterThanOrEqual(sheet.x);
+      expect(switchBox.x + switchBox.width, "the switch ends inside the sheet").toBeLessThanOrEqual(sheet.x + sheet.width + 0.5);
+
+      const tops = new Set<number>();
+      for (const name of ["Everyone", "One person", "Auditor", "You"]) tops.add(Math.round((await box(group.getByRole("radio", { name }))).y));
+      expect(tops.size, "rows of options").toBe(rows);
+
+      // The pill lies on the option within a pixel (it is placed in whole pixels; a grid's cells need not be).
+      await group.getByRole("radio", { name: "You" }).click();
+      const you = await box(group.getByRole("radio", { name: "You" }));
+      const thumb = page.locator('[data-slot="segmented-thumb"]').first();
+      await expect
+        .poll(async () => {
+          const at = await box(thumb);
+          return [at.x - you.x, at.y - you.y, at.width - you.width, at.height - you.height].every((gap) => Math.abs(gap) < 1);
+        })
+        .toBe(true);
+    });
   });
 }
 

@@ -50,12 +50,51 @@ describe("the home page", () => {
     }
   });
 
-  it("puts three short lines under the lens: what is public, what is hidden, what is checkable", () => {
+  it("makes three promises under the headline, one short line each", () => {
     renderHome();
-    const lines = screen.getAllByRole("list").find((ul) => ul.textContent?.includes("Checkable")) as HTMLElement;
-    const items = within(lines).getAllByRole("listitem");
-    expect(items.map((li) => li.firstElementChild?.textContent)).toEqual(["Public", "Hidden", "Checkable"]);
-    for (const item of items) expect((item.textContent ?? "").split(/\s+/u).length).toBeLessThanOrEqual(14);
+    for (const line of [
+      "Anyone can check the total.",
+      "Each person can prove their own payout.",
+      "Only the auditor you choose sees the list.",
+    ]) {
+      expect(screen.getByText(line)).toBeInTheDocument();
+    }
+  });
+
+  it("says who sees what: the same four as the switch on the sheet, and how each view is opened", () => {
+    renderHome();
+    const views = screen.getByTestId("four-views");
+    const items = within(views).getAllByRole("listitem");
+    expect(items.map((li) => li.firstElementChild?.textContent)).toEqual(["Everyone", "One person", "An auditor", "You"]);
+    expect(views).toHaveTextContent("From the receipt link, with no key.");
+    expect(views).toHaveTextContent("From their payslip, which proves it to anyone.");
+    expect(views).toHaveTextContent("With this payout's viewing key, and nothing from your other payouts.");
+    expect(views).toHaveTextContent("On your own computer, where the keys stay.");
+    // What everyone sees includes what the deposit spent, never who got what.
+    expect(views).toHaveTextContent("whether the deposit came out of the shielded pool");
+  });
+
+  it("compares a public list, a private wallet and ZecDrop, question by question, in a table and on a phone", () => {
+    renderHome();
+    const table = screen.getByTestId("compare-table");
+    expect(within(table).getAllByRole("columnheader").map((th) => th.firstElementChild?.textContent)).toEqual([
+      "A public list",
+      "A private wallet",
+      "ZecDrop",
+    ]);
+    const questions = within(table).getAllByRole("rowheader").map((th) => th.textContent);
+    expect(questions).toEqual([
+      "Anyone can check the total",
+      "Who got what stays private",
+      "One person can prove their own payout",
+      "An auditor can check the list",
+      "The payer's address stays off the chain",
+    ]);
+    // The same answers, one question at a time, for a narrow screen.
+    const list = screen.getByTestId("compare-list");
+    expect(within(list).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(questions);
+    expect(list).toHaveTextContent("Yes, with a payslip");
+    expect(table).toHaveTextContent("Yes, if you pay from a shielded balance");
   });
 
   it("says how to run a payout, in order, and that there is no wallet to connect", () => {
@@ -166,11 +205,19 @@ describe("the lens on the home page", () => {
     expect(screen.getByText("ZecDrop demo payout 5")).toBeInTheDocument();
   });
 
-  it("goes back to hiding everything when 'Public' is chosen again", async () => {
+  it("'You' (the payer) reveals every row too, and says it is on the payer's own computer", async () => {
+    const user = userEvent.setup();
+    renderHome();
+    await user.click(screen.getByRole("radio", { name: "You" }));
+    expect(rows().every((r) => r.getAttribute("data-revealed") === "true")).toBe(true);
+    expect(screen.getByText("What you see as the payer, on your own computer.")).toBeInTheDocument();
+  });
+
+  it("goes back to hiding everything when 'Everyone' is chosen again", async () => {
     const user = userEvent.setup();
     renderHome();
     await user.click(screen.getByRole("radio", { name: "Auditor" }));
-    await user.click(screen.getByRole("radio", { name: "Public" }));
+    await user.click(screen.getByRole("radio", { name: "Everyone" }));
     for (const address of addresses) expect(document.body.innerHTML).not.toContain(address.slice(0, 20));
     for (const memo of memos) expect(document.body.innerHTML).not.toContain(memo);
   });

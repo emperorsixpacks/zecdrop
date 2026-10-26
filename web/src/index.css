@@ -366,7 +366,8 @@ html[data-motion="calm"] { --motion: 0.35; }
 .segmented-glide {
   transition:
     transform calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1),
-    width calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1);
+    width calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1),
+    height calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1);
 }
 
 /* Everything that can be pressed answers at once (.press-only: a thing that gives under a press but has no lift of its own, like a row

@@ -471,9 +471,10 @@ test.describe("what a press does, when the visitor has not asked for less motion
     expect(timing.find((t) => t.property === "transform")?.duration).toBeGreaterThanOrEqual(150);
     expect(timing.find((t) => t.property === "transform")?.duration).toBeLessThanOrEqual(260);
     await expect.poll(async () => await thumb.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).e)).toBeGreaterThan(before);
-    // The chosen option's text is on the pill (ink on the fill); the options themselves have no fill of their own.
+    // The chosen option's text is on the pill (ink on the fill); the options themselves (the home page's four views) have no
+    // fill of their own.
     const radios = await thumb.locator("xpath=..").getByRole("radio").all();
-    expect(radios).toHaveLength(3);
+    expect(radios).toHaveLength(4);
     for (const radio of radios) expect(await radio.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
   });
 });

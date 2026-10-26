@@ -61,8 +61,8 @@ for (const viewport of VIEWPORTS) {
         await useTheme(page, theme);
         const problems = watchProblems(page);
         await page.goto("/");
-        await page.getByRole("radio", { name: "Public" }).waitFor();
-        await check(page, "public view", problems);
+        await page.getByRole("radio", { name: "Everyone" }).waitFor();
+        await check(page, "everyone's view", problems);
 
         await page.getByRole("radio", { name: "One person" }).click();
         await expect(page.getByLabel("Who?")).toBeVisible();
@@ -71,6 +71,11 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole("radio", { name: "Auditor" }).click();
         await expect(page.getByText("ZecDrop demo payout 5")).toBeVisible();
         await check(page, "auditor view", problems);
+
+        await page.getByRole("radio", { name: "You" }).click();
+        await expect(page.getByText("What you see as the payer, on your own computer.")).toBeVisible();
+        await expect(page.getByText("ZecDrop demo payout 5")).toBeVisible();
+        await check(page, "the payer's view", problems);
       });
 
       test("a receipt with every section open", async ({ page }) => {

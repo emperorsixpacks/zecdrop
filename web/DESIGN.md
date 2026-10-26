@@ -150,33 +150,43 @@ in screenshots). It is a `role="status"`, as is "Chain mode unknown: practice co
 
 ## Public pages
 
-**Home** is the landing page (owner, 2026-10-20). In order:
+**Home** is the landing page (owner, 2026-10-20; restructured 2026-10-23 around one idea, *one payout, four views*: the same
+payout as everyone, one person paid, an auditor and the payer see it). In order:
 
 1. **The headline and the sheet**, side by side on a wide screen so the first look is seen without a scroll (stacked on a phone).
    Left: "Pay many people. Keep who got what private. Prove the total." in the big grotesque pushed further (weight 800, width
-   72%, up to 92px), the one-sentence testnet status, two buttons (*See a real receipt*, filled; *Try a practice payout*, outline)
-   and two text links (*How privacy works*, *Being paid? Start here*). Right: the one white sheet, *Same payout, three views*,
-   with the real transaction's short id, the count, total and fee in plain ink (what anyone can read; the bars are what they
-   cannot), and the lens on the real 8-payout sample list (Person 1..8), its switch under the list so
-   that the tab order runs down the page (the buttons beside the sheet come first; `e2e/keyboard.spec.ts` holds it).
+   72%, up to 92px); under it the three promises, one line each ("Anyone can check the total." / "Each person can prove their
+   own payout." / "Only the auditor you choose sees the list."); two buttons (*See a real receipt*, filled; *Try a practice
+   payout*, outline); two text links (*How privacy works*, *Being paid? Start here*); and the testnet status in one small muted
+   line, said once on the first screen but not as the lead. Right: the one white sheet, *One payout, four views*, with the real
+   transaction's short id, the count, total and fee in plain ink, and the lens on the real 8-payout sample list (Person 1..8)
+   with a four-way switch under the list: *Everyone*, *One person*, *Auditor*, *You*. The auditor and the payer both see every
+   row; the caption read out under the switch says how (this payout's viewing key; the payer's own computer). The switch is under
+   the list so the tab order runs down the page (`e2e/keyboard.spec.ts` holds it). Four do not fit in one row on a phone, so below
+   `sm` they sit two by two (a grid with a pill's corner, at most 22rem wide, not as wide as the caption), and the pill follows a
+   choice down to the second row (`e2e/responsive.spec.ts` holds both).
 2. **The first look** (Lively, once a visit): the sixteen bars wipe in row after row over cells that never held any text,
-   while the total counts up; about a second, then still. In Calm,
-   under reduced motion and on a return to the page it is not played: the sheet is simply there. It is the page's one
-   unprompted motion; nothing else on the page moves by itself.
-3. **Who it's for** (owner, 2026-10-20: "making the UI easier to navigate and less crowded"): two slips side by side (stacked on a
-   phone), *Personal* ("For family, friends and the people around you.") and *Organisation* ("For a team, a grant programme or a
-   community."), each with three uses as ruled lines, one line on how it works, and its own button into practice mode, *Try a
-   personal payout* and *Try an organisation payout*, which open the payout in that view (for the visit; the landing page stores
-   nothing). One sentence over them: "One app, two ways in. The same privacy and the same proof."
-4. **The band**: the redaction bar itself across the whole screen (the header capsule's fill and ink, so black with light text,
-   and in the dark set the light-grey bar with dark text), headed "Private amounts, public accountability.", with *Public*,
-   *Hidden* and *Checkable* in very large type over their short lines.
+   while the total counts up; about a second, then still. In Calm, under reduced motion and on a return to the page it is not
+   played. It is the page's one unprompted motion; nothing else on the page moves by itself.
+3. **The band, *Who sees what***: the redaction bar itself across the whole screen (the header capsule's fill and ink), "One
+   transaction pays everyone. What each person sees depends on what they hold.", then the four views in very large type, each
+   with what it sees and, in the muted ink, how it is opened: *Everyone* (the receipt link, no key), *One person* (their
+   payslip), *An auditor* (this payout's viewing key, nothing from other payouts), *You* (your own computer, where the keys stay).
+4. **How it compares**: a public list (an airdrop on a public chain), a private wallet (paying from a shielded wallet) and
+   ZecDrop, answered question by question in plain words: anyone can check the total; who got what stays private; one person can
+   prove their own payout; an auditor can check the list; the payer's address stays off the chain (only if they pay from a
+   shielded balance, and said so). A table on a slip from `md` up, the
+   ZecDrop column set off by an ink rule and semibold; on a phone one slip per question with the three answers, so nothing is
+   wider than the screen.
 5. **It ran on public testnet**: three short lines and *Open the receipt*, beside the real run printed as a till receipt (the
    torn sheet, mono, dotted leaders, tilted a degree on a wide screen): payouts, transaction, total, fee, block, time to settle;
    then the limits measured offline (330 in one transaction, 142 s to prove it, 0.52 s to check it); ending "No mainnet payout
    yet." Every figure is the real receipt's or is named in `src/features/home/run-facts.ts` with its source.
-6. **How to run a payout** (the four steps, unchanged), then **Try it yourself** on a slip (the button beside the text on a wide
-   screen), then **For the people you pay** (the get-paid page and payslips, one line each), then the tour.
+6. **Who it's for**: two slips, *Personal* and *Organisation*, each with three uses as ruled lines, one line on how it works,
+   and its own button into practice mode in that view.
+7. **How to run a payout** (the four steps; the third says to pay from your shielded balance), then **For the people you pay**
+   (the get-paid page and payslips, one line each), then the tour, and last **Try it yourself** on a slip (the button beside
+   the text on a wide screen).
 
 No paragraph is longer than a short sentence (a test holds them to 16 words), and no part claims more than the status line.
 
@@ -411,8 +421,9 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   lifts, and its shadow is never drawn on a thing the keyboard has focused, because the focus ring is a shadow too. Calm shortens all of it,
   and under "reduce motion" it is gone: a pressed thing is its colour alone.
 - **Segmented controls.** One pill that glides to the chosen option in 220ms with a small spring (`--motion` scales it). It is the ink
-  (the marker in the dark set), the action's colour, as the buttons are.
-- **Redaction bars answer touch.** A hidden bar in the lens (the home page's *Same payout, three views*, the receipt's *What the public sees*,
+  (the marker in the dark set), the action's colour, as the buttons are. Where the options sit in two rows (the home page's four
+  views on a phone) it glides across and down.
+- **Redaction bars answer touch.** A hidden bar in the lens (the home page's *One payout, four views*, the receipt's *What the public sees*,
   the operator's check) shows its label, *hidden*, sliding up inside it under a pointer or a finger, and puts it away again. Always the same
   word, never a figure. It is drawn by the stylesheet with an empty alternative text (`content: "hidden" / ""`), so no screen reader reads
   it, and the bar's own name is still the one thing read; a browser that does not know that syntax draws none.

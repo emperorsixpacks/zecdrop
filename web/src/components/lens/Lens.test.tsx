@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/test/dom";
 
 import { LensList, RedactionLens, type LensMode, type LensRow } from "./Lens";
+import { FOUR_VIEWS } from "./views";
 
 // Strings that stand for a real list. None of them may be in the page while it is hidden.
 const ROWS: LensRow[] = [
@@ -105,6 +106,28 @@ describe("the redaction lens", () => {
   it("a row with only a count (the public receipt) is a bar in every lens", () => {
     render(<LensList rows={[{ id: "a", label: "Output 1" }, { id: "b", label: "Output 2" }]} mode="auditor" selectedId={null} unit="TAZ" />);
     expect(screen.getAllByRole("img", { name: "hidden" })).toHaveLength(4);
+  });
+
+  it("offers the public, one person and the auditor unless told otherwise (the operator's Check screen)", () => {
+    render(<Harness />);
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["Public", "One person", "Auditor"]);
+  });
+
+  it("with the four views, 'You' (the payer) reveals every row, and going back hides them again", async () => {
+    const user = userEvent.setup();
+    function Four() {
+      const [mode, setMode] = useState<LensMode>("public");
+      const [selected, setSelected] = useState<string | null>("r2");
+      return (
+        <RedactionLens rows={ROWS} mode={mode} onModeChange={setMode} selectedId={selected} onSelect={setSelected} unit="TAZ" views={FOUR_VIEWS} />
+      );
+    }
+    render(<Four />);
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["Everyone", "One person", "Auditor", "You"]);
+    await user.click(screen.getByRole("radio", { name: "You" }));
+    expect(document.body.innerHTML).toMatch(/memo-sentinel-one/u);
+    await user.click(screen.getByRole("radio", { name: "Everyone" }));
+    for (const secret of SECRETS) expect(document.body.innerHTML).not.toMatch(secret);
   });
 
   it("bars are the same width whatever they hide", () => {
