@@ -25,9 +25,15 @@ The protocol makes the *net value entering the shielded pool* public while every
 | Public | Hidden |
 |---|---|
 | Funding address and total, per-batch totals, fee, txids, batch size | Recipient addresses, per-recipient amounts, memos |
+| Whether the deposit came out of the shielded pool or from transparent funds | The payer's address, when they pay from a shielded balance |
 
 An auditor receives a **per-campaign viewing key** and can decrypt that campaign only. A salted manifest
 commitment on the public receipt lets the auditor check the payout list.
+
+**Pay from a shielded balance.** The deposit address is transparent on purpose, but what the deposit spends is the payer's
+choice: paid from a shielded balance, it names no address of theirs; paid from a transparent one, that address is public and
+tied to the campaign for good. The funding screen asks for a shielded deposit and says which kind arrived, and the public
+receipt says it too. The amount and the time stay public either way.
 
 **Honest limits:** a batch of one reveals that person's amount, and equal payouts make every amount derivable
 from the public total. ZecDrop avoids singleton batches and warns at review time.
@@ -60,6 +66,7 @@ listed in the table below; no transaction has been sent to mainnet.
 | Local audit command | built; reconciled the real 8-recipient campaign (8 of 8 outputs, total equals the public figure, salted commitment recomputed equals the receipt's) |
 | Payslips (`drop-verify`, `drop-zcash`, `drop-operator`, `drop-verifier`) | built and tested: one recipient's proof of one output, checkable by anyone with no key. The eight payslips of the real testnet batch verify in a test against the transaction as mined, and the verifier, run locally against public testnet, answered one as verified and a changed copy as invalid. A payslip also opens its output's memo ([`docs/PRIVACY_BOUNDARY.md`](docs/PRIVACY_BOUNDARY.md), "Payslips") |
 | Mobile and first use (`web/`) | built and tested: a "get paid" page where a recipient checks and shares their address (no request, nothing stored); a QR code of the funding request; a payslip as a link or a QR code (the payslip stays after the `#`, which a browser never sends to a server); and a practice mode that simulates a whole payout inside the page, with a banner on every screen. Checked in a real browser (Chromium) at phone width, down to 320 pixels, and in both themes; not yet tried with a physical phone camera, a real wallet or a screen reader |
+| Where the deposit came from (`drop-core`, `drop-verify`, `drop-operator`, `web/`) | built and tested: the verifier reads the deposit transaction it already fetches and the receipt says `funding_source: shielded` (no transparent input, so no payer address) or `transparent`, never the address; the operator reads it the same way as soon as the deposit is seen, and the funding screen asks for a shielded deposit before it and says which kind arrived after. Never a finding and never a stop. On our real testnet runs: the 3-recipient batch was funded straight from the faucet's shielded wallet (shielded), the 8-recipient batch from a sweep of that run's change (transparent), both answered so by the verifier run locally against public testnet on 2026-10-23 |
 | Everyday payouts (`web/`, `drop-operator`) | built and tested: a payout list built one person at a time, with an even split (exactly equal shares) or a lucky split (random shares that cannot be worked out from the total), written as the same CSV the importer reads; payslips from the payer's own screen, issued from the transaction the operator stored before broadcast, behind the same disclosure header as the viewing key (checked on 2026-10-20 against the real 8-recipient testnet campaign: 8 of 8 payslips verify against the node and the verifier); and Personal and Organisation views, so each payer sees only what they need. Live on the public site in practice mode |
 | Mainnet | the code runs on mainnet behind `--allow-mainnet`, a confirmation variable, a 0.1 ZEC cap per campaign and start-up checks of the node (network, upgrade, Ironwood tree); tested offline at mainnet parameters and read-only against the real mainnet node's data. **No mainnet payout has been made yet** ([`docs/runbooks/mainnet-run.md`](docs/runbooks/mainnet-run.md)) |
 | NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |

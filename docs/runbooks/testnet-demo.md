@@ -12,7 +12,10 @@ authoritative. Testnet only; no real funds.
   creates it. Back it up outside the repo if you care about leftover testnet coins.
 - A passphrase of at least 12 characters for the encrypted store, passed as `ZECDROP_PASSPHRASE` (never as an argument).
 - Testnet coins at the campaign's **transparent** (`tm…`) address. The Valar Group faucet
-  (<https://faucet.testnet.valargroup.dev>) accepts a transparent address and pays 0.125 TAZ per IP per day.
+  (<https://faucet.testnet.valargroup.dev>) accepts a transparent address and pays 0.125 TAZ per IP per day, **from its shielded
+  wallet**: its payout has no transparent input, so the funding screen and the receipt say the deposit came from the shielded
+  pool (checked 2026-10-23: the first batch's deposit `daa6b06c…8e2e`). A sweep of earlier change, as funded the 8-recipient run,
+  is a transparent deposit and is shown as one.
   The operator watches only the **funding** address, so leftover change at the change address must be swept back with
   `live-batch sweep` before a second campaign can use it.
 

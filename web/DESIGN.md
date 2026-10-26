@@ -121,7 +121,11 @@ seconds"). Primary: **Looks right, continue**. Secondary: back.
 
 **Stage 3, Send.** One question first: *Is it funded?* Shows the funding address with a copy button, an Open in wallet link and a QR code of the
 same wallet link (REQ-FUND-003; see "QR codes") and a live "Waiting for funds" pulse that flips to "Funded" the
-moment the operator sees it. Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
+moment the operator sees it. Under the amount, one ask with a "?": **Pay from your shielded balance**, and why (REQ-FUND-004).
+Once a deposit is seen, at any depth, one line says what it spent: a calm "From the shielded pool: the deposit names no address
+of yours. Its amount and time are public." or a warning box (never an error) that it came from transparent funds, with "You
+can still send". On the mock chain and in practice mode the pretend deposit has a *Paid from* choice (shielded by default) and
+the line says "(pretend)". Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
 0.00045 fee. It cannot be undone."). After confirming, the sheet becomes a live timeline: Preparing, Proving, Sending,
 Confirming 1 / 2 / 3, Done, with elapsed time and a realistic estimate; failures say what happened and what to do. On
 Done: the sealed stamp, then the big actions: **Open public receipt**, **Copy receipt link**, **Send payslips** and **Give an
@@ -178,8 +182,9 @@ No paragraph is longer than a short sentence (a test holds them to 16 words), an
 
 **Receipt.** One white **sheet** with an ink rule on top and a torn bottom edge (`.receipt-sheet`, a mask). On the left a
 verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), then what the verifier found, then the funds flow as three
-stations down a line, like the lines of a receipt (Funded from, Private pool, 8 outputs); on the right the lens (public, with
-the note). On a phone it is one column, with dashed perforations between the parts. Below the sheet, on the desk, collapsed accordions: Transaction, Funding address, List
+stations down a line, like the lines of a receipt (Funded from, Private pool, 8 outputs); under the funding address a small
+caption says what the deposit spent ("Deposit out of the shielded pool" or "Deposit from transparent funds", REQ-VER-007),
+with a "?"; no caption when the verifier did not say. On the right the lens (public, with the note). On a phone it is one column, with dashed perforations between the parts. Below the sheet, on the desk, collapsed accordions: Transaction, Funding address (with "What the deposit spent"), List
 fingerprint, "What this proves and what it doesn't" (two short lists of three items each at most, wording from
 docs/PRIVACY_BOUNDARY.md, banned phrases still enforced). Findings keep the Rust-sourced sentences, shown inside the
 verdict area and in details.

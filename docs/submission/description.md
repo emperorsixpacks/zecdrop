@@ -1,6 +1,6 @@
 # Submission description (draft)
 
-**Status: DRAFT, refreshed 2026-10-20.** The testnet run below was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-20 from a clean checkout of the code now on `main` (`7dcfb39`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
+**Status: DRAFT, refreshed 2026-10-23.** The testnet run below was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-23 on the branch that adds what the deposit spent (`feat/shielded-funding`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
 
 ## One-line
 
@@ -32,8 +32,8 @@ singleton batches and the review step warns. The recipient count of a batch is p
 **How it is built.** Rust workspace on librustzcash: a chain-agnostic domain core with a resumable, crash-safe
 engine; a local operator service with an encrypted store; a transaction builder using the Ironwood pool; a key-less
 verifier whose dependency closure is checked by a test to contain no key-decoding or storage crate. Requirements
-carry IDs and are tied to tests by a drift check: all 43 are implemented and each has a covering test (706 Rust tests; 2,903
-web unit tests and 556 tests in a real browser). The web app (React, Tailwind) has no wallet connection on purpose: the operator
+carry IDs and are tied to tests by a drift check: all 45 are implemented and each has a covering test (722 Rust tests; 2,933
+web unit tests and 568 tests in a real browser). The web app (React, Tailwind) has no wallet connection on purpose: the operator
 holds the keys on the user's own machine, and the public site holds none: it checks receipts and payslips, helps a recipient
 share an address, and simulates a payout (below). Funding from another coin through NEAR Intents is an optional stretch, wired into the operator.
 
@@ -51,6 +51,14 @@ of the real testnet batch each open exactly their own output (a test checks them
 verifier, run locally against public testnet, answered one as verified and a copy with one zatoshi changed as invalid. A payslip
 is a bearer document and also opens its output's memo, so a hosted check shows the verifier the receiver, the amount and the memo's
 key; the offline command does not.
+
+**What the deposit spent.** The campaign's deposit address is transparent on purpose: the public deposit is the checkable total.
+What the deposit spends is the payer's choice. Paid from a shielded balance, it names no address of theirs; paid from a
+transparent one, that address is public and tied to the campaign for good. The operator's funding screen asks for a shielded
+deposit and says which kind arrived, and the public receipt says it too (`funding_source`), read by the key-less verifier from the
+deposit transaction itself and stated by kind only, never the address. The amount and the time stay public either way. On our real
+testnet runs the verifier answers *shielded* for the first batch, funded straight from the testnet faucet's shielded wallet, and
+*transparent* for the 8-recipient batch, funded from a sweep of the first batch's change.
 
 **Everyday use.** Two ways in: *Personal* (money home to family, gifts, a shared pot) and *Organisation* (payroll, grants,
 airdrops), each showing only what that payer needs. A personal payer needs no spreadsheet: they type the people they pay one at a

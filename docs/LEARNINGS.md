@@ -2,6 +2,27 @@
 
 Pitfalls and measured facts. Format: symptom → cause → fix → prevention. Newest first.
 
+## 2026-10-23 — Where the deposit came from: the funder could always stay off the chain, and nothing said so
+
+- **Observed (live, `testnet.zec.rocks:443`, our own `fetch_tx` example):** the first real batch's deposit (`daa6b06c…8e2e`,
+  the testnet faucet's payout) has **no transparent input** and pays the campaign address exactly 12,500,000 zat; the
+  8-recipient batch's deposit (`9070aee0…f272`) is a sweep with one transparent input, the first batch's change. The faucet
+  (`faucet.testnet.valargroup.dev`, "paid from a shielded zecd wallet", `unshieldedBalance` 0) pays `tm…` addresses the same
+  way (payout `3d90ef5d…1953`: 0 transparent inputs, 46 Ironwood actions). The verifier, run locally against public testnet,
+  now answers the first batch `funding_source: shielded` and the 8-recipient one `transparent`.
+- **Cause:** the deposit address has to be transparent (it is the public total), and the docs treated that as making the
+  funder public. It does not: a deposit paid from a shielded balance names no address. Nothing asked for one or said which
+  kind had arrived.
+- **Fix:** the verifier classifies the deposits it already loads to resolve the inputs' values (no new request), the operator
+  reads the deposit by id once it is seen and keeps the answer in memory, and the funding screen and the receipt say it
+  (REQ-VER-007, REQ-FUND-004). Never a finding, never a stop.
+- **Two traps avoided:** (1) the site's receipt schema is strict, so a new key from the verifier would break the deployed
+  site: the key is optional in the schema, and **the site is deployed before the verifier**; (2) the store's row tag covers a
+  presence byte for every column, so adding a column would have made every existing row read as corrupt: the answer is public
+  chain data, kept in memory and read again after a restart instead.
+- **Prevention:** when a privacy limit is written down, check whether it is a limit of the design or only of how it is used,
+  and whether the product can say which one happened.
+
 ## 2026-10-18 — Mainnet, checked read-only before the first run: the shape is routine, three things could still have gone wrong silently
 
 - **Observed (live, `zec.rocks:443`, read-only gRPC):** mainnet is on NU6.3 (branch `37a5165b`, Zebra 6.3.0, lightwalletd

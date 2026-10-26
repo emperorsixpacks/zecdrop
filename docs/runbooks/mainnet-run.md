@@ -78,6 +78,10 @@ Send **exactly** "funding required" to the campaign's `t1…` address from Zodl 
 
 - More than required leaves change at an address this operator cannot spend on mainnet.
 - Less never funds the campaign.
+- **Pay it from your shielded balance.** Then the deposit names no address of yours. As soon as the deposit is seen, before it is
+  deep enough, the funding screen says either "From the shielded pool" or that it came from transparent funds, whose address is
+  now public and tied to the campaign (the receipt says the same). If your ZEC is transparent, shield it well before the run, not
+  just before: the amount and the time are public. Whether Zodl can spend a transparent balance directly is unverified.
 
 Wait for 3 confirmations (about 4 minutes at 75 seconds a block). The page changes to "Funded, ready to send".
 

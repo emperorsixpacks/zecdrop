@@ -12,13 +12,20 @@ Open <https://zecdrop-site.vercel.app>.
   so this is a live check, not a stored page. Expect "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ". The verifier runs on a
   teammate's server; if the page says it cannot reach it, use path 2, which needs only Docker.
 - **See a real receipt** opens `/r/demo?demo=real`, a saved copy of the same answer that works even when the verifier is down.
+- **What the deposit spent:** every receipt says whether its deposit came out of the shielded pool (it then names no payer
+  address) or from transparent funds, whose address is public; never the address itself, and the amount and time are public
+  either way. The 8-recipient batch says *transparent*: its deposit was a sweep of the first batch's change. [The first real
+  batch, 3 recipients](https://zecdrop-site.vercel.app/r/first-batch?network=testnet&tx=50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3&commitment=aade9fd18f7c48dc3b04ead6a7ee2211640d0fa5948dfd14b5a356463c841491&declared_total=60000)
+  says *shielded*: it was funded straight from the testnet faucet's shielded wallet. The operator's funding screen asks the
+  payer to pay from a shielded balance and says which kind arrived.
 - **Check a payslip:** [the Check a payslip page](https://zecdrop-site.vercel.app/payslip) loads a real payslip of that batch (one
   recipient's proof of one payout) and checks it through the hosted verifier; a second button loads a copy with the amount changed
   so you can watch it fail. Checking here shows the verifier the payslip's receiver, amount and the key to its memo; path 4
   checks one offline.
 - **Try a practice payout:** press "Try a personal payout" or "Try an organisation payout" on the home page (it works on a phone).
   The operator's own screens run against a simulation inside the page: add the example list (in the personal view, try *Even* or
-  *Lucky* to split a total), check the payouts, record a pretend deposit, send, and open a simulated public receipt. Nothing is sent anywhere, a banner on every screen says it is a simulation, and its ids begin with
+  *Lucky* to split a total), check the payouts, record a pretend deposit (say it was paid from your shielded balance or from a
+  transparent address, to see both answers), send, and open a simulated public receipt. Nothing is sent anywhere, a banner on every screen says it is a simulation, and its ids begin with
   the bytes of "practice". It is not evidence about any chain; paths 2 and 4 are.
 - **Being paid?** [The Get paid page](https://zecdrop-site.vercel.app/get-paid) is for a recipient: it checks the shape of a
   receiving address and offers to share it, entirely in the browser (no request, nothing stored).
