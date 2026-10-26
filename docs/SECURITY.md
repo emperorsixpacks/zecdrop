@@ -82,3 +82,21 @@ Open items from the review fixes:
   crash.
 - **The operator prints its "open this link" banner before it finishes checking the store**, so a damaged store shows
   a link and then exits with an error. A cosmetic issue.
+
+## Review of the shielded deposit address (2026-10-24)
+
+An independent agent reviewed the inbox read-only: the engine, the transaction checks, the zcash-devtool driver and the
+send-back route. It found no way past the checks of a move or a send-back, and no path to a second move. Each finding was
+checked against the code and against librustzcash before it was fixed.
+
+| Finding | Severity | Status |
+|---|---|---|
+| The page could ask for a payment zcash-devtool never spends (5,000 zat or less), and its top-up forgot the fee of the note it adds | medium–high | fixed, tests (a property test: whatever the page asks for, once paid, makes a move possible) |
+| After a restart or a failed look at the wallet, the page could offer the public address to a payer who had paid the shielded one | medium | fixed, tests; probed on the real testnet store after a restart |
+| A send-back did not check the wallet seed, so another seed's payout could spend this seed's inbox | medium | fixed, tests (without the guard, the test's send-back goes through) |
+| A lost wallet directory was never set up again | low | fixed, tests |
+| The log named each send-back's transaction | low | fixed, tests |
+| A send-back cut short could leave its PCZT files until the next build | low | fixed, tests |
+
+Still open: the inboxes are looked at one at a time, under one lock, so a hung sync delays the others by up to its
+300-second timeout; and a funded payout's inbox is synced every ten minutes for as long as the operator runs.
