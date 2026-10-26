@@ -1,0 +1,57 @@
+# The spike library on the NU7-aware librustzcash PRE-RELEASE train (2026-10-01..06), which is
+# also the workspace's train. `src/lib.rs` started as a copy of ../src/lib.rs (five call-site API
+# changes) and is now generalised for real UTXOs/anchors.
+#
+# Offline:  `cargo test` (TEST-ONLY keys).
+# TESTNET:  `cargo run --release --bin gen-testnet-wallet`, then
+#           `cargo run --release --bin live-batch -- info | dry-run | send | verify <txid>`.
+#           The dev seed lives in ~/.zecdrop-dev/testnet.seed (0600), never in the repo.
+[package]
+name = "single-tx-builder-port031"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+
+# Standalone: own Cargo.lock and target/, independent of ../ and of the root workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+zcash_primitives = { version = "=0.31.0-pre.1", features = ["transparent-inputs"] }
+zcash_transparent = { version = "=0.11.0-pre.1", features = ["transparent-inputs"] }
+zcash_keys = { version = "=0.17.0-pre.1", features = ["orchard", "sapling", "transparent-inputs"] }
+zcash_address = "=0.14.0-pre.1"
+zcash_protocol = "=0.11.0-pre.0"
+orchard = "=0.16.0"
+zip32 = "=0.3.0"
+sapling-crypto = { version = "=0.9.0", features = ["test-dependencies"] }
+zcash_client_backend = { version = "=0.25.0-pre.1", features = [
+  "orchard",
+  "transparent-inputs",
+  "lightwalletd-tonic-transport",
+  "lightwalletd-tonic-tls-webpki-roots",
+] }
+zcash_script = "0.6"
+rand_core = "0.10"
+rand_chacha = "0.10"
+secp256k1 = "0.33"
+# Live testnet tooling only.
+tonic = { version = "0.14", default-features = false, features = ["transport", "tls-ring", "tls-webpki-roots"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+getrandom = "0.3"
+hex = "0.4"
+zeroize = "1"
+# `live-batch sweep` uses the product crates: drop-zcash's `build_sweep`, and drop-chain's UTXO
+# lookup (the call the operator's deposit scan makes).
+drop-zcash = { path = "../../../crates/drop-zcash" }
+drop-core = { path = "../../../crates/drop-core" }
+drop-chain = { path = "../../../crates/drop-chain" }
+
+# Halo2 proving is unusably slow without optimisation.
+[profile.test]
+opt-level = 3
+[profile.dev.package."*"]
+opt-level = 3

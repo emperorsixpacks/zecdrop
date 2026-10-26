@@ -1,0 +1,60 @@
+{
+  "id": "c-000000000002",
+  "name": "Lower fee campaign",
+  "network": "testnet",
+  "pool": "ironwood",
+  "created_at": 1700000001,
+  "phase": {
+    "phase": "awaiting_funding"
+  },
+  "phase_label": "Waiting for funds",
+  "recipient_count": 5,
+  "batch_count": 2,
+  "max_outputs_per_batch": 3,
+  "fee_policy": {
+    "marginal_fee": 1000,
+    "grace_actions": 2
+  },
+  "declared_total": "1162500000",
+  "fee_total": "7000",
+  "funding_required": "1162507000",
+  "manifest_commitment": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+  "wallet_matches": true,
+  "funding_address": null,
+  "funding": null,
+  "funding_progress": null,
+  "batches": [
+    {
+      "index": 0,
+      "recipients": 3,
+      "total": "450000000",
+      "fee": "4000",
+      "funding_required": "450004000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    },
+    {
+      "index": 1,
+      "recipients": 2,
+      "total": "712500000",
+      "fee": "3000",
+      "funding_required": "712503000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    }
+  ],
+  "warnings": [
+    {
+      "code": "two_recipient_batch",
+      "batch_index": 1,
+      "message": "Batch 1 has two recipients; each can work out the other's amount from the public total and their own."
+    }
+  ],
+  "run": {
+    "state": "idle"
+  }
+}

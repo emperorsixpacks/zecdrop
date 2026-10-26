@@ -1,0 +1,61 @@
+[
+  {
+    "assetId": "nep141:wrap.near",
+    "decimals": 24,
+    "blockchain": "near",
+    "symbol": "wNEAR",
+    "price": 5.3,
+    "priceUpdatedAt": "2026-10-07T22:03:30.725Z",
+    "contractAddress": "wrap.near",
+    "coingeckoId": "wrapped-near"
+  },
+  {
+    "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "decimals": 6,
+    "blockchain": "near",
+    "symbol": "USDC",
+    "price": 0.999752,
+    "priceUpdatedAt": "2026-10-07T22:03:30.725Z",
+    "contractAddress": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "coingeckoId": "usd-coin"
+  },
+  {
+    "assetId": "nep141:zec.omft.near",
+    "decimals": 8,
+    "blockchain": "zec",
+    "symbol": "ZEC",
+    "price": 1315.45,
+    "priceUpdatedAt": "2026-10-07T22:03:30.725Z",
+    "coingeckoId": "zcash"
+  },
+  {
+    "assetId": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+    "decimals": 6,
+    "blockchain": "eth",
+    "symbol": "USDC",
+    "price": 0.999752,
+    "priceUpdatedAt": "2026-10-07T22:03:30.725Z",
+    "contractAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "coingeckoId": "usd-coin"
+  },
+  {
+    "assetId": "1cs_v1:sol:spl:A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+    "decimals": 8,
+    "blockchain": "sol",
+    "symbol": "ZEC",
+    "price": 1315.45,
+    "priceUpdatedAt": "2026-10-07T22:03:30.725Z",
+    "contractAddress": "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+    "coingeckoId": "zcash"
+  },
+  {
+    "assetId": "1cs_v1:near:nep141:zec.omft.near",
+    "decimals": 8,
+    "blockchain": "near",
+    "symbol": "ZEC",
+    "price": 1315.45,
+    "priceUpdatedAt": "2026-10-07T22:03:30.725Z",
+    "contractAddress": "zec.omft.near",
+    "coingeckoId": "zcash"
+  }
+]

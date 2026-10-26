@@ -1,0 +1,72 @@
+[
+  {
+    "id": "c-000000000001",
+    "name": "Sentinel campaign",
+    "network": "testnet",
+    "pool": "ironwood",
+    "created_at": 1700000000,
+    "phase": {
+      "phase": "settled"
+    },
+    "phase_label": "Complete: all batches confirmed",
+    "recipient_count": 5,
+    "batch_count": 2,
+    "declared_total": "1162500000"
+  },
+  {
+    "id": "c-000000000002",
+    "name": "Lower fee campaign",
+    "network": "testnet",
+    "pool": "ironwood",
+    "created_at": 1700000001,
+    "phase": {
+      "phase": "awaiting_funding"
+    },
+    "phase_label": "Waiting for funds",
+    "recipient_count": 5,
+    "batch_count": 2,
+    "declared_total": "1162500000"
+  },
+  {
+    "id": "c-000000000003",
+    "name": "Equal amounts",
+    "network": "testnet",
+    "pool": "ironwood",
+    "created_at": 1700000002,
+    "phase": {
+      "phase": "awaiting_funding"
+    },
+    "phase_label": "Waiting for funds",
+    "recipient_count": 5,
+    "batch_count": 2,
+    "declared_total": "1000000000"
+  },
+  {
+    "id": "c-000000000004",
+    "name": "One recipient",
+    "network": "testnet",
+    "pool": "ironwood",
+    "created_at": 1700000003,
+    "phase": {
+      "phase": "awaiting_funding"
+    },
+    "phase_label": "Waiting for funds",
+    "recipient_count": 1,
+    "batch_count": 1,
+    "declared_total": "777700000"
+  },
+  {
+    "id": "c-000000000005",
+    "name": "Three recipients",
+    "network": "testnet",
+    "pool": "ironwood",
+    "created_at": 1700000004,
+    "phase": {
+      "phase": "awaiting_funding"
+    },
+    "phase_label": "Waiting for funds",
+    "recipient_count": 3,
+    "batch_count": 1,
+    "declared_total": "930000000"
+  }
+]

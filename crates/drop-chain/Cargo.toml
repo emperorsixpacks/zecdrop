@@ -1,0 +1,26 @@
+[package]
+name = "drop-chain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "lightwalletd / Zaino gRPC chain source, broadcast and UTXO listing for ZecDrop."
+
+# Deliberately no `zcash_client_backend`: it depends on `zcash_keys` unconditionally, and the hosted
+# verifier (which depends on this crate) must have no key types in its dependency closure (REQ-VER-002).
+# The gRPC client is generated at build time from the upstream `.proto` files in `proto/` (see
+# PROVENANCE.md); it needs `protoc` on the PATH (CI installs it).
+[dependencies]
+drop-core = { path = "../drop-core" }
+drop-verify = { path = "../drop-verify" }
+prost = "0.14"
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", features = ["rt", "time", "macros"] }
+tonic = { version = "0.14", default-features = false, features = ["codegen", "transport", "tls-ring", "tls-webpki-roots"] }
+tonic-prost = "0.14"
+
+[dev-dependencies]
+tokio = { version = "1.53.2", features = ["macros", "rt"] }
+
+[build-dependencies]
+tonic-prost-build = "0.14"

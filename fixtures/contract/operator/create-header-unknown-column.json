@@ -1,0 +1,17 @@
+{
+  "error": {
+    "code": "import_failed",
+    "error_count": 1,
+    "errors": [
+      {
+        "kind": {
+          "code": "unknown_column",
+          "position": 3
+        },
+        "line": 1,
+        "message": "unknown column in header at position 3; expected address, amount, memo"
+      }
+    ],
+    "message": "the CSV has 1 problem(s); fix them and try again"
+  }
+}

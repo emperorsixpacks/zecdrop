@@ -1,0 +1,15 @@
+event: progress
+data: {"event":"built","batch_index":0,"txid":"a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0","outputs":3}
+
+event: progress
+data: {"event":"broadcast","batch_index":0,"txid":"a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0"}
+
+event: progress
+data: {"event":"built","batch_index":1,"txid":"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","outputs":2}
+
+event: progress
+data: {"event":"broadcast","batch_index":1,"txid":"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"}
+
+event: progress
+data: {"event":"waiting","batch_index":0,"observed_depth":0,"required_depth":3}
+

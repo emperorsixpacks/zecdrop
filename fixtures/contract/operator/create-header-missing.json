@@ -1,0 +1,16 @@
+{
+  "error": {
+    "code": "import_failed",
+    "error_count": 1,
+    "errors": [
+      {
+        "kind": {
+          "code": "missing_header"
+        },
+        "line": 1,
+        "message": "the first row must be a header such as: address,amount,memo"
+      }
+    ],
+    "message": "the CSV has 1 problem(s); fix them and try again"
+  }
+}

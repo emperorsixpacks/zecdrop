@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "confirmation_required",
+    "message": "send the header `X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND` after showing the person the warning",
+    "warning": "A campaign viewing key lets its holder see every payout of this campaign: each recipient address, amount and memo. Giving it away cannot be undone, and anyone it reaches can keep it forever. Share it only with the auditor you intend, over a channel you trust."
+  }
+}

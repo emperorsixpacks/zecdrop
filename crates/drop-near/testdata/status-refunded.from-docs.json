@@ -1,0 +1,20 @@
+{
+  "_source": "hand-written from docs.near-intents.org 'Check swap execution status' (not captured)",
+  "correlationId": "00000000-0000-4000-8000-000000000002",
+  "quoteResponse": {
+    "quote": {
+      "depositAddress": "docs-example-deposit-address.near"
+    }
+  },
+  "status": "REFUNDED",
+  "updatedAt": "2026-10-07T22:20:00.000Z",
+  "swapDetails": {
+    "intentHashes": [],
+    "nearTxHashes": [],
+    "originChainTxHashes": [],
+    "destinationChainTxHashes": [],
+    "refundedAmount": "7672272",
+    "refundedAmountFormatted": "7.672272",
+    "refundReason": "PARTIAL_DEPOSIT"
+  }
+}

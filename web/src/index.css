@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+/* Theming model
+ *
+ * Dark is the default. Light applies only when <html data-theme="light">,
+ * which src/lib/theme.ts sets from the saved choice or the OS preference.
+ * The `dark:` variant follows the same rule, so component variants written
+ * with `dark:` never disagree with the tokens below.
+ *
+ * Colours are full OKLCH values (no channel tricks); utilities pick them up
+ * through the `@theme inline` map. The first group of tokens is the contract
+ * the generated shadcn components expect; `link` and `status-*` are ours.
+ *
+ * Contrast was computed (WCAG 2.2) for both themes: text pairs >= 4.5:1,
+ * input borders and focus ring >= 3:1, including tinted badge backgrounds.
+ * Re-run the check if you change a value. */
+@custom-variant dark (&:where(:root:not([data-theme="light"]) *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ZecDrop additions */
+  --color-link: var(--link);
+  --color-status-shielded: var(--status-shielded);
+  --color-status-done: var(--status-done);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* System stacks only: no web font means no third-party request and no
+   * flash of unstyled text, which suits a tool that runs offline. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --font-heading: var(--font-sans); /* generated components use font-heading */
+}
+
+:root {
+  color-scheme: dark;
+  --radius: 0.625rem;
+
+  --background: oklch(0.155 0.006 75);
+  --foreground: oklch(0.96 0.004 85);
+  --card: oklch(0.2 0.007 75);
+  --card-foreground: oklch(0.96 0.004 85);
+  --popover: oklch(0.22 0.008 75);
+  --popover-foreground: oklch(0.96 0.004 85);
+
+  /* Zcash gold, #F4B728. `primary` is a fill and always carries dark text. */
+  --primary: oklch(0.814 0.158 83);
+  --primary-foreground: oklch(0.2 0.02 80);
+  --secondary: oklch(0.27 0.008 75);
+  --secondary-foreground: oklch(0.96 0.004 85);
+  --muted: oklch(0.25 0.007 75);
+  --muted-foreground: oklch(0.74 0.01 80);
+  --accent: oklch(0.29 0.01 78);
+  --accent-foreground: oklch(0.96 0.004 85);
+  --destructive: oklch(0.72 0.17 25);
+
+  --border: oklch(0.3 0.008 75); /* decorative card edges */
+  --input: oklch(0.55 0.01 80); /* a control's boundary: must clear 3:1 */
+  --ring: oklch(0.814 0.158 83);
+
+  /* Gold used as TEXT or an outline. Same as primary here; darker amber in
+   * light, where gold text on a pale background is unreadable. */
+  --link: oklch(0.814 0.158 83);
+  --status-shielded: oklch(0.78 0.12 295);
+  --status-done: oklch(0.8 0.16 155);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: oklch(0.985 0.004 85);
+  --foreground: oklch(0.2 0.01 75);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.01 75);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.01 75);
+
+  --primary: oklch(0.814 0.158 83);
+  --primary-foreground: oklch(0.2 0.02 80);
+  --secondary: oklch(0.94 0.008 85);
+  --secondary-foreground: oklch(0.2 0.01 75);
+  --muted: oklch(0.955 0.006 85);
+  --muted-foreground: oklch(0.46 0.012 80);
+  --accent: oklch(0.93 0.015 85);
+  --accent-foreground: oklch(0.2 0.01 75);
+  --destructive: oklch(0.5 0.2 27);
+
+  --border: oklch(0.89 0.008 85);
+  --input: oklch(0.62 0.01 80);
+  --ring: oklch(0.46 0.1 75);
+
+  --link: oklch(0.46 0.1 75);
+  --status-shielded: oklch(0.46 0.16 295);
+  --status-done: oklch(0.42 0.12 155);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Keyboard focus is always visible, including on bare links. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Respect the OS "reduce motion" setting for every animation and transition,
+ * including ones inside third-party components. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

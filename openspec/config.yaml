@@ -1,0 +1,22 @@
+# OpenSpec configuration for ZecDrop.
+# Layout: changes/<change-id>/{proposal.md,tasks.md,specs/<capability>/spec.md}
+# Accepted requirements move to specs/<capability>/spec.md when a change is archived (no two competing truths).
+
+context: |
+  ZecDrop: confidential batch payouts on Zcash. Rust workspace (librustzcash) + React UI.
+  Hackathon build: all code written during the build window; see docs/HACKATHON.md.
+
+rules:
+  ids: |
+    Every requirement is a level-3 heading `### REQ-AREA-NNN — title`, followed by a `Status: planned|implemented`
+    line, followed by a SHALL statement. IDs are never reused.
+  tests: |
+    A test that verifies a requirement carries `// covers: REQ-AREA-NNN`. `scripts/spec_drift.py` fails on an
+    `implemented` requirement with no covering test and on markers that name an unknown ID.
+  privacy: |
+    Any requirement touching receipts, logs, errors, storage, the verifier or the UI must include a NEGATIVE test:
+    what must not appear (sentinel recipient address / amount / memo values).
+  naming: |
+    Change IDs are descriptive. No milestone labels (V1, V2, phase-3).
+  scope: |
+    Scope additions are explicit decisions recorded in the change's proposal.md, not silent task additions.

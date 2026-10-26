@@ -1,0 +1,16 @@
+{
+  "error": {
+    "code": "import_failed",
+    "error_count": 1,
+    "errors": [
+      {
+        "kind": {
+          "code": "unterminated_quote"
+        },
+        "line": 3,
+        "message": "a quoted field is never closed; the rest of the file would be swallowed"
+      }
+    ],
+    "message": "the CSV has 1 problem(s); fix them and try again"
+  }
+}

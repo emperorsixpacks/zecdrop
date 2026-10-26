@@ -1,0 +1,30 @@
+[package]
+name = "drop-verify"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Key-less verification of ZecDrop batch transactions from public chain data."
+
+# REQ-VER-002: nothing here may depend on spend-key or viewing-key types. The structural
+# test in `drop-verifier` asserts `zcash_keys` is absent from this crate's dependency closure.
+[dependencies]
+drop-core = { path = "../drop-core" }
+hex = "0.4.3"
+orchard = { workspace = true }
+sapling-crypto = { workspace = true }
+thiserror = "2.0.21"
+# Re-encodes P2PKH hashes as addresses for the receipt (REQ-VER-004); no key types.
+zcash_address = { workspace = true }
+zcash_primitives = { workspace = true }
+zcash_protocol = { workspace = true }
+zcash_transparent = { workspace = true }
+
+[dev-dependencies]
+zcash_primitives = { workspace = true, features = ["non-standard-fees"] }
+hex = "0.4.3"
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+secp256k1 = { workspace = true }
+serde_json = "1.0.151"
+tokio = { version = "1", features = ["macros", "rt"] }

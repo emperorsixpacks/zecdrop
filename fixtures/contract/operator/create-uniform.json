@@ -1,0 +1,70 @@
+{
+  "id": "c-000000000003",
+  "name": "Equal amounts",
+  "network": "testnet",
+  "pool": "ironwood",
+  "created_at": 1700000002,
+  "phase": {
+    "phase": "awaiting_funding"
+  },
+  "phase_label": "Waiting for funds",
+  "recipient_count": 5,
+  "batch_count": 2,
+  "max_outputs_per_batch": 3,
+  "fee_policy": {
+    "marginal_fee": 5000,
+    "grace_actions": 2
+  },
+  "declared_total": "1000000000",
+  "fee_total": "35000",
+  "funding_required": "1000035000",
+  "manifest_commitment": "e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2",
+  "wallet_matches": true,
+  "funding_address": null,
+  "funding": null,
+  "funding_progress": null,
+  "batches": [
+    {
+      "index": 0,
+      "recipients": 3,
+      "total": "600000000",
+      "fee": "20000",
+      "funding_required": "600020000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    },
+    {
+      "index": 1,
+      "recipients": 2,
+      "total": "400000000",
+      "fee": "15000",
+      "funding_required": "400015000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    }
+  ],
+  "warnings": [
+    {
+      "code": "uniform_batch",
+      "batch_index": 0,
+      "message": "Every recipient in batch 0 gets the same amount, so the public total reveals each amount."
+    },
+    {
+      "code": "two_recipient_batch",
+      "batch_index": 1,
+      "message": "Batch 1 has two recipients; each can work out the other's amount from the public total and their own."
+    },
+    {
+      "code": "uniform_batch",
+      "batch_index": 1,
+      "message": "Every recipient in batch 1 gets the same amount, so the public total reveals each amount."
+    }
+  ],
+  "run": {
+    "state": "idle"
+  }
+}

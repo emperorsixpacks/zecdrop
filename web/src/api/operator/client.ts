@@ -1,0 +1,219 @@
+// Calls to the local operator API. Every protected call carries the bearer
+// token from session.ts in a header. Responses are parsed with the strict
+// schemas in schemas.ts before anything else sees them.
+//
+// The create call is the only one that carries recipient data (the CSV). It is
+// sent once, to the loopback operator, and is never logged, stored or put in a
+// URL; the response, like every response, contains none of it.
+
+import { apiUrl } from "@/api/client";
+import { parsePublicReceipt, type OutPointView, type PublicReceipt } from "@/api/types";
+
+import { getToken, rejectToken } from "./session";
+import {
+  parseCampaign,
+  parseCampaignList,
+  parseHealth,
+  parseOperatorError,
+  parseViewingKeyExport,
+  parseStartResponse,
+  type OperatorCampaign,
+  type OperatorCampaignSummary,
+  type OperatorError,
+  type OperatorHealth,
+  type StartResponse,
+  type ViewingKeyExport,
+} from "./schemas";
+
+export type OperatorFailureKind =
+  /** There is no token to send. */
+  | "no_token"
+  /** The operator answered 401: the token is wrong or from an older run. */
+  | "unauthorized"
+  /** The operator answered with an error it explained. */
+  | "api"
+  /** The operator could not be reached. */
+  | "unreachable"
+  /** It answered, but not in a shape we accept. */
+  | "invalid_response";
+
+export class OperatorApiError extends Error {
+  override readonly name = "OperatorApiError";
+  readonly kind: OperatorFailureKind;
+  readonly status: number | null;
+  /** What the operator said, for `api` failures. */
+  readonly api: OperatorError | null;
+
+  constructor(kind: OperatorFailureKind, status: number | null = null, api: OperatorError | null = null) {
+    super(`operator request failed: ${kind}${api ? ` (${api.code})` : ""}`);
+    this.kind = kind;
+    this.status = status;
+    this.api = api;
+  }
+}
+
+const CAMPAIGN_ID = /^[A-Za-z0-9._-]{1,64}$/u;
+
+function campaignPath(id: string, suffix = ""): string {
+  if (!CAMPAIGN_ID.test(id)) throw new OperatorApiError("api", 404, { code: "not_found", message: "campaign not found" });
+  return `/campaigns/${encodeURIComponent(id)}${suffix}`;
+}
+
+interface RequestOptions<T> {
+  method?: "GET" | "POST";
+  body?: unknown;
+  parse: (input: unknown) => T;
+  /** Health needs no token. */
+  authenticated?: boolean;
+  /** Headers beyond the standard ones. */
+  extraHeaders?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
+async function request<T>(path: string, options: RequestOptions<T>): Promise<T> {
+  const authenticated = options.authenticated ?? true;
+  const token = authenticated ? getToken() : null;
+  if (authenticated && token === null) throw new OperatorApiError("no_token");
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token !== null) headers["Authorization"] = `Bearer ${token}`;
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  Object.assign(headers, options.extraHeaders);
+
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), {
+      method: options.method ?? "GET",
+      headers,
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      credentials: "omit",
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      signal: options.signal ?? null,
+    });
+  } catch (error) {
+    if (options.signal?.aborted) throw error; // cancelled by the caller: not a failure
+    throw new OperatorApiError("unreachable");
+  }
+
+  if (response.status === 401) {
+    rejectToken();
+    throw new OperatorApiError("unauthorized", 401);
+  }
+
+  // An error answer that is not the operator's envelope (a proxy, a security
+  // layer, a crash page) is still an answer with a status: the page explains it
+  // by that status instead of calling the whole operator unreadable.
+  if (!response.ok) {
+    let api: OperatorError | null;
+    try {
+      api = parseOperatorError(await response.json());
+    } catch {
+      api = null;
+    }
+    throw new OperatorApiError("api", response.status, api);
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new OperatorApiError("invalid_response", response.status);
+  }
+
+  try {
+    return options.parse(body);
+  } catch {
+    throw new OperatorApiError("invalid_response", response.status);
+  }
+}
+
+// ---- the API ----------------------------------------------------------------------
+
+export async function getHealth(signal?: AbortSignal): Promise<OperatorHealth> {
+  return await request("/health", { parse: parseHealth, authenticated: false, ...(signal ? { signal } : {}) });
+}
+
+export async function listCampaigns(signal?: AbortSignal): Promise<OperatorCampaignSummary[]> {
+  return await request("/campaigns", { parse: parseCampaignList, ...(signal ? { signal } : {}) });
+}
+
+export async function getCampaign(id: string, signal?: AbortSignal): Promise<OperatorCampaign> {
+  return await request(campaignPath(id), { parse: parseCampaign, ...(signal ? { signal } : {}) });
+}
+
+/** The receipt the operator builds. Same strict shape as the public page's. */
+export async function getCampaignReceipt(id: string, signal?: AbortSignal): Promise<PublicReceipt> {
+  return await request(campaignPath(id, "/receipt"), { parse: parsePublicReceipt, ...(signal ? { signal } : {}) });
+}
+
+export type FeePolicyName = "zip317_text" | "zebra_main";
+
+export interface CreateCampaignInput {
+  name: string;
+  /** The recipients, as CSV text. Held in memory by the caller; never stored. */
+  csv: string;
+  maxOutputsPerBatch: number;
+  feePolicy: FeePolicyName;
+}
+
+export async function createCampaign(input: CreateCampaignInput, signal?: AbortSignal): Promise<OperatorCampaign> {
+  return await request("/campaigns", {
+    method: "POST",
+    body: {
+      name: input.name,
+      csv: input.csv,
+      max_outputs_per_batch: input.maxOutputsPerBatch,
+      fee_policy: input.feePolicy,
+    },
+    parse: parseCampaign,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** Mock chain only: record the funding deposit. */
+export async function recordFunding(
+  id: string,
+  deposit: { outpoint: OutPointView; amount: string },
+  signal?: AbortSignal,
+): Promise<OperatorCampaign> {
+  return await request(campaignPath(id, "/fund-observed"), {
+    method: "POST",
+    body: { outpoint: `${deposit.outpoint.txid}:${String(deposit.outpoint.vout)}`, amount: deposit.amount },
+    parse: parseCampaign,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** Real chain: ask the operator to look for the deposit now (it also looks on its own). */
+export async function checkFunding(id: string, signal?: AbortSignal): Promise<OperatorCampaign> {
+  return await request(campaignPath(id, "/check-funding"), {
+    method: "POST",
+    parse: parseCampaign,
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** The header that acknowledges a viewing key discloses every payout, for good.
+ * Sent only after the person has been shown the warning and agreed (see AuditorStep). */
+export const DISCLOSURE_HEADER = "X-Zecdrop-Confirm-Disclosure";
+export const DISCLOSURE_ACKNOWLEDGEMENT = "I-UNDERSTAND";
+
+/** Ask for the campaign's viewing key. The caller must already have shown the
+ * person the disclosure warning and got their agreement. The key is returned to
+ * the caller and kept nowhere else. */
+export async function exportViewingKey(id: string, signal?: AbortSignal): Promise<ViewingKeyExport> {
+  return await request(campaignPath(id, "/audit-ufvk-export"), {
+    parse: parseViewingKeyExport,
+    extraHeaders: { [DISCLOSURE_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export async function startCampaign(id: string, signal?: AbortSignal): Promise<StartResponse> {
+  return await request(campaignPath(id, "/start"), {
+    method: "POST",
+    parse: parseStartResponse,
+    ...(signal ? { signal } : {}),
+  });
+}

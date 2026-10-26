@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "needs_funding_split",
+    "message": "this campaign has more than one batch, and a funding-split transaction (one exact output per batch) is not implemented yet; use a single batch of up to 330 recipients"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "the request body has missing, extra or mistyped fields (line 1, column 377)"
+  }
+}

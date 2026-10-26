@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "the request body is not valid JSON (line 1, column 1)"
+  }
+}

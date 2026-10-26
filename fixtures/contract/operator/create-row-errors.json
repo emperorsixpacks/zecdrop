@@ -1,0 +1,151 @@
+{
+  "error": {
+    "code": "import_failed",
+    "error_count": 15,
+    "errors": [
+      {
+        "kind": {
+          "code": "invalid_address",
+          "reason": {
+            "code": "malformed",
+            "reason": "unexpected character"
+          }
+        },
+        "line": 3,
+        "message": "address is not valid: unexpected character"
+      },
+      {
+        "kind": {
+          "code": "missing_address"
+        },
+        "line": 4,
+        "message": "address is empty"
+      },
+      {
+        "kind": {
+          "code": "invalid_address",
+          "reason": {
+            "code": "malformed",
+            "reason": "unknown address prefix"
+          }
+        },
+        "line": 5,
+        "message": "address is not valid: unknown address prefix"
+      },
+      {
+        "kind": {
+          "code": "invalid_address",
+          "reason": {
+            "code": "transparent_not_allowed"
+          }
+        },
+        "line": 6,
+        "message": "transparent addresses are not allowed; use a shielded or unified address"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "invalid_character"
+          }
+        },
+        "line": 7,
+        "message": "amount may contain only digits and one decimal point (no spaces, signs or separators)"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "negative"
+          }
+        },
+        "line": 8,
+        "message": "amount must not be negative"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "scientific_notation"
+          }
+        },
+        "line": 9,
+        "message": "scientific notation is not allowed; write the amount as a plain decimal"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "too_many_decimals"
+          }
+        },
+        "line": 10,
+        "message": "amount has more than 8 decimal places"
+      },
+      {
+        "kind": {
+          "code": "zero_amount"
+        },
+        "line": 11,
+        "message": "amount must be greater than zero"
+      },
+      {
+        "kind": {
+          "code": "duplicate_address",
+          "first_line": 2
+        },
+        "line": 12,
+        "message": "this address already appears on line 2"
+      },
+      {
+        "kind": {
+          "code": "field_count",
+          "expected": 3,
+          "found": 4
+        },
+        "line": 13,
+        "message": "expected 3 columns but found 4"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "exceeds_max_money"
+          }
+        },
+        "line": 14,
+        "message": "amount exceeds the maximum possible supply of 21,000,000 ZEC"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "malformed_decimal"
+          }
+        },
+        "line": 15,
+        "message": "amount must look like 1 or 0.5, with digits on both sides of the decimal point"
+      },
+      {
+        "kind": {
+          "bytes": 513,
+          "code": "memo_too_long",
+          "max": 512
+        },
+        "line": 16,
+        "message": "memo is 513 bytes; the limit is 512 bytes"
+      },
+      {
+        "kind": {
+          "code": "invalid_amount",
+          "reason": {
+            "code": "empty"
+          }
+        },
+        "line": 17,
+        "message": "amount is empty"
+      }
+    ],
+    "message": "the CSV has 15 problem(s); fix them and try again"
+  }
+}

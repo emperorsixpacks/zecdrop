@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "wrong_wallet_seed",
+    "message": "this campaign was created with a different wallet seed than the one in use"
+  }
+}

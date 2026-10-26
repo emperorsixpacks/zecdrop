@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "not_applicable",
+    "message": "this chain backend has no funding addresses; declare the deposit with fund-observed"
+  }
+}

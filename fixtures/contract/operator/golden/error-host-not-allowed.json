@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "host_not_allowed",
+    "message": "this server answers only to localhost, 127.0.0.1 and [::1] on the port it listens on"
+  }
+}
