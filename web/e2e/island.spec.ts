@@ -351,7 +351,8 @@ test.describe("where it sits", () => {
         expect(capsule.x, `${path}: inside the screen`).toBeGreaterThanOrEqual(12 - 0.5);
         expect(capsule.x + capsule.width, `${path}: inside the screen`).toBeLessThanOrEqual(width - 12 + 0.5);
         expect(Math.abs(capsule.x + capsule.width / 2 - width / 2), `${path}: centred`).toBeLessThanOrEqual(1.5);
-        expect(capsule.y, `${path}: 12px from the top`).toBe(12);
+        // Like a notch in the curved screen: half a rem under the bezel (6px below 40rem, 8px from there up).
+        expect(capsule.y, `${path}: half a rem under the bezel`).toBe((width < 640 ? 6 : 8) + 8);
         // The first heading starts below the capsule, with room.
         expect(h1.y, `${path}: the first heading is clear of the capsule`).toBeGreaterThanOrEqual(capsule.y + capsule.height + 8);
         const overflow = await overflowReport(page);
@@ -430,7 +431,7 @@ test.describe("where it sits", () => {
       window.scrollTo(0, 600);
     });
     await expect.poll(async () => (await banner.boundingBox())?.y ?? 0).toBeLessThan(0);
-    expect((await island(page).boundingBox())?.y).toBe(12);
+    expect((await island(page).boundingBox())?.y).toBe(6 + 8);
   });
 
   test("it stays at the top, opaque, while the page scrolls under it, and the page is not pushed by it", async ({ page }) => {
@@ -448,7 +449,7 @@ test.describe("where it sits", () => {
       window.scrollTo(0, 1500);
     });
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
-    expect((await island(page).boundingBox())?.y).toBe(12);
+    expect((await island(page).boundingBox())?.y).toBe(8 + 8);
     const opaque = await page.locator(".island").evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(opaque, "no transparency: nothing shows through").toMatch(/^rgb\(\d+, \d+, \d+\)$/u);
     // What is under the capsule's centre is the capsule, not the text scrolling past.

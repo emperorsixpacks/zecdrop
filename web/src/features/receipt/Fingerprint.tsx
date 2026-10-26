@@ -7,7 +7,7 @@ export function Fingerprint({ commitment }: { commitment: string }) {
   return (
     <div className="max-w-[64ch] space-y-3">
       <div className="flex flex-wrap items-start gap-3">
-        <code className="min-w-0 flex-1 rounded-lg bg-secondary px-3 py-2 font-mono text-xs break-all" translate="no">
+        <code className="min-w-0 flex-1 rounded-(--r-control) bg-secondary px-3 py-2 font-mono text-xs break-all" translate="no">
           {commitment}
         </code>
         <CopyButton value={commitment} label="Copy list fingerprint" />

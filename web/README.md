@@ -362,6 +362,10 @@ its hook mention storage, navigation, logging or a cache.
     as a link and a QR code (read back from the pixels), and opened from a link, good and bad, with the address bar bare afterwards.
     The get-paid page is checked with an address of every shape, with a share sheet that accepts, is closed and refuses, at 360px
     for thumb-sized controls, and for the requests it makes after it has loaded (none).
+    The screen (`screen.spec.ts`, "The screen" in DESIGN.md): at 360, 390, 768 and 1280px that no focusable element and no line of text on any
+    public page is clipped by the curves of the frame (a rounded box by the middle of its arc), that the frame takes no press and what is above
+    what, the scale of curves, the grain, a press, a bar's label and the lens's pill, a new page's cross-fade, and forced colours and print;
+    each of these is also checked under "reduce motion", where none of it moves.
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
     rewrites of the `vercel.json` generated for it, against a stub verifier on another origin
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
@@ -413,9 +417,9 @@ src/
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
   practice/     practice mode's simulation, a chunk of its own (importer, planner, server, run, events, verifier)
-  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, practice-mode (the flag and the switch), phase, fees, ids, explorer, theme, utils
+  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, practice-mode (the flag and the switch), view-transition (a new page's cross-fade, where the browser has it), phase, fees, ids, explorer, theme, utils
   test/         fake operator, fixture loader, Rust-source reader, render helper, leak watcher, the practice payout walk
-  index.css     palette (Redacted paper, light and dark), roles, motion, Tailwind map
+  index.css     palette (Redacted paper, light and dark), roles, the screen's frame and the scale of curves, slips, motion, Tailwind map
 tests/          guard tests that run ESLint itself
 e2e/            Playwright specs (public pages) and e2e/operator/ (real operator)
 PROVENANCE.md   what is hand-written, what is generated, and by which tool

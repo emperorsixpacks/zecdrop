@@ -207,7 +207,7 @@ function SampleBar({ current }: { current: Sample }) {
             const next = DEMOS.find((d) => d.case === event.target.value);
             if (next !== undefined) void navigate(next.href);
           }}
-          className="h-11 rounded-lg border border-foreground bg-card px-3 text-base font-medium"
+          className="h-11 rounded-(--r-control) border border-foreground bg-card px-3 text-base font-medium"
         >
           {DEMOS.map((d) => (
             <option key={d.case} value={d.case}>

@@ -184,7 +184,7 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
       to="/new"
       data-slot="island-action"
       className={cn(
-        "island-action relative mr-1 inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-full border text-sm font-semibold",
+        "island-action press-only relative mr-1 inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-full border text-sm font-semibold",
         "after:absolute after:-inset-1 sm:px-3.5",
         startIsPrimary ? "border-transparent bg-island-ink text-island" : "border-island-ink/55 text-island-ink hover:bg-island-ink/14",
       )}
@@ -223,7 +223,7 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
               onClick={() => {
                 setIsland((now) => ({ open: !now.open, morph: true }));
               }}
-              className="flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-[1.375rem] pr-3 pl-3.5 whitespace-nowrap text-island-ink hover:bg-island-ink/14"
+              className="press-only flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-(--r-island) pr-3 pl-3.5 whitespace-nowrap text-island-ink hover:bg-island-ink/14"
             >
               {/* The spaces between the parts are not drawn (they are flex items) but they are in the button's name: "ZecDrop Home testnet". */}
               <span aria-hidden className="island-mark h-3 w-5 shrink-0 rounded-[2px] bg-island-ink" />
@@ -254,12 +254,12 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
                         to={link.to}
                         end={link.end ?? false}
                         onClick={closeToTheButton}
-                        className="island-link flex min-h-11 items-center rounded-2xl px-3 text-base font-semibold text-island-ink hover:bg-island-ink/14"
+                        className="island-link press-only flex min-h-11 items-center rounded-[calc(var(--r-island-open)-0.5rem)] px-4 text-base font-semibold text-island-ink hover:bg-island-ink/14"
                       >
                         {({ isActive }) => (
                           <span
                             className={cn(
-                              "island-label -mx-1.5 rounded-[4px] px-1.5 py-0.5",
+                              "island-label -mx-2.5 rounded-full px-2.5 py-0.5",
                               // The highlighter marks where you are; the heavier type says it too, for whoever cannot tell the colours apart.
                               isActive && "bg-marker font-extrabold text-marker-ink",
                             )}

@@ -57,7 +57,7 @@ export function AssetPicker({ tokens, value, onChange, disabled = false }: Asset
             onChange(e.target.value);
           }}
           disabled={disabled}
-          className="h-11 w-full rounded-lg border border-input bg-card px-3 text-base text-foreground sm:max-w-xs"
+          className="h-11 w-full rounded-(--r-control) border border-input bg-card px-3 text-base text-foreground sm:max-w-xs"
         >
           <option value="">Choose an asset…</option>
           {shown.map((token) => (

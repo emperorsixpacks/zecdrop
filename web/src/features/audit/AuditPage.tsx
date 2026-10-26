@@ -80,7 +80,7 @@ export default function AuditPage() {
               <p>The auditor pastes the viewing key on standard input, so it never lands in shell history.</p>
             </Why>
           </p>
-          <pre className="max-w-[64ch] overflow-x-auto rounded-lg border border-border bg-secondary p-4 font-mono text-sm text-foreground">
+          <pre className="max-w-[64ch] overflow-x-auto rounded-(--r-control) border border-border bg-secondary p-4 font-mono text-sm text-foreground">
             {COMMAND}
           </pre>
           <CopyButton value={COMMAND} label="Copy command" text="Copy command" />

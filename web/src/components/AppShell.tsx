@@ -26,7 +26,7 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
     <div className="flex min-h-screen flex-col">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-base focus:font-semibold focus:text-primary-foreground"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-(--frame-pad) focus:left-(--frame-pad) focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-3 focus:text-base focus:font-semibold focus:text-primary-foreground"
       >
         Skip to content
       </a>
@@ -42,6 +42,8 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
       </main>
       <Footer showOperatorLink={!showOperatorNav} />
       <Toaster />
+      {/* The screen's rounded edge, drawn over the page: it takes no press (index.css, .screen-frame). */}
+      <div aria-hidden="true" data-testid="screen-frame" className="screen-frame" />
     </div>
   );
 }

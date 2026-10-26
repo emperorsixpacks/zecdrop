@@ -64,8 +64,8 @@ function Sheet({ open, onOpenChange, title, description, children, className }: 
         if (event.target === event.currentTarget) onOpenChange(false)
       }}
       className={cn(
-        "fixed inset-x-0 top-auto bottom-0 m-0 w-full max-w-none border border-foreground bg-background p-0 text-foreground backdrop:bg-foreground/50 sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(32rem,calc(100vw-2rem))] sm:rounded-lg",
-        "rounded-t-lg",
+        "fixed inset-x-(--bezel-w) top-auto bottom-(--bezel-w) m-0 w-[calc(100%-2*var(--bezel-w))] max-w-none border border-foreground bg-background p-0 text-foreground backdrop:bg-foreground/50 sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(32rem,calc(100vw-2rem))] sm:rounded-(--r-card)",
+        "rounded-t-(--r-card) rounded-b-(--screen-r) sm:rounded-b-(--r-card)",
         className,
       )}
     >

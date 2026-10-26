@@ -42,6 +42,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("the screen's frame", () => {
+  it("is in every page's frame, once, and says nothing: it is a picture of the screen's edge, with no text and nothing to press", () => {
+    show("/");
+    const frames = screen.getAllByTestId("screen-frame");
+    expect(frames).toHaveLength(1);
+    const frame = frames[0] as HTMLElement;
+    expect(frame).toHaveAttribute("aria-hidden", "true");
+    expect(frame).toHaveClass("screen-frame");
+    expect(frame.textContent).toBe("");
+    expect(frame.children).toHaveLength(0);
+    expect(frame.matches("a, button, input, [tabindex]")).toBe(false);
+  });
+
+  it("is on a page of the operator's side too, and on the page that has no route", () => {
+    renderApp("/campaigns");
+    expect(screen.getAllByTestId("screen-frame")).toHaveLength(1);
+  });
+
+  it("is after the page's content in the page's order, so nothing it does can come between a keyboard and the page", () => {
+    show("/");
+    const frame = screen.getByTestId("screen-frame");
+    const main = screen.getByRole("main");
+    expect(main.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the skip link clear of the curve: it is placed by the frame's own distance, not by a number of its own", () => {
+    show("/");
+    const skip = screen.getByRole("link", { name: "Skip to content" });
+    expect(skip.className).toContain("focus:top-(--frame-pad)");
+    expect(skip.className).toContain("focus:left-(--frame-pad)");
+  });
+});
+
 describe("the public header on a receipt", () => {
   it("says mainnet, loudly, when the link is for mainnet, whatever the page was built for", () => {
     show(link("mainnet"));

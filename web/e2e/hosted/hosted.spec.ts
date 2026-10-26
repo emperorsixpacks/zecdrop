@@ -87,6 +87,32 @@ test("the page is served with the security headers and the policy names the stub
   expect(headers["cache-control"]).toBe("public, max-age=0, must-revalidate");
 });
 
+test("the paper's grain is a file of the site's own, served as an image, and the unchanged policy lets the page draw it", async ({ page, request }) => {
+  // The grain (public/grain.png) is the one picture the page draws from a file; the policy has no img-src of its own, so it falls to
+  // default-src 'self'. A data: address would have been refused, which is why it is a file.
+  const seen = await watch(page);
+  const grain = page.waitForResponse((response) => response.url() === `${SITE}/grain.png`);
+  await page.goto("/");
+  const response = await grain;
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toBe("image/png");
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(await seen.violations(), "a Content-Security-Policy violation").toEqual([]);
+  expect(seen.problems()).toEqual([]);
+  // It is drawn: the stylesheet's own rule names it, and the browser has it (a blocked image is not complete).
+  const drawn = await page.evaluate(async () => {
+    const style = getComputedStyle(document.body, "::before");
+    const url = /url\("([^"]+)"\)/u.exec(style.backgroundImage)?.[1] ?? "";
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    return { url, width: image.naturalWidth, height: image.naturalHeight };
+  });
+  expect(drawn).toEqual({ url: `${SITE}/grain.png`, width: 128, height: 128 });
+  expect((await request.get("/grain.png")).headers()["cache-control"]).toBe("public, max-age=0, must-revalidate");
+});
+
 test("a built asset is cached as immutable, and client routes are rewritten to the page", async ({ request }) => {
   const html = await (await request.get("/")).text();
   const asset = /\/assets\/[^"']+\.js/u.exec(html)?.[0] ?? "";
@@ -533,7 +559,8 @@ test.describe("practice mode on a public copy", () => {
   const FLAG = "zecdrop.practice";
   const staticFile = (href: string): boolean => {
     const url = new URL(href);
-    return url.origin === SITE && (url.pathname === "/" || /^\/(assets|tour)\//u.test(url.pathname) || /^\/favicon\./u.test(url.pathname));
+    // The site's own static files: the page, its code and fonts, the tour's pictures, the icon, and the paper's grain (public/grain.png).
+    return url.origin === SITE && (url.pathname === "/" || /^\/(assets|tour)\//u.test(url.pathname) || /^\/favicon\./u.test(url.pathname) || url.pathname === "/grain.png");
   };
 
   test("a whole practice payout runs under the unchanged policy: no violation, and nothing asked of the verifier or of anyone", async ({ page }) => {

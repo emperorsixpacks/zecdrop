@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
         <p className="max-w-[64ch] text-base">The page stopped drawing. Reload it to carry on; anything you had not sent is gone, and nothing was stored.</p>
         <button
           type="button"
-          className="inline-flex h-11 items-center rounded-lg border border-foreground px-5 text-base font-semibold hover:bg-foreground hover:text-background"
+          className="inline-flex h-11 items-center rounded-full border border-foreground px-5 text-base font-semibold hover:bg-foreground hover:text-background"
           onClick={() => {
             window.location.reload();
           }}

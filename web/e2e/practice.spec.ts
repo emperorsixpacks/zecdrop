@@ -48,7 +48,8 @@ function notStatic(urls: string[]): string[] {
   return urls.filter((href) => {
     const url = new URL(href);
     if (url.origin !== ORIGIN) return true;
-    return !(url.pathname === "/" || /^\/(assets|tour)\//u.test(url.pathname) || url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico");
+    // The app's own static files: the page, its code and fonts, the tour's pictures, the icon, and the paper's grain (public/grain.png).
+    return !(url.pathname === "/" || /^\/(assets|tour)\//u.test(url.pathname) || ["/favicon.svg", "/favicon.ico", "/grain.png"].includes(url.pathname));
   });
 }
 

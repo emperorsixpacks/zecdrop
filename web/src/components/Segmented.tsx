@@ -58,13 +58,13 @@ export function Segmented<T extends string>({ value, onValueChange, options, lab
         if (next !== "") onValueChange(next as T);
       }}
       aria-label={label}
-      className={cn("relative inline-flex rounded-lg border border-input bg-card p-[3px]", className)}
+      className={cn("relative inline-flex rounded-full border border-input bg-card p-[3px]", className)}
     >
       {thumb !== null && (
         <span
           aria-hidden
           data-slot="segmented-thumb"
-          className={cn("absolute top-[3px] bottom-[3px] left-0 rounded-md bg-primary", glide && "segmented-glide")}
+          className={cn("absolute top-[3px] bottom-[3px] left-0 rounded-full bg-primary", glide && "segmented-glide")}
           style={{ width: thumb.width, transform: `translateX(${String(thumb.left)}px)` }}
         />
       )}
@@ -73,7 +73,7 @@ export function Segmented<T extends string>({ value, onValueChange, options, lab
           key={option.value}
           value={option.value}
           {...(option.disabled === undefined ? {} : { disabled: option.disabled })}
-          className="relative z-10 min-h-11 rounded-md px-2.5 text-[0.9375rem] font-semibold whitespace-nowrap sm:px-4 sm:text-base text-foreground transition-colors duration-200 data-[state=on]:text-primary-foreground disabled:opacity-50"
+          className="press-only relative z-10 min-h-11 rounded-full px-3 text-[0.9375rem] font-semibold whitespace-nowrap sm:px-5 sm:text-base text-foreground data-[state=on]:text-primary-foreground disabled:opacity-50"
         >
           {option.label}
         </ToggleGroup.Item>

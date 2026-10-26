@@ -4,6 +4,10 @@ Owner feedback (2026-10-08): the current UI is ugly, wordy, hard to navigate and
 interactive, with better screens. This plan replaces the presentation layer. API clients, schemas, stores, the
 privacy rules and the tests of behaviour stay; page layouts, copy and their copy-pinned tests are rewritten.
 
+Owner feedback (2026-10-19): the UI is "just okay": make it more pleasing and more responsive to touch, and let "the edges of the screen"
+be curved "so the notch can be felt". Answered by "The screen" (below) and the header's new offset. The identity is unchanged: paper, ink,
+the marker, redaction bars, the big tight grotesque.
+
 Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
 default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
 operator screens inherit the tokens and get their own pass after. The structure, flow, copy rules and tests below are unchanged.
@@ -49,15 +53,18 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
   (`@fontsource/ibm-plex-mono`) only for ids, addresses and amount columns (tabular figures). Scale 14 / 16 / 20 / 28 / 44 / up
   to 80. Body line length at most 64 characters. Left aligned everywhere. No third-party font requests (CSP stays
   `'self'`): bundle the files; record package names, versions and licences (OFL) in `PROVENANCE.md`.
-- Shape: crisp corners (8px on controls, 4px on the sheet, 2px on bars), like a printed page. One white **sheet** holds the
-  lens on the home page; elsewhere structure comes from spacing, hairline rules and large type. Rows are ruled lines.
+- Shape: one scale of curves, cut from the screen's own corner down to the smallest chip (see "The screen"): pills for buttons,
+  chips and segmented controls, 20px slips of paper for cards, 14px for fields, 2px for redaction bars and the marker on revealed
+  text (they are strokes, not objects). One white **sheet** holds the lens on the home page; elsewhere structure comes from
+  spacing, hairline rules and large type, and a step or a result sits on a slip. Rows are ruled lines.
 - The mark: the logo is a small redaction bar next to the name.
 - Motion: **Lively** is the default, **Calm** is the other choice (kept in localStorage), and the system's
   `prefers-reduced-motion` forces Calm and switches every animation off (no confetti). Allowed: the lens wipe (bars lift and
   return in a stagger), numbers counting to their value, rows sliding in, accordions opening, the receipt's flow line drawing
   itself, the sending timeline advancing, the sealed stamp with a short confetti burst, button press feedback, a sliding thumb
-  on every segmented control, toasts, the header capsule's morph when it is opened or closed. Not allowed: entrance fades on
-  every section, a background glow, anything that moves while the page loads or scrolls.
+  on every segmented control, toasts, the header capsule's morph when it is opened or closed, the press response of everything
+  that can be pressed, a redaction bar's label on touch, and a new page's cross-fade. Not allowed: entrance fades on every
+  section, a background glow, anything that moves while the page loads or scrolls, anything that moves by itself.
 
 ## Self-critique of the plan (done before building)
 
@@ -287,8 +294,9 @@ one place, and everything around it stays quiet: a solid shape, no blur, no grad
   end of the capsule (a pill with its words from 40rem up): filled with the capsule's ink on the payouts page, where starting one is
   the point, a quiet outline elsewhere, and not drawn while paying. The two `role="status"` lines (practice chain, chain mode
   unknown) are on a quiet line of their own directly under the capsule, in the page's flow.
-- **Where it sits.** `position: sticky` below the practice banner (which scrolls away; the capsule stays), 12px from the top
-  (or the safe-area inset, should a page ever draw under a notch), opaque while the page scrolls under it, above the page's own raised parts and below dialogs, the popover and the
+- **Where it sits.** `position: sticky` below the practice banner (which scrolls away; the capsule stays), half a rem under the
+  screen's bezel (14px on a phone, 16px from 40rem up; or the safe-area inset, should a page ever draw under a notch), so that it sits like
+  a notch in the curved screen, opaque while the page scrolls under it, above the page's own raised parts and below dialogs, the popover and the
   toaster, and not printed. Its strip is as tall as the closed capsule and lets presses through around it. `html` has a
   `scroll-padding-top` so that a heading the skip link scrolls to, or a control that is tabbed to, does not end up under it, and the
   tour's sticky column sticks below it.
@@ -303,3 +311,83 @@ one place, and everything around it stays quiet: a solid shape, no blur, no grad
   button and two status pills: a Menu button below 1024px and three lines on a phone. The capsule holds the three things that are
   always wanted (where you are, what network, the way in) and puts the rest one press away, at every width. What went: the
   header's border, the Menu popover, and the logo link (the capsule is a button; Home is a link in the panel).
+
+## The screen
+
+The owner asked for a notch that can be *felt* (2026-10-19), so the page is paper and ink seen on a device: the screen has rounded
+corners, the capsule is the notch, the black redaction bar is the bezel. Three rules, and what each one made:
+
+1. **Concentric curves.** One scale from the screen's corner to the smallest chip, and where a box sits in another with a little padding its
+   radius is the outer one less that padding (the capsule's rows are `--r-island-open` minus the panel's half rem). Tokens, in
+   `src/index.css`: `--screen-r` 26px (30px from 40rem), `--r-island` 22px (half the closed capsule; 28px open), `--r-card` 20px,
+   `--r-control` 14px, `--r-chip` a pill. Nothing else names a radius for a card or a field.
+2. **Tactile response.** Everything that can be pressed answers within 100ms and nothing moves on its own (below).
+3. **Quiet material.** Cards are slips of paper, not grey boxes; there is a very faint grain; nothing is glossy, blurred or gradient.
+
+- **The frame.** A fixed element, `pointer-events: none`, drawn as a ring of the bezel colour around a window with rounded corners
+  (`inset: var(--bezel-w); border-radius: var(--screen-r); box-shadow: 0 0 0 100vmax var(--bezel)`), 6px wide on a phone and 8px from 40rem up.
+  The window keeps scrolling (it is not a scroll container), so the browser's own chrome, scroll restoration and anchors behave as before.
+  The bezel is `--p-bezel`: ink (`#0b0b0b`) in the light set, pure black in the dark one, where a hairline of the ink (`--bezel-edge`) on the
+  curve keeps the shape from vanishing. It is above the page and the practice banner (`z-index` 30), below the capsule (40), the popovers
+  (50) and the toast (60), and the browser's top layer draws the dialogs above it. It is not printed and not drawn in forced colours.
+- **Nothing is clipped by the curves.** A box's corner is inside the screen only if it is at least `--frame-pad` (the bezel plus 0.3 of the
+  radius) from both edges, so the skip link, the practice banner and the page's own padding keep to it, and `e2e/screen.spec.ts` checks it with
+  real boxes: at 360, 390, 768 and 1280px, on every public page, the top corners at the top and the bottom corners at the end of the page,
+  every focusable element and every line of text (a rounded box by the middle of its arc) is inside the rounded screen. The confirm sheet on
+  a phone sits a bezel's width in from the edges and its bottom corners take the screen's radius.
+- **Slips.** `.slip`: the card colour, `--r-card`, a hairline edge and two shadows of the ink, one tight and one long
+  (`0 1px 0 ink/6%, 0 14px 24px -18px ink/35%`), and in the dark set a lighter edge in place of a shadow, which would not show. In forced colours
+  they get an outline.
+- **Grain.** `public/grain.png`, a 128px tile of black speckle in four opacities, 4KB, made by `scripts/make-grain.mjs` from a seeded generator (so
+  it is the same file every time), drawn at 3.5% as one fixed layer behind the content (`body::before`, `z-index: -1`), turned white at 3% in
+  the dark set. A file of the site's own because the hosted policy (`default-src 'self'`) allows no `data:` image. It costs no layout, does not move
+  with a scroll, takes no press, and the slips sit above it so that they stay clean.
+- **Press.** `.press` on buttons, `.press-only` on what has no lift of its own (rows in the capsule's menu, the labels of a segmented
+  control, the rows of the payouts list and the lens's rows where a row can be chosen): pressed, it gives (a pixel down, scaled to .98) in
+  90ms and springs back in about 200ms; under a pointer that hovers, and when Lively, a `.press` thing lifts a pixel with a soft shadow of the
+  ink. The lift has a two-pixel halo (a transparent part of the same element) so that the pointer on its lowest pixel does not lose it as it
+  lifts, and its shadow is never drawn on a thing the keyboard has focused, because the focus ring is a shadow too. Calm shortens all of it,
+  and under "reduce motion" it is gone: a pressed thing is its colour alone.
+- **Segmented controls.** One pill that glides to the chosen option in 220ms with a small spring (`--motion` scales it). It is the ink
+  (the marker in the dark set), not the highlighter: the marker is kept for what is revealed and where focus is.
+- **Redaction bars answer touch.** A hidden bar in the lens (the home page's *Same payout, three views*, the receipt's *What the public sees*,
+  the operator's check) shows its label, *hidden*, sliding up inside it under a pointer or a finger, and puts it away again. Always the same
+  word, never a figure. It is drawn by the stylesheet with an empty alternative text (`content: "hidden" / ""`), so no screen reader reads
+  it, and the bar's own name is still the one thing read; a browser that does not know that syntax draws none.
+- **A new page.** Where the browser has the View Transitions API, a new page cross-fades in 180ms and the capsule, which has a
+  `view-transition-name` of its own, stays put (only its width changes, with the name of the page). The declarative router's links cannot ask
+  for one (`viewTransition` is a data router's option), so `src/lib/view-transition.ts` makes the history's `push` the transition, and holds the
+  browser until the router has put the new page on the screen (`ViewTransitionGate`). Back and forward, and a redirect, change the page as
+  they always did; so does a browser without the API, and nothing is asked of the API under "reduce motion".
+
+### Chosen by eye (say "more" or "less" to each)
+
+Each of these is one number in `src/index.css` (`--bezel-w`, `--screen-r`, `--r-card`, `--r-control`, `--grain-opacity`, the `.slip` shadows, the
+`.press` timings). To take the frame away altogether, set `--bezel-w` and `--screen-r` to 0 and, for the dark set's hairline, `--bezel-edge` to
+`transparent`: the ring then lies outside the window and draws nothing. What is measured from it follows: the capsule sits half a rem from the
+top, and the skip link and the confirm sheet go to the window's edge.
+
+| What | Chosen | Why |
+|---|---|---|
+| Bezel width | 6px phone, 8px from 40rem | Thick enough to read as a frame on a white page, thin enough to give up almost no screen |
+| Screen radius | 26px phone, 30px from 40rem | The curve of a recent phone; 30px reads on a laptop window too |
+| Capsule offset | half a rem under the bezel | Close enough to the edge to read as a notch, far enough to leave the curve alone |
+| Buttons, chips, segmented controls | pills | They speak the capsule's language; a 14px button looked like a different family |
+| Cards | 20px slips | Concentric with the capsule's open panel (28px) at the padding the panel has |
+| Fields | 14px, not pills | A pill is wrong for a box that holds several lines of text |
+| Slip shadow | ink at 6% tight, 35% long | Reads as paper a little above the desk and not as a grey card |
+| Grain | 3.5% light, 3% dark | Visible if you look for it on a large screen, invisible in use |
+| Press | scale .98, 1px down, 90ms in, 200ms spring back | Answers inside 100ms and does not read as a bounce |
+
+### The tour's pictures
+
+The tour's pictures (`public/tour/`) are captures of the operator's screens and had been taken before the capsule (they showed the old
+full-width header). They were taken again for this change with `e2e/operator/tour-shots.spec.ts`, which now leaves the frame and the grain out
+of them (`--grain-opacity: 0`, and the frame not drawn): they are pictures of the operator's screens, and a frame inside the page's own frame
+would be no help. The same sizes, so the page holds the same space.
+
+### Not done here (stage 2)
+
+The capsule's live activity (the progress of a running payout, on every page): the capsule is one button with a name made of its parts, so a
+fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. A hero moment on the home page, and richer practice-mode
+guidance, are untouched.

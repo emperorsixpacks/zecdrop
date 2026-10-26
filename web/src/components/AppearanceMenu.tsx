@@ -19,7 +19,7 @@ export function AppearanceMenu() {
       <PopoverTrigger
         aria-label="Appearance"
         title="Appearance"
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-secondary"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-secondary"
       >
         <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
