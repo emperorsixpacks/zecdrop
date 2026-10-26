@@ -721,6 +721,15 @@ describe("a real chain", () => {
     expect(link).toHaveTextContent("(opens in a new tab)");
     expect(link).toHaveAttribute("href", TESTNET_FAUCET_URL);
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // When the faucet cannot pay, the project will: a new GitHub issue that already holds this address and the amount.
+    expect(faucet).toHaveTextContent("If it can't, ask us on GitHub (opens in a new tab) and we'll pay it from ZecDrop's test wallet.");
+    const ask = within(faucet).getByRole("link", { name: /^ask us on GitHub/u });
+    expect(ask).toHaveAttribute("rel", "noopener noreferrer");
+    expect(ask).toHaveAttribute("target", "_blank");
+    const issue = new URL(ask.getAttribute("href") ?? "");
+    expect(`${issue.origin}${issue.pathname}`).toBe("https://github.com/JemIIahh/zecdrop/issues/new");
+    expect(issue.searchParams.get("body")).toContain("Funding address (testnet): tFAKEfundingAddressNotARealAddress0000");
+    expect(issue.searchParams.get("body")).toContain("Amount it asks for: 4.5002 TAZ");
   });
 
   // covers: REQ-RUN-003
@@ -732,7 +741,8 @@ describe("a real chain", () => {
     );
     expect(await screen.findByText(/to this address, in one\s+deposit/u)).toBeInTheDocument();
     expect(screen.queryByTestId("faucet")).toBeNull();
-    expect(document.body.textContent).not.toMatch(/faucet/iu);
+    expect(screen.queryByTestId("ask-for-coins")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/faucet|ask us on GitHub/iu);
   });
 
   it("offers 'Open in wallet': a zcash link with this address and exactly the amount to send, and nothing else", async () => {

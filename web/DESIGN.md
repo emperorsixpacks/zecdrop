@@ -273,7 +273,9 @@ the link the operator prints opens on them.
 
 On testnet the operator's screens help a first payout through: *Use the example list* is the main button of the drop zone and of
 the empty payouts list, with a line under it, "Eight testnet addresses of ZecDrop's own test wallet, ready to send."; the funding
-screen says "No test coins? The testnet faucet pays this address for free." Neither is on mainnet.
+screen says "No test coins? The testnet faucet pays this address for free. If it can't, ask us on GitHub and we'll pay it
+from ZecDrop's test wallet." (the faucet paid no one from 2026-10-23); the link opens a new GitHub issue that already holds the
+address and the amount. Neither is on mainnet.
 
 ## No wallet to connect
 

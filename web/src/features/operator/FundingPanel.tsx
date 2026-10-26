@@ -11,11 +11,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { operatorNearApi } from "@/features/funding/near/api";
 import { NearFundingPanel } from "@/features/funding/near/NearFundingPanel";
-import { TESTNET_FAUCET_URL } from "@/lib/faucet";
+import { TESTNET_FAUCET_URL, testCoinsRequestUrl } from "@/lib/faucet";
 import { shortId } from "@/lib/ids";
 import { fundingPaymentUri } from "@/lib/payment-uri";
 import { phaseSentence } from "@/lib/phase";
 import { useMediaQuery } from "@/lib/use-media";
+import { formatZec } from "@/lib/zec";
 
 import { DepositSource } from "./DepositSource";
 import { FailureNotice } from "./FailureNotice";
@@ -171,7 +172,17 @@ function RealChainFunding({ campaign, address, nested = false }: { campaign: Ope
           <a href={TESTNET_FAUCET_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-link underline underline-offset-4">
             testnet faucet<span className="sr-only"> (opens in a new tab)</span>
           </a>{" "}
-          pays this address for free.
+          pays this address for free. If it can&apos;t,{" "}
+          <a
+            href={testCoinsRequestUrl(address, formatZec(BigInt(campaign.fundingRequired)))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-link underline underline-offset-4"
+            data-testid="ask-for-coins"
+          >
+            ask us on GitHub<span className="sr-only"> (opens in a new tab)</span>
+          </a>{" "}
+          and we&apos;ll pay it from ZecDrop&apos;s test wallet.
         </p>
       )}
       <NearFundingPanel

@@ -89,8 +89,10 @@ build took about 3.5 minutes on that Mac; a rebuild after a change to the web ap
    bar.
 2. *Use the example list*, *Continue*, *Looks right, continue*: the funding screen shows the payout's transparent address, the
    amount (545,000 zat for the example list) and "No test coins? The testnet faucet pays this address for free."
-3. Pay the address. Both runs were paid from our own zcash-devtool wallet (a shielded balance, so the deposit is *shielded*), not
-   from the faucet, to keep the faucet's one payment a day.
+3. Pay the address. Both runs were paid from our own zcash-devtool wallet (a shielded balance, so the deposit is *shielded*). The
+   faucet paid no one from 2026-10-23 16:09 UTC (reported as valargroup/valar-testnet-faucet#5): a request for a payout's address
+   on 2026-10-25 ended with "the wallet cannot pay this address". For that case the funding screen has *ask us on GitHub*, which
+   opens an issue holding the address and the amount; we answer it by paying the address from the same test wallet.
 4. The screen says *Funded* at 3 confirmations, *Send 8 payouts*, the confirm sheet, then the campaign page until "Complete: all
    batches confirmed". *Share the receipt*, *Open public receipt*: the link names the public site (the image is built with
    `VITE_PUBLIC_RECEIPT_BASE_URL`), whose verifier checks it.

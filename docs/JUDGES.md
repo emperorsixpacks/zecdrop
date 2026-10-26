@@ -96,9 +96,11 @@ testnet. Then:
 2. **Check, then fund.** The funding screen gives the payout's address and the amount to send. The free
    [testnet faucet](https://faucet.testnet.valargroup.dev) pays that address directly: 0.125 TAZ, once a day, where the
    example list needs 0.00545. The faucet pays from a shielded wallet, so the receipt will say the deposit came out of the
-   shielded pool (on 2026-10-25 it was online and its last payouts went to transparent addresses like this one). If it has
-   already paid you today, or does not pay, any testnet wallet with TAZ can pay the address. The screen says *Funded* once the
-   payment has confirmed, a few minutes later.
+   shielded pool. **It has paid no one since 2026-10-23 16:09 UTC** (checked 2026-10-25; reported to its maintainers as
+   [valargroup/valar-testnet-faucet#5](https://github.com/valargroup/valar-testnet-faucet/issues/5)). If it says "the wallet
+   cannot pay this address", press *ask us on GitHub* under it: that opens an issue on this repository that already holds your
+   payout's funding address and amount, and we pay it from ZecDrop's own test wallet. The issue is public and puts your GitHub
+   name beside that address. The screen says *Funded* once the payment has confirmed, a few minutes later.
 3. **Send.** One transaction pays all eight; the page follows it until it is confirmed, a few minutes later.
 4. **Share.** *Open public receipt* opens the payout's receipt on the public site, checked by its key-less verifier (or by
    your own, path 2). *Send payslips* gives each person a link to their own payslip (path 4 checks one).

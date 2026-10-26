@@ -55,7 +55,7 @@ export default function StartPage() {
             <a href={TESTNET_FAUCET_URL} target="_blank" rel="noopener noreferrer" className={link}>
               testnet faucet<span className="sr-only"> (opens in a new tab)</span>
             </a>
-            .
+            , or from us when it can&apos;t pay.
           </li>
           <li>Send it, and share the receipt.</li>
         </ol>

@@ -237,7 +237,8 @@ cd zecdrop
 
 The first start builds ZecDrop, which takes a few minutes to half an hour; then the operator opens in your browser, on Zcash
 testnet. Add the people you're paying, or use the example list; fund the payout from the free
-[testnet faucet](https://faucet.testnet.valargroup.dev), which pays its address directly; send it, and share the receipt. Two
+[testnet faucet](https://faucet.testnet.valargroup.dev), which pays its address directly (when it can't, the funding screen's
+*ask us on GitHub* gets you test coins from us); send it, and share the receipt. Two
 views: **Personal** (family, gifts, a shared pot: type people in, split a total evenly or at random) and **Organisation**
 (payroll, grants, airdrops: import a spreadsheet, with the auditor's tools).
 
@@ -312,7 +313,7 @@ particular payouts. No key material is in the repository.
 - **Not audited.** Two independent reviews: one of the code (2026-10-07) and one of the shielded deposit address
   (2026-10-24). Their findings are fixed, or listed as open in [SECURITY.md](docs/SECURITY.md).
 - **Every requirement has a test.** 52 requirements in [openspec/](openspec), each named by a covering test
-  (`scripts/spec_drift.py`). At the last full run (2026-10-25): 787 Rust tests, 2,798 web unit tests and 568 tests in a real
+  (`scripts/spec_drift.py`). At the last full run (2026-10-25): 787 Rust tests, 2,800 web unit tests and 568 tests in a real
   browser.
 - **The live receipt check** asks the hosted verifier, on a teammate's server ([deploy/vps](deploy/vps/README.md)), which reads
   the public testnet node; the same verifier runs from the Docker command above.

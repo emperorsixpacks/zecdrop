@@ -180,7 +180,9 @@ and the link the operator prints opens on them (`landOnPayouts`, both in `src/li
 On testnet the operator's screens help a first payout through (REQ-RUN-003): the payout screen and the empty payouts page offer
 *Use the example list*, the eight addresses of `../examples/demo-recipients.testnet.csv`, and say they belong to ZecDrop's own test
 wallet (`src/features/wizard/example-list.ts`); the funding screen links the testnet faucet, which pays the funding address
-directly. Neither appears on mainnet.
+directly, and, for when it cannot (it paid no one from 2026-10-23), *ask us on GitHub*: a new issue that already holds the
+address and the amount (`testCoinsRequestUrl` in `src/lib/faucet.ts`), which we answer by paying it from the project's test
+wallet. Neither appears on mainnet.
 
 ## Hosting a public copy (receipt viewer only)
 

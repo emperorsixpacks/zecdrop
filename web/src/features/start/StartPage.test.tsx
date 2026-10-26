@@ -51,7 +51,7 @@ describe("the page that says how to make a payout", () => {
     const next = within(screen.getByRole("region", { name: "ZecDrop opens in your browser" })).getAllByRole("listitem");
     expect(next.map((li) => li.textContent)).toEqual([
       "Add the people you're paying, or use the example list.",
-      "Fund the payout. Test coins are free from the testnet faucet (opens in a new tab).",
+      "Fund the payout. Test coins are free from the testnet faucet (opens in a new tab), or from us when it can't pay.",
       "Send it, and share the receipt.",
     ]);
     expect(within(next[1] as HTMLElement).getByRole("link", { name: /^testnet faucet/u })).toHaveAttribute("href", TESTNET_FAUCET_URL);

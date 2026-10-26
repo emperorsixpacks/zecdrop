@@ -94,7 +94,8 @@ share it; it makes no request and stores nothing. The operator shows each deposi
 the exact amount, for a phone wallet to scan. A payslip can be sent as a link or a QR code; the payslip sits after the link's `#`,
 which a browser never sends to a server. Anyone with Docker can make a real payout: `./zecdrop up` builds ZecDrop, starts it on
 testnet on their own computer (published on its loopback address only, with its data in a folder only they can read) and opens it
-in the browser, where the example list and the free testnet faucet are one press away; the site's *Make a payout* page gives the
+in the browser, where the example list and the free testnet faucet are one press away (and, when the faucet cannot pay, test
+coins from us); the site's *Make a payout* page gives the
 command. The menu is one capsule at the top of the screen, and it always shows the network: quiet on testnet, loud on mainnet. Checked in Chromium at phone width, down to 320 pixels, in light and dark; not yet tried
 with a physical phone's camera, a real share sheet, a real wallet or a screen reader.
 

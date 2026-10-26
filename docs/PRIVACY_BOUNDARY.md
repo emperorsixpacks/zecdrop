@@ -162,7 +162,10 @@ Docker publishes the port on the computer's loopback address only; the operator'
 are unchanged. Another container on the same computer may still connect to it (Docker Desktop 29 did not keep networks apart in
 our test): like any other program there, without the token it gets the page and `/api/health` (the network, and whether the chain
 is the mock one), and is refused everything else. `./zecdrop logs` leaves the token out of the log it shows. Receipt links name the
-public site, so opening one asks the hosted verifier, which learns which receipt is viewed (limit 6 below).
+public site, so opening one asks the hosted verifier, which learns which receipt is viewed (limit 6 below). On testnet, asking
+us for test coins (the funding screen's *ask us on GitHub*, for when the faucet cannot pay) opens a public GitHub issue holding
+the payout's funding address and the amount: both are public on the chain anyway, and the issue puts the asker's GitHub name
+beside them.
 
 ## Public (anyone can see, and the verifier recomputes)
 
