@@ -3,6 +3,7 @@
 # Run:    docker run --rm -p 8080:8080 -e PORT=8080 \
 #           -e TESTNET_ENDPOINT=https://testnet.zec.rocks:443 \
 #           -e CORS_ORIGIN=https://your-receipt-site.example zecdrop-verifier
+# Mainnet receipts too: add -e MAINNET_ENDPOINT=https://zec.rocks:443 (see the note by CMD).
 FROM rust:1.92-bookworm AS build
 # protoc is needed by crates/drop-chain/build.rs (client generated from the .proto files at build time).
 RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler \
@@ -23,5 +24,7 @@ USER verifier
 ENV PORT=8080 TESTNET_ENDPOINT=https://testnet.zec.rocks:443
 EXPOSE 8080
 # The verifier holds no keys and no state, so a public bind is intended here.
-# Mainnet is opt-in: add `--mainnet-endpoint https://zec.rocks:443` to the command.
-CMD ["sh", "-c", "exec drop-verifier --bind 0.0.0.0:${PORT} --testnet-endpoint ${TESTNET_ENDPOINT} ${CORS_ORIGIN:+--cors-origin ${CORS_ORIGIN}}"]
+# Mainnet is opt-in: set MAINNET_ENDPOINT (for example https://zec.rocks:443) and the same process serves both
+# networks. The verifier fails closed at start-up, so if a configured node cannot be reached the whole process
+# exits, testnet included; check the endpoint from the host before turning it on.
+CMD ["sh", "-c", "exec drop-verifier --bind 0.0.0.0:${PORT} --testnet-endpoint ${TESTNET_ENDPOINT} ${MAINNET_ENDPOINT:+--mainnet-endpoint ${MAINNET_ENDPOINT}} ${CORS_ORIGIN:+--cors-origin ${CORS_ORIGIN}}"]

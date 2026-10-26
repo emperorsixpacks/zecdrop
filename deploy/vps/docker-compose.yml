@@ -10,6 +10,8 @@ services:
     environment:
       PORT: "8080"
       TESTNET_ENDPOINT: "https://testnet.zec.rocks:443"
+      # Empty (the default) serves testnet only. Set it in .env to also serve mainnet receipts.
+      MAINNET_ENDPOINT: "${MAINNET_ENDPOINT:-}"
       # The exact origin of the web site, no path and no trailing slash.
       CORS_ORIGIN: "${CORS_ORIGIN:?set CORS_ORIGIN in .env}"
     # No published port: only Caddy, on the private compose network, can reach it.
