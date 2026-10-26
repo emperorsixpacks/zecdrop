@@ -16,7 +16,8 @@ it are in the OpenSpec change `mainnet-run` and in `docs/LEARNINGS.md`.
 - **In Zodl's Send screen, paste a `t1…` address and check that Zodl accepts it** as a recipient. Stop before confirming. The
   deposit goes to a transparent address.
 - **The binaries:** `cargo build --release -p drop-operator` and, for the local screens,
-  `cd web && VITE_ZEC_NETWORK=mainnet npm run build`.
+  `cd web && VITE_ZEC_NETWORK=mainnet VITE_PUBLIC_RECEIPT_BASE_URL=https://zecdrop-site.vercel.app npm run build`. The second
+  variable makes the receipt link and each payslip link point at the public site instead of at this computer.
 - **The network news:** mainnet's next upgrade (NU7) has a decision due 2026-10-20 and a target of 2026-11-05. After it activates
   this build must not run on mainnet; the operator checks the node's branch id at start-up and refuses (below).
 
@@ -102,9 +103,13 @@ after about 50 minutes, and a stopped campaign does not rebuild it (a restart re
 
 ## 7. Issue the payslips (optional; good for the video)
 
-Once the campaign is settled, the operator can give each recipient a **payslip**: a small file that proves one payout to them,
-checkable by anyone without a key. Each file names its recipient's receiver and amount, and also opens that output's memo, so it
-goes only to its recipient.
+Once the campaign is settled, the operator can give each recipient a **payslip**: a small proof of one payout to them,
+checkable by anyone without a key. Each names its recipient's receiver and amount, and also opens that output's memo, so it goes
+only to its recipient.
+
+On the campaign's page press **Send payslips**, then **Show payslips**: every person is listed, and **Send payslip** on a row
+makes that person's link or QR code (good for the video: send one to your own phone and open it). The command line does the same
+as files, for an archive or a check without the browser:
 
 ```bash
 $OP payslips --campaign <id> --out-dir "$HOME/zecdrop-payslips-mainnet"       # one owner-only file per payout

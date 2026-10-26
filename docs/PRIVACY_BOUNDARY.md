@@ -32,6 +32,16 @@ away.
 **Possible hardening (not built):** setting `enableSpendsIronwood = 0` would let consensus *prove* a batch has no
 shielded spends. It needs custom transaction assembly.
 
+## A list built in the page
+
+The operator's page can build the payout list one person at a time instead of reading a file (REQ-IMP-002): an address, an
+amount and the note they will see. It is the same list as a file's, held the same way: in the page's memory while it is made,
+sent once to the operator on the same computer as the `address,amount,memo` text a file would hold, and then dropped. It is not
+stored, put in the address bar, written to the console or sent anywhere else. A total can be split two ways. **Evenly**: every
+share is exactly the same, so every amount is the public total divided by the count (leak 1 below); the page says so where the
+split is made, and the review warns. **Lucky split**: random shares from the browser's cryptographic random numbers, which keep
+any one share from being worked out from the total and the count. The payer still knows every share, and each recipient their own.
+
 ## Payslips: one recipient's proof of one output
 
 A payslip lets one recipient show a third party that one output of a public transaction paid them an amount, without
@@ -64,6 +74,18 @@ syncs its history may keep what was sent or opened. The page's own history entry
 visit is outside the page's control and may keep the full link. The page says all this where a link is made and where one is
 opened. Send a link only to the person the payment is to be proved to.
 
+**From the payer's screen** (REQ-PAY-005). Once every batch of a campaign is confirmed, the operator gives its own page every
+payslip of the campaign, with each payout's address, amount and memo as the payer listed them, so the payer can send each person
+theirs as a link or a QR code (the screens above). The operator issues them from the transaction bytes it stored before
+broadcast, which are the bytes the chain mined, and checks each against its output before it answers. It refuses on the mock
+chain and before the campaign is settled, logs nothing but the route, and answers only a request that carries the disclosure
+header the viewing-key export also needs: this is the second answer of its API that names payouts, after that export. The page
+asks only when the payer presses Show payslips, keeps the answer in its memory only (no cache, no storage), hides it after ten
+minutes or when the page is left, and makes one person's link only when asked. The page runs on the payer's computer, which
+holds the list anyway, so no new party learns anything until a link is sent; each link is then a bearer document, as above. A
+link made there points at the public site when the operator's page was built with its address
+(`VITE_PUBLIC_RECEIPT_BASE_URL`), and otherwise at the payer's own computer, which nobody else can open; the page says so.
+
 ## Practice mode: a simulation, not a payout
 
 The site's "Try a practice payout" runs the operator's own screens against a simulation inside the page (REQ-DEMO-001). It reads no
@@ -93,7 +115,8 @@ Recipient addresses · per-recipient amounts · memos · which output belongs to
 1. **Derivable amounts.** A batch's public net value equals the sum of its outputs. A batch of **one** reveals
    that recipient's exact amount. A batch of N **equal** amounts reveals every amount (total ÷ N). Amount
    privacy therefore comes from *variation*; uniform airdrops get no amount privacy. The planner avoids
-   singleton batches (REQ-PLAN-003) and the review step warns (REQ-PRIV-003).
+   singleton batches (REQ-PLAN-003) and the review step warns (REQ-PRIV-003). Splitting a total evenly in the page gives
+   exactly this, and the page says so; a lucky split gives the variation.
 2. **Two-recipient batches.** Each party can infer the other's amount from the public total and their own.
 3. **Small anonymity set.** With few recipients the public total bounds every amount tightly.
 4. **Funding is linkable.** The funder's transparent address and amount are public. Swapping funds in via NEAR
@@ -109,7 +132,8 @@ Recipient addresses · per-recipient amounts · memos · which output belongs to
 8. **The operator sees everything** (recipient list, amounts, memos) and holds the spend key.
 9. **Recipients' later behaviour** (spending, exchange deposits) is out of scope.
 10. **A payslip discloses its output's receiver, amount and memo to whoever holds it** (and to a hosted verifier that checks
-    it, and to anything that carries a link or QR code of it). See "Payslips" above.
+    it, and to anything that carries a link or QR code of it). The payer's page holds every payslip of a campaign while they
+    are shown. See "Payslips" above.
 
 ## Trust assumptions
 
