@@ -243,8 +243,9 @@ an OpenSpec change first. It is not built.
 ## Non-negotiables carried over
 
 Recipient data in memory only (never storage, URLs, console, or any request except the create call); the token in memory
-only; no third-party requests; CSP intact; axe clean at 360px and 1280px in the dark and the light set; full keyboard path with visible
-focus (ink outline + an accent ring); touch targets at least 44px; no layout shift when numbers count up (tabular figures).
+only; no third-party requests; CSP intact; axe clean at 360px and 1280px in the dark and the light set; nothing wider than the screen from
+320px up (see "Narrow screens" under The screen); full keyboard path with visible focus (ink outline + an accent ring); touch targets at least
+44px (the capsule's *New payout* is 36px and has an invisible 4px margin all round); no layout shift when numbers count up (tabular figures).
 
 ## Delivery in stages (screenshots at each stage, saved under the scratchpad `ui-shots/`)
 
@@ -370,6 +371,14 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   the next page at the same depth, with its heading far above the window (and, on the practice payout, under the capsule). `ScrollToTop` goes to
   the top when the path changes by a push or a replace; going back or forward, and a change of the address that leaves the path alone (a choice
   in the query, a hash), move nothing. It runs in the commit that shows the new page, so the cross-fade's picture of it is taken at the top.
+- **Narrow screens.** Nothing is wider than the screen from 320px up (the width WCAG 2.2, 1.4.10 Reflow, names; it is also what a desktop window
+  is at 400% zoom). `e2e/responsive.spec.ts` asks it of every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px, and of every screen of
+  the practice payout, the operator's screens, at 320x568, in landscape at 667x375, and at 768x1024: no sideways scroll, no box wider than the
+  screen unless it sits inside one that scrolls or hides its own overflow, the capsule whole and inside the screen, the confirm sheet inside its
+  window or scrolling, and its buttons within reach. What it found: the home page scrolled sideways below 357px, because the practice button's
+  long label could not wrap; it wraps now and the button grows to fit it (`PracticeStart.tsx`). What it does not cover: below 320px (at 300px
+  the home page is 7px too wide; at 280px, 27px, and the privacy table 9px), a browser whose default text size is not 16px (the root is fixed at
+  16px, so the page does not follow it; zoom does), and any engine but Chromium.
 
 ### Chosen by eye (say "more" or "less" to each)
 

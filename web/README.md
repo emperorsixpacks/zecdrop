@@ -368,6 +368,9 @@ its hook mention storage, navigation, logging or a cache.
     public page is clipped by the curves of the frame (a rounded box by the middle of its arc), that the frame takes no press and what is above
     what, the scale of curves, the grain, a press, a bar's label and the lens's pill, a new page's cross-fade, and forced colours and print;
     each of these is also checked under "reduce motion", where none of it moves.
+    Narrow screens (`responsive.spec.ts`, "Narrow screens" in DESIGN.md): every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px,
+    and every screen of the practice payout at 320x568, in landscape (667x375) and on a tablet (768x1024), with nothing wider than the screen,
+    the capsule inside it, and the confirm sheet inside its window or scrolling.
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
     rewrites of the `vercel.json` generated for it, against a stub verifier on another origin
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
