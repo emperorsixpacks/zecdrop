@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, chooseFromIsland, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, chooseFromIsland, NARROWEST, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 import { operatorUrl, seeded } from "./env.js";
 import { loadSentinels } from "./privacy.js";
 
@@ -77,7 +77,7 @@ async function check(page: Page, label: string, watched: Watched, options: { she
   expect(await axeViolations(page), `${label}: accessibility violations`).toEqual([]);
 }
 
-for (const viewport of VIEWPORTS) {
+for (const viewport of [NARROWEST, ...VIEWPORTS]) {
   for (const theme of THEMES) {
     test.describe(`operator, ${viewport.name}, ${theme} theme`, () => {
       test.use({ viewport: { width: viewport.width, height: viewport.height } });

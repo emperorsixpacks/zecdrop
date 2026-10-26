@@ -391,7 +391,7 @@ its hook mention storage, navigation, logging or a cache.
     malformed and query-string token. `csp.spec.ts` walks the main pages under the
     operator's Content-Security-Policy and fails on any violation.
     `viewing-key.spec.ts` is the key test above. `a11y.spec.ts` runs axe on every
-    operator page at 360px and 1280px in both themes, with every section opened,
+    operator page at 320px, 360px and 1280px in both themes (and asks, at each, that nothing is wider than the screen), with every section opened,
     the send sheet, a run in progress, a stopped run and a failed one (from the operator's captured
     files), and the real-chain funding states and the key (from its `golden/` files). `funding-qr.spec.ts` reads the funding
     QR code from the pixels, at both widths and in both themes, for testnet and mainnet. The global setup refuses to run

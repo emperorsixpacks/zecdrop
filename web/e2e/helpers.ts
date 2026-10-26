@@ -35,6 +35,10 @@ export const VIEWPORTS = [
   { name: "desktop 1280px", width: 1280, height: 800 },
 ] as const;
 
+/** The smallest screen a page is asked to fit: 320px, the width WCAG 2.2 (1.4.10 Reflow) names. Not in VIEWPORTS, which every spec
+ * walks: `operator/a11y.spec.ts`, which walks all of the operator's pages, asks for it by name (`responsive.spec.ts` has its own widths). */
+export const NARROWEST = { name: "phone 320px", width: 320, height: 568 } as const;
+
 export const THEMES = ["dark", "light"] as const;
 export type Theme = (typeof THEMES)[number];
 

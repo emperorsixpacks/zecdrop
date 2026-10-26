@@ -243,7 +243,7 @@ an OpenSpec change first. It is not built.
 ## Non-negotiables carried over
 
 Recipient data in memory only (never storage, URLs, console, or any request except the create call); the token in memory
-only; no third-party requests; CSP intact; axe clean at 360px and 1280px in the dark and the light set; nothing wider than the screen from
+only; no third-party requests; CSP intact; axe clean at 360px and 1280px in the dark and the light set (and on the operator's pages at 320px); nothing wider than the screen from
 320px up (see "Narrow screens" under The screen); full keyboard path with visible focus (ink outline + an accent ring); touch targets at least
 44px (the capsule's *New payout* is 36px and has an invisible 4px margin all round); no layout shift when numbers count up (tabular figures).
 
@@ -375,8 +375,10 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   is at 400% zoom). `e2e/responsive.spec.ts` asks it of every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px, and of every screen of
   the practice payout, the operator's screens, at 320x568, in landscape at 667x375, and at 768x1024: no sideways scroll, no box wider than the
   screen unless it sits inside one that scrolls or hides its own overflow, the capsule whole and inside the screen, the confirm sheet inside its
-  window or scrolling, and its buttons within reach. What it found: the home page scrolled sideways below 357px, because the practice button's
-  long label could not wrap; it wraps now and the button grows to fit it (`PracticeStart.tsx`). What it does not cover: below 320px (at 300px
+  window or scrolling, and its buttons within reach. The operator's own pages, against the real operator, are walked at 320px as well as at 360
+  and 1280px by `e2e/operator/a11y.spec.ts` (every page and state it names, in both themes: overflow, console and axe). What it found: the home
+  page scrolled sideways below 357px, because the practice button's long label could not wrap; it wraps now and the button grows to fit it
+  (`PracticeStart.tsx`). What it does not cover: below 320px (at 300px
   the home page is 7px too wide; at 280px, 27px, and the privacy table 9px), a browser whose default text size is not 16px (the root is fixed at
   16px, so the page does not follow it; zoom does), and any engine but Chromium.
 
