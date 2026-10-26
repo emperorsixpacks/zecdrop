@@ -45,8 +45,8 @@ Rust workspace on `librustzcash` (`drop-core`, `drop-zcash`, `drop-chain`, `drop
 
 ## Status
 
-Updated 2026-10-15. "Verified" means the lead ran the tests and probed the behaviour. The public testnet runs are
-listed in the table below; nothing has touched mainnet.
+Updated 2026-10-18. "Verified" means the lead ran the tests and probed the behaviour. The public testnet runs are
+listed in the table below; no transaction has been sent to mainnet.
 
 | Piece | State |
 |---|---|
@@ -55,6 +55,8 @@ listed in the table below; nothing has touched mainnet.
 | Operator (`drop-operator`): local API, encrypted store, mock chain and real-chain mode | built; **ran the full 8-recipient demo on public testnet** (create, detect funding, prove, broadcast, 3 confirmations, settled in about 2 minutes; txid `6e2359182d1d…`) |
 | Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds. The public site is live at <https://zecdrop-site.vercel.app> and shows the real 8-recipient receipt from a bundled capture. The hosted verifier runs on a teammate's VPS ([`deploy/vps/`](deploy/vps/README.md)); checked 2026-10-16, a live receipt link for the real batch loads on the site and shows it settled |
 | Local audit command | built; reconciled the real 8-recipient campaign (8 of 8 outputs, total equals the public figure, salted commitment recomputed equals the receipt's) |
+| Payslips (`drop-verify`, `drop-zcash`, `drop-operator`, `drop-verifier`) | built and tested: one recipient's proof of one output, checkable by anyone with no key. The eight payslips of the real testnet batch verify in CI against the transaction as mined, and the verifier, run locally against public testnet, answered one as verified and a changed copy as invalid. A payslip also opens its output's memo ([`docs/PRIVACY_BOUNDARY.md`](docs/PRIVACY_BOUNDARY.md), "Payslips") |
+| Mainnet | the code runs on mainnet behind `--allow-mainnet`, a confirmation variable, a 0.1 ZEC cap per campaign and start-up checks of the node (network, upgrade, Ironwood tree); tested offline at mainnet parameters and read-only against the real mainnet node's data. **No mainnet payout has been made yet** ([`docs/runbooks/mainnet-run.md`](docs/runbooks/mainnet-run.md)) |
 | NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |
 | Security review | one independent review done; fixes in progress ([`docs/SECURITY.md`](docs/SECURITY.md)) |
 
