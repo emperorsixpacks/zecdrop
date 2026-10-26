@@ -592,6 +592,28 @@ describe("a real chain", () => {
     expect(screen.queryByText("Mock chain:")).toBeNull();
   });
 
+  it("says to send at least the amount on testnet, and exactly the amount (and why) on mainnet", async () => {
+    // Testnet: a surplus is harmless play money, so "at least".
+    open({ "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json") }, realHealth);
+    expect(await screen.findByText(/Send at least/u)).toBeInTheDocument();
+    expect(screen.queryByText(/Send exactly/u)).toBeNull();
+    expect(screen.queryByText(/cannot spend on mainnet/u)).toBeNull();
+  });
+
+  it("on mainnet says to send exactly the amount, because a surplus would be stuck as change", async () => {
+    const mainnetHealth: RouteHandler = () => ({ body: { ...(goldenJson("health-real.json") as Json), network: "mainnet" } });
+    open(
+      { "GET /api/campaigns/:id": () => ({ body: { ...(goldenJson("campaign-real-awaiting-deposit.json") as Json), network: "mainnet" } }) },
+      mainnetHealth,
+    );
+    // The ask itself, and the sentence under it that says why.
+    expect(await screen.findByText(/to this address, in one\s+deposit/u)).toHaveTextContent(/^Send exactly/u);
+    expect(screen.queryByText(/Send at least/u)).toBeNull();
+    expect(
+      screen.getByText("Send exactly that amount. A surplus comes back as change to an address this operator cannot spend on mainnet."),
+    ).toBeInTheDocument();
+  });
+
   it("offers 'Open in wallet': a zcash link with this address and exactly the amount to send, and nothing else", async () => {
     open({ "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json") }, realHealth);
     const link = await screen.findByRole("link", { name: "Open in wallet" });

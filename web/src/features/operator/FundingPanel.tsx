@@ -43,6 +43,9 @@ function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; a
   const headingId = useId();
   // A link that opens a wallet app with the address and amount filled in. Null if either looks wrong.
   const walletLink = fundingPaymentUri(address, campaign.fundingRequired);
+  // On mainnet the deposit should be exactly what is asked: a surplus comes back as change to an address this
+  // operator cannot spend there, so it would stay stuck.
+  const exact = campaign.network === "mainnet";
   return (
     <section aria-labelledby={headingId} className="space-y-5">
       <h2 id={headingId} className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">
@@ -50,7 +53,8 @@ function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; a
       </h2>
       <p className="flex max-w-[64ch] flex-wrap items-center gap-x-1 text-base">
         <span>
-          Send at least <strong><Zec zatoshi={campaign.fundingRequired} /></strong> to this address, in one deposit.
+          Send {exact ? "exactly" : "at least"} <strong><Zec zatoshi={campaign.fundingRequired} /></strong> to this address, in one
+          deposit.
         </span>
         <Why label="About the deposit">
           <p>
@@ -59,6 +63,11 @@ function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; a
           </p>
         </Why>
       </p>
+      {exact && (
+        <p className="max-w-[64ch] text-base">
+          Send exactly that amount. A surplus comes back as change to an address this operator cannot spend on mainnet.
+        </p>
+      )}
       <div className="space-y-2">
         <p className="mono text-lg break-all" data-testid="funding-address">
           {address}
