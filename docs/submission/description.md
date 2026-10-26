@@ -1,6 +1,6 @@
 # Submission description (draft)
 
-**Status: DRAFT, refreshed 2026-10-20.** The testnet run below was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-20 from a clean checkout of `main` at `6f0b2b6`, and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
+**Status: DRAFT, refreshed 2026-10-20.** The testnet run below was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-20 from a clean checkout of the code now on `main` (`7dcfb39`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
 
 ## One-line
 
@@ -32,8 +32,8 @@ singleton batches and the review step warns. The recipient count of a batch is p
 **How it is built.** Rust workspace on librustzcash: a chain-agnostic domain core with a resumable, crash-safe
 engine; a local operator service with an encrypted store; a transaction builder using the Ironwood pool; a key-less
 verifier whose dependency closure is checked by a test to contain no key-decoding or storage crate. Requirements
-carry IDs and are tied to tests by a drift check: all 41 are implemented and each has a covering test (702 Rust tests; 2,835
-web unit tests and 546 tests in a real browser). The web app (React, Tailwind) has no wallet connection on purpose: the operator
+carry IDs and are tied to tests by a drift check: all 43 are implemented and each has a covering test (706 Rust tests; 2,903
+web unit tests and 556 tests in a real browser). The web app (React, Tailwind) has no wallet connection on purpose: the operator
 holds the keys on the user's own machine, and the public site holds none: it checks receipts and payslips, helps a recipient
 share an address, and simulates a payout (below). Funding from another coin through NEAR Intents is an optional stretch, wired into the operator.
 
@@ -52,11 +52,17 @@ verifier, run locally against public testnet, answered one as verified and a cop
 is a bearer document and also opens its output's memo, so a hosted check shows the verifier the receiver, the amount and the memo's
 key; the offline command does not.
 
-**Everyday use.** The screens are made for a phone first. A recipient who has never used Zcash opens the site's "get paid" page:
+**Everyday use.** Two ways in: *Personal* (money home to family, gifts, a shared pot) and *Organisation* (payroll, grants,
+airdrops), each showing only what that payer needs. A personal payer needs no spreadsheet: they type the people they pay one at a
+time and can split a total evenly or as a "lucky split" of random shares, which, unlike equal shares, cannot be worked out from
+the public total; the page writes the same list the importer reads, so the importer stays the one check. Once a payout is
+settled, the payer's own screen gives each person their payslip as a link or a QR code, issued by the operator from the
+transaction it stored before broadcast (checked against the real 8-recipient testnet campaign: 8 of 8 verify). The screens are
+made for a phone first. A recipient who has never used Zcash opens the site's "get paid" page:
 it names one wallet, says which address to copy, checks the shape of the address in the browser (the shape only) and offers to
 share it; it makes no request and stores nothing. The operator shows each deposit as a QR code holding the funding address and
 the exact amount, for a phone wallet to scan. A payslip can be sent as a link or a QR code; the payslip sits after the link's `#`,
-which a browser never sends to a server. Anyone can press "Try a practice payout" on the site and run the operator's own screens
+which a browser never sends to a server. Anyone can press "Try a personal payout" or "Try an organisation payout" on the site and run the operator's own screens
 against a simulation inside the page: nothing is sent anywhere, every screen says it is a simulation, and nothing in it is
 evidence about any chain. The menu is one capsule at the top of the screen, and it always shows the network: quiet on testnet,
 loud on mainnet, marked in practice mode. Checked in Chromium at phone width, down to 320 pixels, in light and dark; not yet tried

@@ -33,7 +33,7 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 | Project name (≤ 64 chars) | decided | `ZecDrop` (confirmed by the owner) |
 | Track | open | Shielded Payments |
 | Description | draft | `docs/submission/description.md`, refreshed 2026-10-20; the repository and video links are still blank |
-| Code repository | open | `JemIIahh/zecdrop`, private until the public flip; `main` holds all the current work, merged through pull requests (#2 and #3, 2026-10-19); PR #4 (a list without a spreadsheet, payslips on the payer's screen, personal and organisation views) is open; the live site was redeployed from `main` on 2026-10-20 |
+| Code repository | open | `JemIIahh/zecdrop`, private until the public flip; `main` holds all the current work, merged through pull requests (#2 and #3 on 2026-10-19; #4, a list without a spreadsheet, payslips on the payer's screen and personal and organisation views, and #5 on 2026-10-20); the live site runs `main` at `7dcfb39` since 2026-10-20 |
 | A working demo | partly | site live at <https://zecdrop-site.vercel.app> and checked on 2026-10-16: a shareable link (in `docs/JUDGES.md`) asks the hosted key-less verifier, which a teammate runs on a VPS (`deploy/vps/`), and shows the real 8-payout receipt live. The VPS must stay up through judging. A hosted operator sandbox is not built, see ADR 0002 |
 | A two-minute demo video | script ready | `docs/submission/video-script.md`; not recorded |
 | Repo public by Oct 28 | open | tick the box; run the pre-flip checklist below |

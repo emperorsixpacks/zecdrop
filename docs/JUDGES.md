@@ -16,14 +16,17 @@ Open <https://zecdrop-site.vercel.app>.
   recipient's proof of one payout) and checks it through the hosted verifier; a second button loads a copy with the amount changed
   so you can watch it fail. Checking here shows the verifier the payslip's receiver, amount and the key to its memo; path 4
   checks one offline.
-- **Try a practice payout:** press "Try a practice payout" on the home page (it works on a phone). The operator's own screens run
-  against a simulation inside the page: add the example list, check the payouts, record a pretend deposit, send, and open a
-  simulated public receipt. Nothing is sent anywhere, a banner on every screen says it is a simulation, and its ids begin with
+- **Try a practice payout:** press "Try a personal payout" or "Try an organisation payout" on the home page (it works on a phone).
+  The operator's own screens run against a simulation inside the page: add the example list (in the personal view, try *Even* or
+  *Lucky* to split a total), check the payouts, record a pretend deposit, send, and open a simulated public receipt. Nothing is sent anywhere, a banner on every screen says it is a simulation, and its ids begin with
   the bytes of "practice". It is not evidence about any chain; paths 2 and 4 are.
 - **Being paid?** [The Get paid page](https://zecdrop-site.vercel.app/get-paid) is for a recipient: it checks the shape of a
   receiving address and offers to share it, entirely in the browser (no request, nothing stored).
 - **Send a payslip:** on the payslip page, once the page can read the payslip in the box, it can be made into a link or a QR code. The payslip sits after the
   `#`, which a browser never sends to a server; opening such a link loads it into the box and checks nothing until you ask.
+- **Payslips from the payer's screen:** on a settled campaign the operator's page has *Send payslips*: every person, and a link or
+  a QR code of their own payslip. It needs a real chain (the mock chain and practice mode have no real transaction to prove),
+  so on the fake chain the section says so; the payslip page above checks one of the real batch's.
 - **A tour** of the operator's screens, with what the public sees and what stays hidden at each step, is on the home page.
 - The site cannot run a real payout, because the operator holds the keys and runs on your own computer (there is no wallet to
   connect); the practice mode above simulates one.
