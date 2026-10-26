@@ -9,9 +9,11 @@ holding a viewing key) can see who got what, and only the auditor can confirm th
 > Built for **ZECATHON**, track **Shielded Payments**. **Status: under construction.** Nothing below is a
 > finished feature unless it is marked *works today*.
 
-**Live demo:** <https://zecdrop-site.vercel.app> is the public receipt viewer, with the real 8-recipient testnet
-receipt bundled as a sample. The operator, which holds the keys, runs on your own computer: there is no wallet to
-connect. To test it yourself, see [`docs/JUDGES.md`](docs/JUDGES.md): check the real payout with the key-less verifier,
+**Live demo:** <https://zecdrop-site.vercel.app> is the public site. It checks receipts (the real 8-recipient testnet
+receipt is bundled as a sample), checks a recipient's payslip, helps a recipient share their address, and has a
+**practice mode** that runs a whole payout in your browser, on a phone too, as a simulation: no wallet, no money, nothing
+sent anywhere. The operator, which holds the keys, runs on your own computer: there is no wallet to connect. To test it
+yourself, see [`docs/JUDGES.md`](docs/JUDGES.md): check the real payout with the key-less verifier,
 or run the whole flow on a fake chain. A real testnet run is in [`docs/runbooks/testnet-demo.md`](docs/runbooks/testnet-demo.md).
 
 ## How it works
@@ -45,7 +47,7 @@ Rust workspace on `librustzcash` (`drop-core`, `drop-zcash`, `drop-chain`, `drop
 
 ## Status
 
-Updated 2026-10-18. "Verified" means the lead ran the tests and probed the behaviour. The public testnet runs are
+Updated 2026-10-20. "Verified" means the lead ran the tests and probed the behaviour. The public testnet runs are
 listed in the table below; no transaction has been sent to mainnet.
 
 | Piece | State |
@@ -53,9 +55,10 @@ listed in the table below; no transaction has been sent to mainnet.
 | Domain core (`drop-core`): money, CSV import, batch planner, fee policy, salted manifest commitment, resumable engine | built and tested |
 | Ironwood batch builder (`drop-zcash`): one transparent input to N shielded outputs, decryptable by the campaign key | built, tested, and **accepted by public testnet** (one 3-recipient batch, mined at height 4,478,065; [ADR 0001](docs/ADR/0001-single-tx-transparent-to-ironwood-batches.md)) |
 | Operator (`drop-operator`): local API, encrypted store, mock chain and real-chain mode | built; **ran the full 8-recipient demo on public testnet** (create, detect funding, prove, broadcast, 3 confirmations, settled in about 2 minutes; txid `6e2359182d1d…`) |
-| Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds. The public site is live at <https://zecdrop-site.vercel.app> and shows the real 8-recipient receipt from a bundled capture. The hosted verifier runs on a teammate's VPS ([`deploy/vps/`](deploy/vps/README.md)); checked 2026-10-16, a live receipt link for the real batch loads on the site and shows it settled |
+| Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds. The public site is live at <https://zecdrop-site.vercel.app> and shows the real 8-recipient receipt from a bundled capture. The hosted verifier runs on a teammate's VPS ([`deploy/vps/`](deploy/vps/README.md)); checked 2026-10-20 after the site and the verifier were redeployed: a live receipt link for the real batch shows it settled, and the verifier checks its payslips (a changed copy is refused) |
 | Local audit command | built; reconciled the real 8-recipient campaign (8 of 8 outputs, total equals the public figure, salted commitment recomputed equals the receipt's) |
-| Payslips (`drop-verify`, `drop-zcash`, `drop-operator`, `drop-verifier`) | built and tested: one recipient's proof of one output, checkable by anyone with no key. The eight payslips of the real testnet batch verify in CI against the transaction as mined, and the verifier, run locally against public testnet, answered one as verified and a changed copy as invalid. A payslip also opens its output's memo ([`docs/PRIVACY_BOUNDARY.md`](docs/PRIVACY_BOUNDARY.md), "Payslips") |
+| Payslips (`drop-verify`, `drop-zcash`, `drop-operator`, `drop-verifier`) | built and tested: one recipient's proof of one output, checkable by anyone with no key. The eight payslips of the real testnet batch verify in a test against the transaction as mined, and the verifier, run locally against public testnet, answered one as verified and a changed copy as invalid. A payslip also opens its output's memo ([`docs/PRIVACY_BOUNDARY.md`](docs/PRIVACY_BOUNDARY.md), "Payslips") |
+| Mobile and first use (`web/`) | built and tested: a "get paid" page where a recipient checks and shares their address (no request, nothing stored); a QR code of the funding request; a payslip as a link or a QR code (the payslip stays after the `#`, which a browser never sends to a server); and a practice mode that simulates a whole payout inside the page, with a banner on every screen. Checked in a real browser (Chromium) at phone width, down to 320 pixels, and in both themes; not yet tried with a physical phone camera, a real wallet or a screen reader |
 | Mainnet | the code runs on mainnet behind `--allow-mainnet`, a confirmation variable, a 0.1 ZEC cap per campaign and start-up checks of the node (network, upgrade, Ironwood tree); tested offline at mainnet parameters and read-only against the real mainnet node's data. **No mainnet payout has been made yet** ([`docs/runbooks/mainnet-run.md`](docs/runbooks/mainnet-run.md)) |
 | NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |
 | Security review | one independent review done; fixes in progress ([`docs/SECURITY.md`](docs/SECURITY.md)) |
