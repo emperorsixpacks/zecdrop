@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { expect, test, type Page, type Response } from "@playwright/test";
 
 import { TOUR_LOOKS, TOUR_SHOTS, TOUR_WIDTH, tourImageSrc } from "../../src/features/home/tour-steps.js";
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, island, openIsland, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 import { dumpBrowserState } from "../operator/privacy.js";
 import { decodeScreenshot } from "../qr.js";
 
@@ -69,9 +69,6 @@ async function watch(page: Page) {
 
 const stubCalls = async (page: Page): Promise<{ method: string; path: string; search: string; origin: string | null }[]> =>
   (await (await page.request.get(`${STUB}/__calls`)).json()) as never;
-
-/** The top bar: the header around the primary navigation (a receipt page has a header of its own). */
-const topBar = (page: Page) => page.getByRole("navigation", { name: "Primary" }).locator("xpath=ancestor::header");
 
 test("the page is served with the security headers and the policy names the stub verifier", async ({ request }) => {
   const response = await request.get("/");
@@ -138,7 +135,8 @@ test.describe("the policy breaks nothing", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
       if (path.startsWith("/r/")) await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
-      // Exercise what a page does with scripts and styles: theme switch, copy button.
+      // Exercise what a page does with scripts and styles: the header capsule opening, the theme switch in it.
+      await openIsland(page);
       await page.getByRole("button", { name: /^Switch to (dark|light) theme$/u }).click();
       expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
       expect(seen.problems()).toEqual([]);
@@ -151,9 +149,12 @@ test.describe("the policy breaks nothing", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
     await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
     await expect(page.getByRole("heading", { name: "What the verifier found" })).toHaveCount(0);
-    // A testnet receipt keeps the quiet testnet label.
-    await expect(topBar(page).getByText("Zcash testnet", { exact: true }).filter({ visible: true })).toHaveCount(1);
-    await expect(topBar(page).getByText("Zcash mainnet")).toHaveCount(0);
+    // A testnet receipt keeps the quiet testnet label on the capsule, and says it in full in the open panel.
+    await expect(island(page).getByText("testnet", { exact: true })).toBeVisible();
+    await expect(island(page).getByText("Mainnet")).toHaveCount(0);
+    await openIsland(page);
+    await expect(page.getByText("Zcash testnet", { exact: true })).toBeVisible();
+    await expect(page.getByText("Zcash mainnet")).toHaveCount(0);
     await page.getByRole("button", { name: "Funding address" }).click();
     await expect(page.getByTestId("funding-address")).toHaveText("tmU6c1aX…B3nkZGkD");
 
@@ -175,9 +176,12 @@ test.describe("the policy breaks nothing", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
     await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
 
-    // The header says mainnet, though this copy was built for testnet.
-    await expect(topBar(page).getByText("Zcash mainnet", { exact: true }).filter({ visible: true })).toHaveCount(1);
-    await expect(topBar(page).getByText("Zcash testnet")).toHaveCount(0);
+    // The header says mainnet, though this copy was built for testnet: on the capsule, without opening anything, and in full in the panel.
+    await expect(island(page).getByText("Mainnet", { exact: true })).toBeVisible();
+    await expect(island(page).getByText("testnet")).toHaveCount(0);
+    await openIsland(page);
+    await expect(page.getByText("Zcash mainnet", { exact: true })).toBeVisible();
+    await expect(page.getByText("Zcash testnet")).toHaveCount(0);
 
     // Amounts are in ZEC, and nothing explains a testnet coin.
     await expect(page.getByTestId("verdict")).toHaveText("Settled: 8 payouts, 0.005 ZEC, fee 0.00045 ZEC");
@@ -497,9 +501,11 @@ test.describe("the operator pages on a public copy", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeVisible();
       await expect(page.getByText("Nothing on this hosted page can create, fund or send a payout.")).toBeVisible();
-      // No operator screens, no menu of them, no call to any API.
+      // No operator screens, no menu of them, no call to any API. The capsule does not call the notice "Payouts" either.
       await expect(page.getByRole("heading", { name: "Open the operator link" })).toHaveCount(0);
-      const nav = page.getByRole("navigation", { name: "Primary" });
+      await expect(island(page)).toHaveAccessibleName("ZecDrop testnet");
+      const nav = await openIsland(page);
+      await expect(nav.getByRole("link", { name: "How privacy works" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Payouts" })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "New payout" })).toHaveCount(0);
       expect(requested.filter((u) => u.includes("/api/") || u.startsWith(STUB))).toEqual([]);

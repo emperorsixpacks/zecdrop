@@ -1,10 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
+import { axeViolations, island, openIsland, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
 
 // Midnight, dark and light, at phone and desktop width: the public pages, and the
-// small panels that open over them, must have no accessibility violation and no sideways
-// scroll. (src/colours.test.ts has already computed the contrast of every pair of roles; this
+// panels that open over them (the header capsule, the appearance panel), must have no accessibility
+// violation and no sideways scroll. (src/colours.test.ts has already computed the contrast of every pair of roles; this
 // is the browser's own check of what was drawn.)
 
 async function check(page: Page, label: string, problems: () => string[]) {
@@ -34,18 +34,21 @@ for (const viewport of VIEWPORTS) {
           await page.getByRole("radio", { name: "One person" }).click();
           await check(page, "home, one person", problems);
 
+          // The settings are in the header capsule: open it, then the panel it holds.
+          await openIsland(page);
+          await check(page, "the header capsule, open", problems);
           await page.getByRole("button", { name: "Appearance" }).click();
           await expect(page.getByRole("dialog")).toBeVisible();
           await expect(page.getByRole("radio", { name: "Light" })).toBeVisible();
-          await check(page, "the appearance panel", problems);
+          await check(page, "the appearance panel, over the open capsule", problems);
+          // The panel takes the first Escape for itself, and the capsule the second.
           await page.keyboard.press("Escape");
-
-          if (viewport.width < 1024) {
-            await page.getByRole("button", { name: "Menu" }).click();
-            await expect(page.getByRole("navigation", { name: "Menu" })).toBeVisible();
-            await check(page, "the phone menu", problems);
-            await page.keyboard.press("Escape");
-          }
+          await expect(page.getByRole("dialog")).toBeHidden();
+          await expect(island(page)).toHaveAttribute("aria-expanded", "true");
+          await page.keyboard.press("Escape");
+          await expect(island(page)).toHaveAttribute("aria-expanded", "false");
+          await expect(island(page)).toBeFocused();
+          await check(page, "the header capsule, closed again", problems);
 
           await page.goto("/r/demo?demo=real");
           await page.getByRole("heading", { level: 2, name: "Status" }).waitFor({ state: "attached" });

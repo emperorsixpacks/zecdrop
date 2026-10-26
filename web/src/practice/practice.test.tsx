@@ -23,6 +23,7 @@ import { pace } from "@/practice/pace";
 import "@/test/dom";
 import { watchLeaks, type Leaks } from "@/test/leaks";
 import { practicePayout } from "@/test/practice-flow";
+import { recordTexts } from "@/test/record-texts";
 import { renderApp } from "@/test/render-app";
 
 import example from "../../../examples/demo-recipients.testnet.csv?raw";
@@ -199,40 +200,59 @@ describe("a whole practice payout", () => {
 describe("the words of the run", () => {
   // covers: REQ-DEMO-001
   it("say that it is pretended wherever the operator's screens speak of the network or of a block: the timeline and the activity log", async () => {
-    // Slow enough for the test to look at each step while it lasts.
-    pace.stepMs = 300;
+    // A step a second, and the test looks at none of them: it records. The page learns of a step by a refresh that waits 150ms
+    // after the last event, so the sending step (built, not yet sent: 0.6 of a step) is drawn only if that refresh comes before
+    // the next event. At 300ms a step that left a margin of about 30ms, and a busy machine took it. At a second it is 450ms.
+    pace.stepMs = 1_000;
     const user = userEvent.setup();
     renderApp("/");
-    await practicePayout(user, async (where) => {
-      expectBanner(where);
-      if (where === "the sending timeline") {
-        await waitFor(() => {
-          expect(screen.getByText("Pretending to send: nothing leaves your browser.")).toBeInTheDocument();
-        });
-        await waitFor(() => {
-          expect(screen.getByText(/^[0-2] of 3 confirmations \(simulated\)\.$/u)).toBeInTheDocument();
-        });
-      }
-      if (where === "the settled campaign") {
-        await user.click(screen.getByRole("button", { name: "Activity" }));
-        const log = await screen.findByRole("log", { name: "Activity log" });
-        const lines = within(log)
-          .getAllByRole("listitem")
-          .map((item) => item.textContent);
-        expect(lines).toEqual([
-          "Batch 0: transaction built (8 shielded outputs).",
-          "Batch 0: pretend-sent (practice).",
-          "Batch 0: waiting (simulated), 0 of 3 confirmations.",
-          "Batch 0: 1 of 3 confirmations (simulated).",
-          "Batch 0: 2 of 3 confirmations (simulated).",
-          "Batch 0: 3 of 3 confirmations (simulated).",
-          "All 1 batch is confirmed.",
-        ]);
-      }
-    });
-    // Nowhere on the page, once it is all over, is anything said to have been sent to the network, or to wait for a block.
-    expect(document.body.textContent).not.toMatch(/to the network|next block/iu);
-  }, 30_000);
+    // Each of these wordings is on the screen for a moment only, and a test that polls for one can look away for just that
+    // moment. Recorded, it is in the list when the run is over, if the page showed it at all.
+    const recorder = recordTexts();
+    await practicePayout(
+      user,
+      async (where) => {
+        expectBanner(where);
+        if (where === "the settled campaign") {
+          await user.click(screen.getByRole("button", { name: "Activity" }));
+          // The log is what the stream has told the page, and the page opens the stream again when the campaign settles, so for a
+          // moment after that it is told its story afresh. It is the whole story that is waited for, which stays once it is told.
+          await waitFor(
+            () => {
+              const lines = within(screen.getByRole("log", { name: "Activity log" }))
+                .getAllByRole("listitem")
+                .map((item) => item.textContent);
+              expect(lines).toEqual([
+                "Batch 0: transaction built (8 shielded outputs).",
+                "Batch 0: pretend-sent (practice).",
+                "Batch 0: waiting (simulated), 0 of 3 confirmations.",
+                "Batch 0: 1 of 3 confirmations (simulated).",
+                "Batch 0: 2 of 3 confirmations (simulated).",
+                "Batch 0: 3 of 3 confirmations (simulated).",
+                "All 1 batch is confirmed.",
+              ]);
+            },
+            { timeout: 10_000 },
+          );
+        }
+      },
+      { settleMs: 20_000 },
+    );
+    recorder.stop();
+    const said = recorder.texts();
+
+    // It was looking: the timeline was on the screen, from its start to its end.
+    expect(said).toContain("Sending the payouts");
+    expect(said).toContain("All 1 batch is confirmed");
+    // The timeline said that the send was pretended, and that the confirmations were simulated ...
+    expect(said).toContain("Pretending to send: nothing leaves your browser.");
+    expect(said).toContain("0 of 3 confirmations (simulated).");
+    // ... and every confirmation it counted said so.
+    for (const text of said.filter((line) => /^\d of \d confirmations/u.test(line))) expect(text).toMatch(/\(simulated\)\.$/u);
+    // Nowhere on the page, at any moment of the run, was anything said to have been sent to the network, or to wait for a block.
+    expect(said.filter((text) => /Sending to the network\.|Waiting for the next block/u.test(text))).toEqual([]);
+    expect(said.filter((text) => /to the network|next block/iu.test(text))).toEqual([]);
+  }, 90_000);
 });
 
 describe("leaving practice mode", () => {
@@ -274,7 +294,10 @@ describe("leaving practice mode", () => {
 
   // covers: REQ-DEMO-001
   it("stops a run that is still going: no timer, no stream and no call is left", async () => {
-    pace.stepMs = 50;
+    // A step every second and a half, so the run is certainly still going when it is left, however slow the machine is to get
+    // there: the test never needs it to finish. (At 50ms a step the whole run was over in a third of a second, which a busy
+    // machine can take longer than to get to look at it.)
+    pace.stepMs = 1_500;
     const user = userEvent.setup();
     renderApp("/");
     await user.click(screen.getByRole("button", { name: "Try a practice payout" }));
@@ -299,13 +322,15 @@ describe("leaving practice mode", () => {
     expect(activity.timers).toBe(0);
     expect(activity.streams).toBe(0);
 
-    // Nothing wakes up afterwards: no step of the run, no new answer, no call to the network.
+    // Nothing wakes up afterwards: no step of the run, no new answer, no call to the network. The next step was due no more than
+    // a step away, and the page looks again 150ms after an event, so a step and a little more is long enough for anything that
+    // was left behind to have come.
     const answered = activity.requests;
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, pace.stepMs + 250));
     expect(activity.requests).toBe(answered);
     expect(activity.timers).toBe(0);
     expect(leaks.network).toEqual([]);
-  });
+  }, 60_000);
 });
 
 describe("starting and resuming", () => {

@@ -6,8 +6,14 @@ import type userEvent from "@testing-library/user-event";
 
 type User = ReturnType<typeof userEvent.setup>;
 
-/** The timeout is the length of the simulated run, which a test makes a few milliseconds a step. */
-export async function practicePayout(user: User, here: (where: string) => void | Promise<void>): Promise<void> {
+/** `settleMs` is how long the simulated run may take, which a test makes a few milliseconds a step: a test that slows the run
+ * down (to look at what it says on the way) says how long it now lasts. It is a limit, not a wait: a run that is over sooner
+ * ends the wait sooner. */
+export async function practicePayout(
+  user: User,
+  here: (where: string) => void | Promise<void>,
+  { settleMs = 6_000 }: { settleMs?: number } = {},
+): Promise<void> {
   await user.click(screen.getByRole("button", { name: "Try a practice payout" }));
 
   // 1. Add the payouts, with the example list.
@@ -35,7 +41,7 @@ export async function practicePayout(user: User, here: (where: string) => void |
   await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Send 8 payouts" }));
   await screen.findByRole("heading", { level: 2, name: "Sending the payouts" });
   await here("the sending timeline");
-  await screen.findByRole("heading", { level: 2, name: "All 1 batch is confirmed" }, { timeout: 6_000 });
+  await screen.findByRole("heading", { level: 2, name: "All 1 batch is confirmed" }, { timeout: settleMs });
   await here("the settled campaign");
 
   // 5. Open the simulated public receipt.

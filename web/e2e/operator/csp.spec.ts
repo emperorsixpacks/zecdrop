@@ -1,5 +1,6 @@
 import { expect, test, type Response } from "@playwright/test";
 
+import { chooseFromIsland, openIsland } from "../helpers.js";
 import { operatorUrl, seeded } from "./env.js";
 
 // The operator serves the app with a strict Content-Security-Policy. The app
@@ -52,8 +53,8 @@ test("the pages run under the operator's content security policy with no violati
   await expect(page.locator("[data-slot='popover-content']")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  const nav = page.getByRole("navigation", { name: "Primary" });
-  await nav.getByRole("link", { name: "Audit" }).click();
+  // The header capsule opens, and its panel runs under the policy too.
+  await chooseFromIsland(page, "Audit");
   await expect(page.getByRole("heading", { level: 1, name: "Audit" })).toBeVisible();
   await page.getByRole("link", { name: "New payout" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
@@ -62,6 +63,7 @@ test("the pages run under the operator's content security policy with no violati
   await expect(page.getByLabel("Paste your list")).toBeVisible();
   // Switching theme changes a stylesheet's effect, never an inline style.
   const before = await page.locator("html").getAttribute("data-theme");
+  await openIsland(page);
   await page.getByRole("button", { name: /^Switch to (dark|light) theme$/u }).click();
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", before ?? "");
 

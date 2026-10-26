@@ -29,6 +29,9 @@
   /* ZecDrop */
   --color-link: var(--link);
   --color-bar: var(--bar);
+  --color-island: var(--island);
+  --color-island-ink: var(--island-ink);
+  --color-island-muted: var(--island-muted);
   --color-highlighter: var(--highlighter);
   --color-marker: var(--p-marker);
   --color-marker-ink: var(--p-marker-ink);
@@ -80,6 +83,8 @@
  *   accent-text     the accent as a TEXT colour (>= 4.5:1)
  *   marker          the highlighter: revealed text, focus; marker-ink is the text on it
  *   bar             the redaction bar
+ *   island, island-ink, island-muted
+ *                   the header capsule: the redaction bar itself, its text, and its quieter text
  *   good, bad       "verified" and "problem", as text
  *   qr-ink, qr-paper  a QR code: black on white in both sets, since a scanner reads a dark code on a light ground
  *
@@ -99,6 +104,9 @@
   --p-marker: #ffd60a;
   --p-marker-ink: #141414;
   --p-bar: #000000;
+  --p-island: #000000;
+  --p-island-ink: #f2f2ee;
+  --p-island-muted: #a1a19b;
   --p-good: #0b6b3a;
   --p-bad: #b3261e;
   --p-qr-ink: #000000;
@@ -119,6 +127,9 @@
   --p-marker: #ffd60a;
   --p-marker-ink: #141414;
   --p-bar: #000000;
+  --p-island: #000000;
+  --p-island-ink: #f2f2ee;
+  --p-island-muted: #a1a19b;
   --p-good: #0b6b3a;
   --p-bad: #b3261e;
   --p-qr-ink: #000000;
@@ -139,6 +150,9 @@
   --p-marker: #ffd60a;
   --p-marker-ink: #141414;
   --p-bar: #c9c9c2;
+  --p-island: #c9c9c2;
+  --p-island-ink: #141414;
+  --p-island-muted: #3d3d38;
   --p-good: #4ade80;
   --p-bad: #ff8a8a;
   --p-qr-ink: #000000;
@@ -170,6 +184,9 @@
 
   --link: var(--p-ink);
   --bar: var(--p-bar); /* redaction bar */
+  --island: var(--p-island); /* the header capsule: the redaction bar, with light text on it (dark text in the dark set) */
+  --island-ink: var(--p-island-ink);
+  --island-muted: var(--p-island-muted);
   --highlighter: var(--p-marker);
   --verified: var(--p-good);
   --problem: var(--p-bad);
@@ -382,6 +399,180 @@ dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(
 /* The practice-mode pill: hatched, so it reads as "not real". */
 .hatched {
   background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--foreground) 9%, transparent) 5px 6px);
+}
+
+/* The practice-mode pill, on the header capsule: stripes of the capsule's own ink, since the capsule is dark where the
+ * page is light and the other way round. (After .hatched, which it overrides.) */
+.island .hatched {
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--island-ink) 30%, transparent) 5px 6px);
+}
+
+/* ---- The header: one capsule ----------------------------------------------------------------
+ * The header is the site's redaction bar, floating at the top centre of the page like the iPhone's Dynamic Island.
+ * Collapsed it is one button: the mark, the name of the page and the network. Opened (a tap, Enter or Space) it morphs
+ * into a panel with the links and the settings. The only motion is that morph, and only while the visitor is opening
+ * or closing it (data-morph, which src/components/TopBar.tsx holds for a moment): nothing moves on load or on scroll,
+ * and under "reduce motion" nothing moves at all. The reasons are in web/DESIGN.md. */
+:root {
+  --island-height: 2.75rem;
+  --island-edge: max(0.75rem, env(safe-area-inset-top));
+}
+
+/* A link that is scrolled to, or a control that is tabbed to, must not end up under the capsule. */
+html {
+  scroll-padding-top: calc(var(--island-edge) + var(--island-height) + 1rem);
+}
+
+@layer components {
+  /* The strip the capsule sits in. As tall as the closed capsule, so opening it never moves the page; it lets every press
+   * through but the capsule's own. It sticks below the practice banner, which scrolls away. */
+  .island-header {
+    position: sticky;
+    top: var(--island-edge);
+    z-index: 40;
+    display: flex;
+    flex: none;
+    justify-content: center;
+    height: var(--island-height);
+    margin-top: var(--island-edge);
+    pointer-events: none;
+    /* So that the panel can be laid out at the width it opens to (100cqw is this strip's width). */
+    container-type: inline-size;
+  }
+
+  /* Closed: as wide as its row (--island-w, measured, because a width of fit-content cannot be animated). Open: wide. */
+  .island {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--island-height) 0fr;
+    align-self: flex-start;
+    width: var(--island-w, fit-content);
+    max-width: calc(100% - 1.5rem);
+    border-radius: 1.375rem;
+    background-color: var(--island);
+    color: var(--island-ink);
+    pointer-events: auto;
+  }
+  .island[data-open="true"] {
+    grid-template-rows: var(--island-height) 1fr;
+    width: min(calc(100% - 1.5rem), 34rem);
+    border-radius: 1.75rem;
+  }
+  .island[data-morph="true"] {
+    transition-property: width, grid-template-rows, border-radius;
+    transition-duration: calc(350ms * var(--motion));
+    transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* The closed capsule: the one row. It keeps its place and its size while the panel opens around it. */
+  .island-row {
+    display: flex;
+    align-items: center;
+    justify-self: center;
+    width: max-content;
+    height: var(--island-height);
+  }
+  /* A cap on the page's name, from the screen's width, so that a long one is cut short (and still read in full by a screen
+   * reader) before the capsule outgrows the screen. The longest name of the site, "How privacy works", is 121px at the
+   * size it is set in, and fits whole from 320px up. It cannot be a share of the capsule's own width: that is measured
+   * from the row, which this would be a share of. */
+  .island-name {
+    max-width: clamp(4rem, calc(100vw - 15.5rem), 12rem);
+  }
+  @media (width < 24rem) {
+    .island-name {
+      max-width: clamp(4rem, calc(100vw - 10rem), 12rem);
+    }
+  }
+  .island-chevron {
+    transform: rotate(0deg);
+  }
+  .island[data-open="true"] .island-chevron {
+    transform: rotate(180deg);
+  }
+  .island[data-morph="true"] .island-chevron {
+    transition: transform calc(350ms * var(--motion)) cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* The panel: its row grows from nothing as the capsule opens. Closed, it is out of the tab order (inert) and out of the
+   * accessibility tree (hidden), once the morph has finished. What is in it is laid out at the width it opens to, in the
+   * middle, and the capsule's growing edges uncover it: nothing in it moves or reflows during the morph, and nothing of it
+   * sticks out of the screen while the capsule is narrow (it is clipped to the capsule). */
+  .island-panel {
+    display: flex;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s linear calc(350ms * var(--motion));
+  }
+  .island[data-open="true"] .island-panel {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .island-panel-inner {
+    flex: none;
+    width: min(calc(100cqw - 1.5rem), 34rem);
+    max-height: calc(100dvh - var(--island-edge) - var(--island-height) - 1.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Room for the focus ring of the rows, which the panel would otherwise cut off. */
+    padding: 0.5rem;
+  }
+
+  /* What is in the panel fades in a row after the other, and out at once. */
+  .island-item {
+    opacity: 0;
+  }
+  .island[data-open="true"] .island-item {
+    opacity: 1;
+  }
+  .island[data-morph="true"] .island-item {
+    transition: opacity calc(120ms * var(--motion));
+  }
+  /* The last of them has finished by about 390ms, inside the time the transitions are held on (MORPH_MS). */
+  .island[data-morph="true"][data-open="true"] .island-item {
+    transition: opacity calc(180ms * var(--motion)) ease calc((60ms + var(--i, 0) * 30ms) * var(--motion));
+  }
+
+  /* The controls in the capsule are the page's own, drawn in the capsule's colours: they read these roles. */
+  .island-panel,
+  .island-action {
+    --foreground: var(--island-ink);
+    --muted-foreground: var(--island-muted);
+    --secondary: color-mix(in srgb, var(--island-ink) 14%, transparent);
+    --ring: var(--island-ink);
+  }
+
+  /* Tabbing to the capsule rings all of it, closed or open, in the page's own ring: it is the capsule's edge that is seen
+   * against the page. (Where :has is not known, the button rings itself.) */
+  @supports selector(:has(*)) {
+    .island-row > button:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+    .island:has(.island-row > button:focus-visible) {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 5px var(--highlighter);
+    }
+  }
+}
+
+/* Forced colours (Windows high contrast): the capsule is a bordered box, and nothing that was said by a colour is lost. */
+@media (forced-colors: active) {
+  .island {
+    outline: 1px solid CanvasText;
+  }
+  .island-mark {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+  .island-link[aria-current="page"] .island-label {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
 }
 
 /* Respect the OS "reduce motion" setting for every animation and transition. */

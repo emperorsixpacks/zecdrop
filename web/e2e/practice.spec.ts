@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems, watchRequests } from "./helpers.js";
+import { axeViolations, chooseFromIsland, island, overflowReport, recordTexts, THEMES, useTheme, VIEWPORTS, watchProblems, watchRequests } from "./helpers.js";
 import { dumpBrowserState } from "./operator/privacy.js";
 
 // Practice mode, in a real browser (openspec REQ-DEMO-001): the operator's own screens against a simulation inside the page. A
@@ -26,14 +26,16 @@ const DEMO_ADDRESSES = demoList
 // Exactly: the funding screen has a section of its own whose name begins the same way.
 const banner = (page: Page) => page.getByRole("region", { name: "Practice mode", exact: true });
 
-/** What must be true of every screen of a practice payout: the banner, no ZEC amount, nothing wider than the screen, and no
- * accessibility violation. */
+/** What must be true of every screen of a practice payout: the banner, Practice on the header capsule, no ZEC amount, nothing
+ * wider than the screen, and no accessibility violation. */
 async function sound(page: Page, name: string) {
   // No token in the address bar, nor anything after a "#": practice mode needs no operator link.
   expect(new URL(page.url()).hash, `${name}: a fragment in the address`).toBe("");
   expect(page.url(), `${name}: a token in the address`).not.toMatch(/token/iu);
   await expect(banner(page), `${name}: the banner`).toContainText(BANNER);
   await expect(banner(page).getByRole("button", { name: "Leave practice mode" }), `${name}: the way out`).toBeVisible();
+  // The capsule names no network: it says what this is, without being opened.
+  await expect(island(page).getByText("Practice", { exact: true }), `${name}: Practice on the capsule`).toBeVisible();
   expect(await page.locator("main").innerText(), `${name}: an amount in ZEC`).not.toMatch(/\bZEC\b/u);
   const overflow = await overflowReport(page);
   expect(overflow.wide, `${name}: elements wider than the viewport`).toEqual([]);
@@ -73,6 +75,7 @@ for (const viewport of VIEWPORTS) {
         await useTheme(page, theme);
         const problems = watchProblems(page);
         const requests = watchRequests(page);
+        const recorded = await recordTexts(page);
 
         await page.goto("/");
         await expect(page.getByRole("heading", { level: 1, name: /Pay many people/u })).toBeVisible();
@@ -124,10 +127,13 @@ for (const viewport of VIEWPORTS) {
         await sheet.getByRole("button", { name: "Send 8 payouts" }).click();
         await expect(page.getByRole("heading", { level: 2, name: "Sending the payouts" })).toBeVisible();
         await sound(page, "sending");
-        // The timeline says the run is simulated where the operator's own screens speak of blocks and of the network.
-        await expect(page.getByText(/^\d of 3 confirmations \(simulated\)\.$/u)).toBeVisible();
-        await expect(page.getByText(/to the network|next block/iu)).toHaveCount(0);
         await expect(page.getByRole("heading", { level: 2, name: "All 1 batch is confirmed" })).toBeVisible({ timeout: 20_000 });
+        // The timeline said the run was simulated where the operator's own screens speak of blocks and of the network, and never
+        // said it went to the network or waited for a block. Each of its wordings is on the screen for one step of the run, and an
+        // accessibility check takes longer than that on a slow machine, so it is the page's own record of what it said that is read.
+        const said = await recorded();
+        expect(said.some((text) => /^\d of 3 confirmations \(simulated\)\.$/u.test(text)), "the confirmations, counted as simulated").toBe(true);
+        expect(said.filter((text) => /to the network|next block/iu.test(text)), "what was said of the network or of a block").toEqual([]);
         await sound(page, "settled");
 
         // 5. Open the simulated public receipt.
@@ -220,7 +226,7 @@ test.describe("practice mode, around the edges", () => {
     await expect(banner(page)).toBeVisible();
     // ... and what it held is gone: the list, the campaign, everything.
     await expect(page.getByRole("heading", { level: 1, name: "Add the payouts first" })).toBeVisible();
-    await page.getByRole("link", { name: "Payouts", exact: true }).click();
+    await chooseFromIsland(page, "Payouts");
     await expect(page.getByTestId("payouts-empty")).toBeVisible();
     await expect(page.getByRole("button", { name: "Use the example list" })).toBeVisible();
     expect(await axeViolations(page), "the empty payouts list").toEqual([]);
@@ -238,7 +244,8 @@ test.describe("practice mode, around the edges", () => {
     await expect(banner(page)).toHaveCount(0);
     expect(await kept(page)).toEqual({ local: [], session: [], cookie: "" });
     // The header names a network again, as it did.
-    await expect(page.getByRole("banner").getByText("Practice", { exact: true })).toHaveCount(0);
+    await expect(island(page).getByText("Practice", { exact: true })).toHaveCount(0);
+    await expect(island(page).getByText("testnet", { exact: true })).toBeVisible();
 
     // Reloading does not bring it back.
     await page.reload();

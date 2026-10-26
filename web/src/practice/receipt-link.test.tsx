@@ -40,9 +40,11 @@ describe("a practice receipt's link, on a build with a public address", () => {
     const user = userEvent.setup();
     renderApp("/");
     let opened = "";
-    await practicePayout(user, (where) => {
+    await practicePayout(user, async (where) => {
       if (where !== "the settled campaign") return;
-      const link = screen.getByRole("link", { name: "Open public receipt" });
+      // "Open public receipt" is a button that cannot be pressed until the receipt has come, and a link once it has: that is some
+      // moments after the page says the campaign is settled, so it is waited for, not looked for.
+      const link = await screen.findByRole("link", { name: "Open public receipt" });
       opened = link.getAttribute("href") ?? "";
       expect(link).not.toHaveAttribute("target");
     });
@@ -56,7 +58,7 @@ describe("a practice receipt's link, on a build with a public address", () => {
     renderApp("/");
     await practicePayout(user, async (where) => {
       if (where !== "the settled campaign") return;
-      await user.click(screen.getByRole("button", { name: "Share the receipt" }));
+      await user.click(await screen.findByRole("button", { name: "Share the receipt" }));
       expect(await screen.findByText(/This is a practice receipt: it exists only in this tab/u)).toBeInTheDocument();
       expect(screen.queryByText(/put the address of the public verifier in front of it/u)).toBeNull();
     });

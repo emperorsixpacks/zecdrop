@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, chooseFromIsland, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 import { operatorUrl, seeded } from "./env.js";
 import { loadSentinels } from "./privacy.js";
 
@@ -111,7 +111,7 @@ for (const viewport of VIEWPORTS) {
         await expect(page.getByRole("list", { name: "Payouts" })).toBeVisible();
         await check(page, "payouts list", watched);
 
-        await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Audit" }).click();
+        await chooseFromIsland(page, "Audit");
         await expect(page.getByRole("heading", { level: 1, name: "Audit" })).toBeVisible();
         await check(page, "audit", watched);
         await openEverything(page);

@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
+import { axeViolations, chooseFromIsland, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
 import { dumpBrowserState, observe } from "./operator/privacy.js";
 
 // The page that checks a payslip, in a real browser: every state of the result at phone and desktop width in
@@ -175,7 +175,7 @@ test.describe("what the page does with a payslip", () => {
     expect(seen.problems()).toEqual([]);
 
     // Leaving for another page of the app and coming back finds an empty box.
-    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "How privacy works" }).click();
+    await chooseFromIsland(page, "How privacy works");
     await expect(page.getByRole("heading", { level: 1, name: "How privacy works" })).toBeVisible();
     await page.goBack();
     await expect(page.getByRole("heading", { level: 1, name: "Check a payslip" })).toBeVisible();

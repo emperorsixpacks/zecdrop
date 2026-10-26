@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { chooseFromIsland } from "../helpers.js";
 import { operatorToken, operatorUrl } from "./env.js";
 
 // Practice mode on a real local operator (openspec REQ-DEMO-001). The person has opened the operator's link, so the page holds the
@@ -30,7 +31,7 @@ test("a real operator session comes through practice mode: nothing is asked of t
 
   // 2. To the home page without a reload, which would forget the token: the footer's privacy page, then the public header's Home.
   await page.getByRole("link", { name: "How privacy works" }).click();
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home" }).click();
+  await chooseFromIsland(page, "Home");
   await expect(page.getByRole("heading", { level: 1, name: /Pay many people/u })).toBeVisible();
   const before = calls.length;
 
@@ -48,7 +49,7 @@ test("a real operator session comes through practice mode: nothing is asked of t
   await page.getByRole("button", { name: "Use the example list" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Check the payouts" })).toBeVisible();
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Payouts", exact: true }).click();
+  await chooseFromIsland(page, "Payouts");
   await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
   await expect(page.getByText("Practice mode: everything here is simulated in your browser.")).toBeVisible();
   // The list is the simulation's (the payout just added), not the operator's: none of the operator's campaigns is on it.

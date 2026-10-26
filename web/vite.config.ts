@@ -32,5 +32,9 @@ export default defineConfig({
     // suites opt in per file with a `// @vitest-environment jsdom` docblock.
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.ts"],
+    // The default of 5 s is shorter than a whole-page test needs when the machine is busy (other builds, a VM): a test
+    // that takes 1 to 3 s on a quiet one has timed out at 5 s under load. A hung test still fails, only later.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
 });

@@ -7,6 +7,7 @@ import { SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import { clearSession } from "@/api/operator/session";
 import "@/test/dom";
 import { installFakeOperator, replyWith } from "@/test/fake-operator";
+import { island } from "@/test/island";
 import { renderApp } from "@/test/render-app";
 
 // The operator pages are behind the token gate; with no token they explain how
@@ -158,9 +159,33 @@ describe("layouts", () => {
         expect(within(nav).queryByRole("link", { name: label })).toBeNull();
       }
       expect(screen.queryByRole("link", { name: "New payout" })).toBeNull();
-      expect(screen.getByRole("link", { name: "ZecDrop" })).toHaveAttribute("href", "/");
+      // The header is one capsule, closed: a button that names the site and the page, not a link.
+      expect(island()).toHaveAttribute("aria-expanded", "false");
+      expect(island()).toHaveAccessibleName(/^ZecDrop /u);
+      expect(screen.queryByRole("link", { name: "ZecDrop" })).toBeNull();
     },
   );
+
+  it.each([
+    ["/", "Home"],
+    ["/r/abc123", "Receipt"],
+    ["/get-paid", "Get paid"],
+    ["/payslip", "Payslip"],
+    ["/privacy", "How privacy works"],
+  ])("names the page on %s in the capsule: %s", (path, name) => {
+    renderAt(path);
+    expect(island()).toHaveAccessibleName(`ZecDrop ${name} testnet`);
+  });
+
+  it.each([
+    ["/campaigns", "Payouts"],
+    ["/new", "New payout"],
+    ["/campaign/x", "Payout"],
+    ["/audit", "Audit"],
+  ])("names the operator's page on %s in the capsule: %s", (path, name) => {
+    renderAt(path);
+    expect(island()).toHaveAccessibleName(`ZecDrop ${name} testnet`);
+  });
 
   it("shows the network badge", () => {
     renderAt("/");

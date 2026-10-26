@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, chooseFromIsland, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 import { operatorUrl } from "./env.js";
 
 // The screens a first-time operator sees: no payouts yet, nothing to audit, a payout whose
@@ -45,7 +45,7 @@ for (const viewport of VIEWPORTS) {
         await expect(empty.getByRole("button", { name: "Choose a file" })).toBeVisible();
         await clean(page, "payouts, none", problems);
 
-        await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Audit" }).click();
+        await chooseFromIsland(page, "Audit");
         const none = page.getByTestId("audit-empty");
         await expect(none).toBeVisible();
         await expect(none.getByRole("link", { name: "Start a payout" })).toHaveAttribute("href", "/new");

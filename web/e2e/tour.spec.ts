@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 import { TOUR_SHOTS, TOUR_WIDTH, tourImageSrc } from "../src/features/home/tour-steps.js";
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
+import { axeViolations, openIsland, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
 
 // The home page's tour with its pictures, in a real browser, in both looks at phone and desktop width:
 // the pictures load when they are near and not before, only the look of the page is fetched, each arrives
@@ -156,6 +156,8 @@ for (const viewport of VIEWPORTS) {
         const pictures = page.locator(`${TOUR} img`);
         const other = theme === "light" ? "dark" : "light";
         const before = await pictures.first().boundingBox();
+        // The theme button is in the header capsule, which stays at the top of the page however far this has scrolled.
+        await openIsland(page);
         await page.getByRole("button", { name: `Switch to ${other} theme` }).click();
         await expect(page.locator("html")).toHaveAttribute("data-theme", other);
         await expect(pictures.first()).toHaveAttribute("src", tourImageSrc(TOUR_SHOTS[0] ?? { id: "never" }, other));
