@@ -366,6 +366,10 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   for one (`viewTransition` is a data router's option), so `src/lib/view-transition.ts` makes the history's `push` the transition, and holds the
   browser until the router has put the new page on the screen (`ViewTransitionGate`). Back and forward, and a redirect, change the page as
   they always did; so does a browser without the API, and nothing is asked of the API under "reduce motion".
+- **A page opened by a link starts at its top.** The declarative router does not reset the scroll, so a link at the foot of a page used to open
+  the next page at the same depth, with its heading far above the window (and, on the practice payout, under the capsule). `ScrollToTop` goes to
+  the top when the path changes by a push or a replace; going back or forward, and a change of the address that leaves the path alone (a choice
+  in the query, a hash), move nothing. It runs in the commit that shows the new page, so the cross-fade's picture of it is taken at the top.
 
 ### Chosen by eye (say "more" or "less" to each)
 
