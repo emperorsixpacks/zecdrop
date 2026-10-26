@@ -16,6 +16,7 @@ change of 11,865,000 zat, fee 45,000 zat (9 logical actions at 5,000).
 | `funding-tx.hex` | the transaction the batch spends: the sweep `9070aee0…f272` (mined at 4,478,106, see `../testnet-ironwood-batch/README.md`) |
 | `expected.json` | the public facts recomputed from those bytes: `t_in = t_out + net_into_ironwood + fee` |
 | `receipt.json` | the public receipt a freshly started `drop-verifier` (endpoint `testnet.zec.rocks:443`) returned with `declared_total=500000` and commitment `698ec02d…76f8` |
+| `payslips/payslip-1.json` to `payslip-8.json` | one payslip per demo recipient, numbered like the rows of `examples/demo-recipients.testnet.csv`, issued with the demo campaign's throwaway testnet key (`cargo run -p drop-zcash --example issue_demo_payslips`). Each opens exactly one output of `tx.hex` with no key (`crates/drop-verify/tests/real_batch_payslips.rs`). Public demo data: a payslip also opens its output's memo, and these memos are in the CSV |
 
 `receipt.json` was captured on 2026-10-08 at 11:57 UTC, at tip 4,478,307. **Its `confirmations` (19)
 is the depth at that moment**, not a fixed fact: a fresh request returns a larger number. Every other
