@@ -739,6 +739,20 @@ impl Store {
             .collect()
     }
 
+    /// The transactions that funded the campaigns funded so far: each recorded deposit's txid.
+    pub fn funded_deposits(&self) -> Result<Vec<Txid>, StoreError> {
+        self.all_campaigns()?
+            .into_iter()
+            .filter_map(|columns| columns.funding_outpoint)
+            .map(|outpoint| {
+                outpoint
+                    .parse::<OutPoint>()
+                    .map(|o| o.txid)
+                    .map_err(|_| StoreError::Corrupt)
+            })
+            .collect()
+    }
+
     /// Returns the wallet seed, creating and storing a fresh one on first use.
     pub fn load_or_create_seed(&self) -> Result<SecretSeed, StoreError> {
         let mut conn = self.conn();

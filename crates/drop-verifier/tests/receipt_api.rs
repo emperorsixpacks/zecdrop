@@ -187,7 +187,7 @@ fn receipt_uri(txids: &[Txid], declared: u64) -> String {
 // The receipt
 // ---------------------------------------------------------------------------
 
-// covers: REQ-VER-001
+// covers: REQ-VER-001, REQ-VER-007
 #[tokio::test]
 async fn a_good_batch_returns_a_settled_public_receipt() {
     let f = fixture("ironwood_batch_3");
@@ -203,6 +203,13 @@ async fn a_good_batch_returns_a_settled_public_receipt() {
     assert_eq!(receipt.batches[0].txid, Some(f.txid));
     assert_eq!(receipt.batches[0].fee.map(|x| x.as_u64()), Some(f.fee));
     assert_eq!(receipt.batches[0].pool, Some(Pool::Ironwood));
+    // The test fixture's deposit spends a transparent coin; the answer says so, by kind only.
+    assert_eq!(
+        receipt.funding_source,
+        Some(drop_core::FundingSource::Transparent)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&reply.body).unwrap();
+    assert!(json["funding_source"].is_string(), "{json}");
     assert!(reply.headers["content-type"]
         .to_str()
         .unwrap()

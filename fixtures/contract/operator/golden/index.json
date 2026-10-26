@@ -31,7 +31,7 @@
     {
       "file": "campaign-real-deposit-shallow.json",
       "method": "POST",
-      "note": "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth",
+      "note": "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth; it spent a transparent coin, so funding_source is transparent",
       "path": "/api/campaigns/{id}/check-funding",
       "status": 200
     },
@@ -47,6 +47,13 @@
       "method": "GET",
       "note": "the public receipt on a real chain: funding_address is the campaign's transparent address, the one every batch spends from; null on the mock chain",
       "path": "/api/campaigns/{id}/receipt",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-deposit-shallow-shielded.json",
+      "method": "POST",
+      "note": "a sufficient deposit not deep enough yet that spent no transparent coin: funding_source is shielded",
+      "path": "/api/campaigns/{id}/check-funding",
       "status": 200
     },
     {

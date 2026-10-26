@@ -7,6 +7,7 @@ import { shortId } from "@/lib/ids";
 import { useInView } from "@/lib/use-in-view";
 
 import { outputCount } from "./format";
+import { RECEIPT_SOURCE_WORDING } from "./funding-source-wording";
 
 function Station({ index, label, help, children }: { index: number; label: ReactNode; help?: ReactNode; children: ReactNode }) {
   return (
@@ -34,12 +35,29 @@ export function FundsFlow({ receipt }: { receipt: PublicReceipt }) {
         <i />
       </div>
       <ol aria-label="Where the funds went">
-        <Station index={0} label="Funded from">
+        <Station
+          index={0}
+          label="Funded from"
+          {...(receipt.fundingSource === "shielded" || receipt.fundingSource === "transparent"
+            ? {
+                help: (
+                  <Why label="About the deposit">
+                    <p>{RECEIPT_SOURCE_WORDING.flowHelp}</p>
+                  </Why>
+                ),
+              }
+            : {})}
+        >
           {receipt.fundingAddress === null ? (
             <Unknown />
           ) : (
             <span className="mono text-lg" translate="no" title={receipt.fundingAddress}>
               {shortId(receipt.fundingAddress, 6)}
+            </span>
+          )}
+          {(receipt.fundingSource === "shielded" || receipt.fundingSource === "transparent") && (
+            <span className="block text-sm font-normal text-muted-foreground" data-testid="flow-source">
+              {receipt.fundingSource === "shielded" ? RECEIPT_SOURCE_WORDING.flowShielded : RECEIPT_SOURCE_WORDING.flowTransparent}
             </span>
           )}
         </Station>

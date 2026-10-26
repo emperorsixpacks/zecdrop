@@ -22,7 +22,7 @@ use std::sync::Arc;
 use axum::http::{Method, StatusCode};
 use common::zcash::*;
 use common::*;
-use drop_core::{CampaignId, FailureKind, Zatoshi};
+use drop_core::{CampaignId, FailureKind, Txid, Zatoshi};
 use drop_operator::accounts::{AccountAllocator, AccountError};
 use drop_operator::chain::{ChainError, UtxoSighting};
 use drop_operator::real::{ZcashBackend, ZcashConnector};
@@ -290,6 +290,10 @@ impl ZcashConnector for DownConnector {
     fn sightings(&self, _address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
         Err(down())
     }
+
+    fn transaction(&self, _txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        Err(down())
+    }
 }
 
 /// An account registry that cannot be written.
@@ -308,7 +312,7 @@ fn down() -> ChainError {
     }
 }
 
-// covers: REQ-FUND-002, REQ-AUD-001, REQ-SEC-001, REQ-OPS-002, REQ-PAY-005
+// covers: REQ-FUND-002, REQ-AUD-001, REQ-SEC-001, REQ-OPS-002, REQ-PAY-005, REQ-FUND-004
 #[tokio::test]
 async fn the_real_mode_api_shapes_are_pinned() {
     let mut g = Golden::new();
@@ -372,8 +376,9 @@ async fn the_real_mode_api_shapes_are_pinned() {
         "/api/campaigns/{id}/check-funding",
         200,
         &check,
-        "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth",
+        "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth; it spent a transparent coin, so funding_source is transparent",
     );
+    assert_eq!(check.json()["funding_source"], "transparent");
 
     // One more block: funded, and the progress note goes away.
     node.lock().tip = 1_001;
@@ -388,8 +393,10 @@ async fn the_real_mode_api_shapes_are_pinned() {
     );
 
     // The public receipt of a funded real campaign names the address its batches spend from.
+    assert_eq!(check.json()["funding_source"], "transparent");
     let receipt = h.get(&campaign_path(&id, "/receipt")).await;
     assert_eq!(receipt.json()["funding_address"], address.as_str());
+    assert_eq!(receipt.json()["funding_source"], "transparent");
     g.record(
         "receipt-real.json",
         "GET",
@@ -397,6 +404,35 @@ async fn the_real_mode_api_shapes_are_pinned() {
         200,
         &receipt,
         "the public receipt on a real chain: funding_address is the campaign's transparent address, the one every batch spends from; null on the mock chain",
+    );
+
+    // A second campaign whose deposit spent no transparent coin: the testnet faucet's payout that
+    // funded the first real batch, served under its own id. While it is still short of the depth,
+    // the page can already say where it came from.
+    let (shielded_id, shielded_created) = create(&h).await;
+    let shielded_address = shielded_created.json()["funding_address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    g.forbidden.push(shielded_address.clone());
+    put_deposit_tx(
+        &node,
+        &shielded_address,
+        REQUIRED,
+        Some(1_001),
+        real_deposit("testnet-ironwood-batch"),
+    );
+    let check = h
+        .post_empty(&campaign_path(&shielded_id, "/check-funding"))
+        .await;
+    assert_eq!(check.json()["funding_source"], "shielded");
+    g.record(
+        "campaign-real-deposit-shallow-shielded.json",
+        "POST",
+        "/api/campaigns/{id}/check-funding",
+        200,
+        &check,
+        "a sufficient deposit not deep enough yet that spent no transparent coin: funding_source is shielded",
     );
 
     // The auditor's key: refused without the acknowledgement, with the warning either way.

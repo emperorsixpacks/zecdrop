@@ -1,9 +1,9 @@
 {
-  "id": "c-000000000006",
+  "id": "c-000000000007",
   "name": "In progress",
   "network": "testnet",
   "pool": "ironwood",
-  "created_at": 1700000005,
+  "created_at": 1700000006,
   "phase": {
     "phase": "sending",
     "done": 0,
@@ -20,7 +20,7 @@
   "declared_total": "1162500000",
   "fee_total": "35000",
   "funding_required": "1162535000",
-  "manifest_commitment": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "manifest_commitment": "e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6",
   "wallet_matches": true,
   "funding_address": null,
   "funding": {
@@ -28,6 +28,7 @@
     "amount": "1162535000"
   },
   "funding_progress": null,
+  "funding_source": null,
   "batches": [
     {
       "index": 0,

@@ -12,7 +12,8 @@ use std::time::Duration;
 
 use drop_core::{
     derive_phase, plan_batches, AddressCodec, Batch, CampaignId, CampaignPhase, Engine, FeePolicy,
-    FundingRef, FundingState, Ledger, Network, OutPoint, Pool, ProgressEvent, Zatoshi,
+    FundingRef, FundingSource, FundingState, Ledger, Network, OutPoint, Pool, ProgressEvent, Txid,
+    Zatoshi,
 };
 use serde::Serialize;
 use tokio::sync::watch;
@@ -133,6 +134,10 @@ struct Inner {
     hubs: Mutex<HashMap<CampaignId, Arc<EventHub>>>,
     addresses: Mutex<HashMap<CampaignId, String>>,
     progress: Mutex<HashMap<CampaignId, FundingProgress>>,
+    /// What each deposit seen so far spent, by its txid (REQ-FUND-004). Public chain data, read
+    /// from the deposit's own bytes and kept for the life of the process; only known answers are
+    /// kept, so a failed read is tried again by the next poll.
+    sources: Mutex<HashMap<Txid, FundingSource>>,
     near: crate::near::NearState,
 }
 
@@ -206,6 +211,7 @@ impl AppState {
             hubs: Mutex::new(HashMap::new()),
             addresses: Mutex::new(HashMap::new()),
             progress: Mutex::new(HashMap::new()),
+            sources: Mutex::new(HashMap::new()),
             near: crate::near::NearState::new(parts.near),
         }))
     }
@@ -348,6 +354,35 @@ impl AppState {
         lock(&self.0.progress).get(id).cloned()
     }
 
+    /// What the campaign's deposit spent, if that is known (REQ-FUND-004): the recorded deposit's,
+    /// or else that of the deposit the last poll saw. Read from memory only, never from the chain.
+    pub fn funding_source(&self, record: &CampaignRecord) -> Option<FundingSource> {
+        let deposit = match record.funding {
+            Some(funding) => funding.outpoint.txid,
+            None => self.funding_progress(&record.id)?.outpoint.txid,
+        };
+        lock(&self.0.sources).get(&deposit).copied()
+    }
+
+    /// What a deposit declared to the mock chain's `fund-observed` spent.
+    pub fn declare_deposit_source(&self, deposit: Txid, source: FundingSource) {
+        lock(&self.0.sources).insert(deposit, source);
+    }
+
+    /// Reads once what `deposit` spent, from its own bytes. A known answer is kept; a failure is
+    /// not, so the next poll tries again. It never fails anything: where a deposit came from
+    /// informs the page and decides nothing.
+    async fn learn_deposit_source(&self, deposit: Txid) {
+        if lock(&self.0.sources).contains_key(&deposit) {
+            return;
+        }
+        let backend = Arc::clone(&self.0.backend);
+        let read = tokio::task::spawn_blocking(move || backend.deposit_source(&deposit)).await;
+        if let Ok(Ok(Some(source))) = read {
+            lock(&self.0.sources).insert(deposit, source);
+        }
+    }
+
     /// Looks at the campaign's funding address once.
     ///
     /// A deposit counts only when it is on the chain at the required depth and covers the
@@ -360,7 +395,9 @@ impl AppState {
             .load_campaign(id)
             .map_err(|e| self.internal(&e))?
             .ok_or_else(|| ApiError::not_found("campaign"))?;
-        if record.funding.is_some() {
+        if let Some(funding) = record.funding {
+            // After a restart, what the deposit spent is read again (it is kept in memory only).
+            self.learn_deposit_source(funding.outpoint.txid).await;
             return Ok(PollOutcome::AlreadyFunded);
         }
         let Some(address) = self.funding_address(&record)? else {
@@ -397,6 +434,8 @@ impl AppState {
                         "funding confirmed campaign={id} confirmations={}",
                         sighting.confirmations
                     ));
+                    // Recorded first: reading where it came from never holds funding up.
+                    self.learn_deposit_source(deposit.outpoint.txid).await;
                     Ok(PollOutcome::Funded(deposit))
                 }
                 Ok(FundingOutcome::Conflict(_)) => Ok(PollOutcome::AlreadyFunded),
@@ -420,6 +459,10 @@ impl AppState {
                 lock(&self.0.progress).remove(id);
             }
         }
+        // A deposit still short of the depth can already say where it came from.
+        if let Some(p) = &progress {
+            self.learn_deposit_source(p.outpoint.txid).await;
+        }
         Ok(PollOutcome::Waiting(progress))
     }
 
@@ -438,6 +481,15 @@ impl AppState {
                                     .logger
                                     .warn(format_args!("funding poll failed campaign={id}"));
                             }
+                        }
+                    }
+                    Err(error) => state.0.logger.warn(format_args!("funding poll: {error}")),
+                }
+                // After a restart, what the funded campaigns' deposits spent is read again.
+                match state.0.store.funded_deposits() {
+                    Ok(deposits) => {
+                        for deposit in deposits {
+                            state.learn_deposit_source(deposit).await;
                         }
                     }
                     Err(error) => state.0.logger.warn(format_args!("funding poll: {error}")),

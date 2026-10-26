@@ -93,7 +93,8 @@ pub use manifest::{Manifest, ManifestCommitment, Salt};
 pub use phase::{derive_phase, CampaignPhase, FundingState};
 pub use planner::{campaign_total, plan_batches, Batch};
 pub use receipt::{
-    BatchReceipt, ChainReceiptInputs, Finding, PublicReceipt, ReceiptError, ReceiptInputs,
+    BatchReceipt, ChainReceiptInputs, Finding, FundingSource, PublicReceipt, ReceiptError,
+    ReceiptInputs,
 };
 pub use recipient::{total_amount, Recipient};
 pub use warnings::{privacy_warnings, PrivacyWarning};

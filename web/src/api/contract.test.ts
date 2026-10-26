@@ -47,6 +47,7 @@ const TOP_LEVEL_KEYS = [
   "fee_total",
   "findings",
   "funding_address",
+  "funding_source",
   "manifest_commitment",
   "network",
   "phase",
@@ -142,12 +143,47 @@ describe.each(FIXTURES)("%s (from the Rust core)", (_name, text) => {
   });
 });
 
+// covers: REQ-VER-007
+describe("funding_source: what the deposit spent", () => {
+  it("is the one key that may be missing: a receipt from an older verifier reads as not reported", () => {
+    const old = copy(goldenText);
+    delete (old as Record<string, unknown>)["funding_source"];
+    expect(parsePublicReceipt(old).fundingSource).toBeUndefined();
+  });
+
+  it("is null when the verifier could not establish it, which is not the same as not reported", () => {
+    const wire = copy(goldenText);
+    (wire as Record<string, unknown>)["funding_source"] = null;
+    expect(parsePublicReceipt(wire).fundingSource).toBeNull();
+  });
+
+  it("carries one of the two kinds and nothing else", () => {
+    for (const kind of ["shielded", "transparent"] as const) {
+      const wire = copy(goldenText);
+      (wire as Record<string, unknown>)["funding_source"] = kind;
+      expect(parsePublicReceipt(wire).fundingSource).toBe(kind);
+    }
+    for (const bad of ["mixed", "Shielded", "", 1, { kind: "shielded" }, ["shielded"]]) {
+      const wire = copy(goldenText);
+      (wire as Record<string, unknown>)["funding_source"] = bad;
+      expect(() => parsePublicReceipt(wire), JSON.stringify(bad)).toThrow(ZodError);
+    }
+  });
+
+  it("does not open the schema: an unknown key beside it is still refused", () => {
+    const wire = copy(goldenText);
+    (wire as Record<string, unknown>)["funding_sources"] = ["u1smuggled"];
+    expect(() => parsePublicReceipt(wire)).toThrow(ZodError);
+  });
+});
+
 describe("public-receipt.json: a campaign in progress", () => {
   it("maps to the expected view", () => {
     expect(parsePublicReceipt(copy(goldenText))).toEqual({
       campaignId: "golden-fixture",
       network: "testnet",
       fundingAddress: "tFAKEfundingAddressNotARealAddress0000",
+      fundingSource: "shielded",
       declaredTotal: "534500000",
       feeTotal: "35000",
       manifestCommitment: "e".repeat(64),

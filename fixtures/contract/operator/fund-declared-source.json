@@ -1,0 +1,64 @@
+{
+  "id": "c-000000000006",
+  "name": "Declared source",
+  "network": "testnet",
+  "pool": "ironwood",
+  "created_at": 1700000005,
+  "phase": {
+    "phase": "funded"
+  },
+  "phase_label": "Funded, ready to send",
+  "recipient_count": 5,
+  "batch_count": 2,
+  "max_outputs_per_batch": 3,
+  "fee_policy": {
+    "marginal_fee": 5000,
+    "grace_actions": 2
+  },
+  "declared_total": "1162500000",
+  "fee_total": "35000",
+  "funding_required": "1162535000",
+  "manifest_commitment": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "wallet_matches": true,
+  "funding_address": null,
+  "funding": {
+    "outpoint": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2:0",
+    "amount": "1162535000"
+  },
+  "funding_progress": null,
+  "funding_source": "shielded",
+  "batches": [
+    {
+      "index": 0,
+      "recipients": 3,
+      "total": "450000000",
+      "fee": "20000",
+      "funding_required": "450020000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    },
+    {
+      "index": 1,
+      "recipients": 2,
+      "total": "712500000",
+      "fee": "15000",
+      "funding_required": "712515000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    }
+  ],
+  "warnings": [
+    {
+      "code": "two_recipient_batch",
+      "batch_index": 1,
+      "message": "Batch 1 has two recipients; each can work out the other's amount from the public total and their own."
+    }
+  ],
+  "run": {
+    "state": "idle"
+  }
+}

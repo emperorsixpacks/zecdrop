@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 
 import type { OperatorCampaign } from "@/api/operator/schemas";
+import type { FundingSource } from "@/api/types";
 import { Disclosure } from "@/components/Disclosure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,12 @@ import { useHealth, useRecordFunding } from "./hooks";
 
 const TXID = /^[0-9a-f]{64}$/u;
 const U32_MAX = 4_294_967_295;
+
+/** What the pretend deposit spent: a real one is read from the chain; this one is said. */
+const PAID_FROM: { value: FundingSource; label: string; hint: string }[] = [
+  { value: "shielded", label: "Your shielded balance", hint: "The deposit names no address of yours." },
+  { value: "transparent", label: "A transparent address", hint: "That address goes on the chain beside the payout." },
+];
 
 /** A made-up transaction id for the pretend deposit. */
 function randomTxid(): string {
@@ -30,13 +37,14 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
   const health = useHealth();
   const record = useRecordFunding(campaign.id);
   const unit = useCoinUnit();
-  const ids = { heading: useId(), txid: useId(), vout: useId(), amount: useId() };
+  const ids = { heading: useId(), txid: useId(), vout: useId(), amount: useId(), paidFrom: useId() };
 
   const practice = usePractice((state) => state.on);
   // In practice mode even the pretend deposit's id says what it is: it is on no chain.
   const [txid, setTxid] = useState(() => (practice ? practiceId() : randomTxid()));
   const [vout, setVout] = useState("0");
   const [amount, setAmount] = useState(() => zecFromZatoshi(campaign.fundingRequired));
+  const [source, setSource] = useState<FundingSource>("shielded");
   const [problem, setProblem] = useState<string | null>(null);
 
   // Only when the operator itself says it is the mock chain. Missing or false: no dev controls.
@@ -56,7 +64,7 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
     } catch (error) {
       return setProblem(error instanceof ZecParseError ? `Amount: ${error.message}.` : "Amount is not valid.");
     }
-    record.mutate({ outpoint: { txid, vout: index }, amount: zatoshi.toString() });
+    record.mutate({ outpoint: { txid, vout: index }, amount: zatoshi.toString(), source });
   }
 
   return (
@@ -68,6 +76,30 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
         No funds move. The campaign needs {zecFromZatoshi(campaign.fundingRequired)} {unit}.
       </p>
       <form onSubmit={submit} className="space-y-4" noValidate>
+        <fieldset className="space-y-2" aria-describedby={ids.paidFrom}>
+          <legend className="text-base font-semibold">Paid from</legend>
+          <p id={ids.paidFrom} className="max-w-[64ch] text-sm text-muted-foreground">
+            A real deposit is read from the chain. This one is pretend, so say what it spent.
+          </p>
+          {PAID_FROM.map((option) => (
+            <label key={option.value} className="flex min-h-11 cursor-pointer items-start gap-3">
+              <input
+                type="radio"
+                name="paid-from"
+                value={option.value}
+                checked={source === option.value}
+                onChange={() => {
+                  setSource(option.value);
+                }}
+                className="mt-1.5 size-5 accent-foreground"
+              />
+              <span>
+                <span className="block text-base font-semibold">{option.label}</span>
+                <span className="block text-sm text-muted-foreground">{option.hint}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <Disclosure summary="Change the deposit" className="max-w-xl">
           <div className="space-y-4">
             <div className="space-y-1.5">

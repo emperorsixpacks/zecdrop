@@ -68,16 +68,15 @@ export const SAMPLE_RECEIPT_HREF = "/r/demo?demo=real";
 /** Where each real sample comes from, as the page says it. Nothing here is live:
  * the receipts' confirmations are the depth when they were captured.
  *
- * - real: mined at 4,478,289; captured at tip 4,478,307 with 19 confirmations
- *   (fixtures/testnet-ironwood-batch-8/README.md).
- * - real-smoke: mined at 4,478,065; re-captured with 137 confirmations
- *   (fixtures/testnet-ironwood-batch/README.md), so at tip 4,478,201
- *   (4,478,065 + 137 - 1). */
+ * Both were captured again on 2026-10-23 at tip 4,533,356, from a verifier that also says
+ * what the deposit spent (the fixtures' READMEs):
+ * - real: mined at 4,478,289, captured with 55,068 confirmations (4,478,289 + 55,068 - 1).
+ * - real-smoke: mined at 4,478,065, captured with 55,292 confirmations (4,478,065 + 55,292 - 1). */
 export const REAL_CAPTURES: Readonly<
   Record<RealDemoCase, { network: string; minedAt: string; capturedAt: string }>
 > = {
-  real: { network: "public testnet", minedAt: "4,478,289", capturedAt: "4,478,307" },
-  "real-smoke": { network: "public testnet", minedAt: "4,478,065", capturedAt: "4,478,201" },
+  real: { network: "public testnet", minedAt: "4,478,289", capturedAt: "4,533,356" },
+  "real-smoke": { network: "public testnet", minedAt: "4,478,065", capturedAt: "4,533,356" },
 };
 
 export const DEMOS: readonly DemoInfo[] = [

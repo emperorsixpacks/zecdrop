@@ -7,7 +7,7 @@
 // URL; the response, like every response, contains none of it.
 
 import { sendToApi } from "@/api/client";
-import { parsePublicReceipt, type OutPointView, type PublicReceipt } from "@/api/types";
+import { parsePublicReceipt, type FundingSource, type OutPointView, type PublicReceipt } from "@/api/types";
 
 import { getToken, rejectToken } from "./session";
 import {
@@ -185,15 +185,19 @@ export async function createCampaign(input: CreateCampaignInput, signal?: AbortS
   });
 }
 
-/** Mock chain only: record the funding deposit. */
+/** Mock chain only: record the funding deposit, and optionally what it spent (to show either kind). */
 export async function recordFunding(
   id: string,
-  deposit: { outpoint: OutPointView; amount: string },
+  deposit: { outpoint: OutPointView; amount: string; source?: FundingSource },
   signal?: AbortSignal,
 ): Promise<OperatorCampaign> {
   return await request(campaignPath(id, "/fund-observed"), {
     method: "POST",
-    body: { outpoint: `${deposit.outpoint.txid}:${String(deposit.outpoint.vout)}`, amount: deposit.amount },
+    body: {
+      outpoint: `${deposit.outpoint.txid}:${String(deposit.outpoint.vout)}`,
+      amount: deposit.amount,
+      ...(deposit.source === undefined ? {} : { source: deposit.source }),
+    },
     parse: parseCampaign,
     ...(signal ? { signal } : {}),
   });

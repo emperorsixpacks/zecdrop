@@ -1,7 +1,7 @@
 # shielded-funding
 
 ### REQ-VER-007 — A receipt says where the deposit came from
-Status: planned
+Status: implemented
 For every batch, the verifier SHALL take as the batch's deposits the transactions that created its funding inputs (each input's
 previous output), fetched by id and used only if their bytes hash to that id, and SHALL classify each as `shielded` when it has no
 transparent input and as `transparent` when it has at least one (a coinbase input counts as one). The receipt SHALL carry
@@ -11,7 +11,7 @@ still read as one whose source is not established, and reading it SHALL make no 
 inputs' values. A negative test SHALL show that the receipt carries no address, amount or count of a deposit's inputs.
 
 ### REQ-FUND-004 — The funding screen asks for a shielded deposit and says what arrived
-Status: planned
+Status: implemented
 Where the operator shows a campaign's funding address on a real chain, the page SHALL ask the payer to pay from a shielded balance,
 and say why, before any deposit is seen. Once a deposit is seen at the funding address, at any depth, the operator SHALL classify
 the transaction that created it by the rule of REQ-VER-007, from its bytes, used only if they hash to its id, and SHALL report the

@@ -326,6 +326,13 @@
       "note": "a different deposit for an already funded campaign"
     },
     {
+      "file": "fund-declared-source.json",
+      "method": "POST",
+      "path": "/api/campaigns/{id}/fund-observed",
+      "status": 200,
+      "note": "a pretend deposit said to come from the shielded pool: funding_source is what fund-observed declares, and null when it says nothing"
+    },
+    {
       "file": "fund-insufficient.json",
       "method": "POST",
       "path": "/api/campaigns/{id}/fund-observed",

@@ -50,8 +50,9 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use drop_core::{
     derive_phase, import_csv_str, plan_batches, privacy_warnings, CampaignId, CampaignPhase,
-    FeePolicy, FundingState, ImportOptions, Ledger, Manifest, ManifestCommitment, Network,
-    OutPoint, Pool, PrivacyWarning, PublicReceipt, ReceiptInputs, RowError, Salt, Txid, Zatoshi,
+    FeePolicy, FundingSource, FundingState, ImportOptions, Ledger, Manifest, ManifestCommitment,
+    Network, OutPoint, Pool, PrivacyWarning, PublicReceipt, ReceiptInputs, RowError, Salt, Txid,
+    Zatoshi,
 };
 use drop_verify::payslip::Payslip;
 use drop_zcash::MAX_IRONWOOD_ACTIONS_PER_TX;
@@ -255,6 +256,9 @@ struct CampaignView {
     funding_address: Option<String>,
     funding: Option<FundingView>,
     funding_progress: Option<FundingProgress>,
+    /// What the deposit (recorded, or still short of the depth) spent, once it is known
+    /// (REQ-FUND-004). Never a reason to refuse anything.
+    funding_source: Option<FundingSource>,
     batches: Vec<BatchView>,
     warnings: Vec<WarningView>,
     run: RunState,
@@ -356,6 +360,7 @@ fn view(state: &AppState, record: &CampaignRecord) -> Result<CampaignView, ApiEr
         } else {
             None
         },
+        funding_source: state.funding_source(record),
         batches: batch_views,
         warnings: privacy_warnings(&batches)
             .into_iter()
@@ -598,6 +603,7 @@ async fn get_receipt(
         funding_state: FundingState::Funded,
         required_depth: state.options().required_depth,
         funding_address: funding_address.as_deref(),
+        funding_source: state.funding_source(&record),
     })
     .map_err(|e| state.internal(&e))?;
     Ok(Json(receipt))
@@ -608,6 +614,9 @@ async fn get_receipt(
 struct FundObserved {
     outpoint: OutPoint,
     amount: Zatoshi,
+    /// What the declared deposit spent, for showing both kinds on the mock chain; optional.
+    #[serde(default)]
+    source: Option<FundingSource>,
 }
 
 async fn fund_observed(
@@ -647,7 +656,11 @@ async fn fund_observed(
         Err(FundingShortfall::NeedsSplit) => return Err(needs_funding_split()),
     }
     match state.store().record_funding(&record.id, deposit) {
-        Ok(FundingOutcome::Recorded | FundingOutcome::Unchanged) => {}
+        Ok(FundingOutcome::Recorded | FundingOutcome::Unchanged) => {
+            if let Some(source) = body.source {
+                state.declare_deposit_source(deposit.outpoint.txid, source);
+            }
+        }
         Ok(FundingOutcome::Conflict(existing)) => {
             return Err(ApiError::conflict(
                 "funding_conflict",

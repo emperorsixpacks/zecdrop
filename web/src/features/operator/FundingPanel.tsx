@@ -15,7 +15,9 @@ import { fundingPaymentUri } from "@/lib/payment-uri";
 import { phaseSentence } from "@/lib/phase";
 import { useMediaQuery } from "@/lib/use-media";
 
+import { DepositSource } from "./DepositSource";
 import { FailureNotice } from "./FailureNotice";
+import { FUNDING_SOURCE_WORDING } from "./funding-source-wording";
 import { useCheckFunding, useHealth } from "./hooks";
 import { MockFunding } from "./MockFunding";
 
@@ -30,6 +32,7 @@ function Progress({ campaign }: { campaign: OperatorCampaign }) {
       <p>
         A deposit of <Zec zatoshi={seen.amount} /> has {seen.confirmations} of {seen.requiredDepth} confirmations.
       </p>
+      <DepositSource source={campaign.fundingSource} pretend={false} quiet />
       {!seen.sufficient && (
         <p className="text-problem">
           That is less than the <Zec zatoshi={campaign.fundingRequired} /> this campaign needs, so it does not count. Send the rest in a
@@ -66,10 +69,19 @@ function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; a
           deposit.
         </span>
         <Why label="About the deposit">
-          <p>
-            That is the declared total plus fees. The funding address, the amount and the address you send from are public; see how
-            privacy works.
-          </p>
+          <p>That is the declared total plus fees. The funding address and the amount are public; see how privacy works.</p>
+        </Why>
+      </p>
+      <p className="flex max-w-[64ch] flex-wrap items-center gap-x-1 text-base" data-testid="funding-ask">
+        <span>
+          <strong>{FUNDING_SOURCE_WORDING.ask}</strong> {FUNDING_SOURCE_WORDING.askWhy}
+        </span>
+        <Why label="About paying from a shielded balance">
+          <div className="space-y-2">
+            {FUNDING_SOURCE_WORDING.askMore.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
         </Why>
       </p>
       {exact && (
@@ -166,19 +178,22 @@ export function FundingPanel({ campaign }: { campaign: OperatorCampaign }) {
 
   if (campaign.funding !== null) {
     return (
-      <p role="status" className="flex flex-wrap items-center gap-x-2 text-base">
-        <span aria-hidden className="flex size-6 items-center justify-center rounded-full bg-verified text-sm font-bold text-background">
-          ✓
-        </span>
-        <strong>Funded.</strong>
-        <span>
-          <Zec zatoshi={campaign.funding.amount} /> in deposit{" "}
-          <span className="mono" title={campaign.funding.outpoint.txid}>
-            {shortId(campaign.funding.outpoint.txid)}:{campaign.funding.outpoint.vout}
+      <div className="space-y-3">
+        <p role="status" className="flex flex-wrap items-center gap-x-2 text-base">
+          <span aria-hidden className="flex size-6 items-center justify-center rounded-full bg-verified text-sm font-bold text-background">
+            ✓
           </span>
-          .
-        </span>
-      </p>
+          <strong>Funded.</strong>
+          <span>
+            <Zec zatoshi={campaign.funding.amount} /> in deposit{" "}
+            <span className="mono" title={campaign.funding.outpoint.txid}>
+              {shortId(campaign.funding.outpoint.txid)}:{campaign.funding.outpoint.vout}
+            </span>
+            .
+          </span>
+        </p>
+        <DepositSource source={campaign.fundingSource} pretend={health.data?.mock === true} />
+      </div>
     );
   }
 

@@ -77,6 +77,7 @@ export function receiptFromQuery(campaigns: Iterable<Campaign>, query: ReceiptQu
       ? { phase: "settled" as const }
       : { phase: "sending" as const, done: finalWithoutFinding, total: batches.length };
 
+  // No `funding_source`: this verifier reads no chain, so it does not say what a deposit spent.
   return {
     campaign_id: null,
     network: "testnet" as const,

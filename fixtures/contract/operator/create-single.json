@@ -23,6 +23,7 @@
   "funding_address": null,
   "funding": null,
   "funding_progress": null,
+  "funding_source": null,
   "batches": [
     {
       "index": 0,

@@ -4,14 +4,15 @@
 mod support;
 
 use drop_core::{
-    CampaignId, CampaignPhase, Finding, ManifestCommitment, Network, OutPoint, Pool, PublicReceipt,
-    Txid, Zatoshi,
+    CampaignId, CampaignPhase, Finding, FundingSource, ManifestCommitment, Network, OutPoint, Pool,
+    PublicReceipt, Txid, Zatoshi,
 };
 use drop_verify::analyze::Prevout;
 use drop_verify::{
     verify_campaign, FetchedTx, ParsedTx, Problem, SourceError, VerifyConfig, VerifyError,
     VerifyRequest,
 };
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use support::{load, FakeChain, Fixture};
@@ -855,6 +856,202 @@ async fn the_captured_receipts_are_what_the_verifier_computes_from_the_captured_
         let receipt = verify_campaign(&chain, &request, &config(3)).await.unwrap();
         assert_eq!(receipt, captured, "{}", batch.0);
     }
+}
+
+// ---------------------------------------------------------------------------
+// REQ-VER-007: where the deposit came from, on the real batches
+// ---------------------------------------------------------------------------
+
+fn real_hex(batch: (&str, &str), name: &str) -> Vec<u8> {
+    hex::decode(
+        std::fs::read_to_string(real_dir(batch).join(name))
+            .unwrap()
+            .trim(),
+    )
+    .unwrap()
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn the_real_3_recipient_batch_was_funded_from_the_shielded_pool() {
+    // Its deposit is the testnet faucet's payout: no transparent input at all.
+    let (txid, chain) = real_chain(REAL_BATCH_3, 6);
+    let receipt = verify_campaign(&chain, &request(vec![txid], 60_000), &config(3))
+        .await
+        .unwrap();
+    assert_eq!(receipt.funding_source, Some(FundingSource::Shielded));
+    assert!(receipt.findings.is_empty(), "{:?}", receipt.findings);
+    assert_eq!(receipt.phase, CampaignPhase::Settled);
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn the_real_8_recipient_batch_was_funded_from_transparent_coins_and_still_settles() {
+    // Its deposit is the sweep of the 3-recipient batch's change: one transparent input.
+    let (txid, chain) = real_chain(REAL_BATCH_8, 19);
+    let receipt = verify_campaign(&chain, &request(vec![txid], 500_000), &config(3))
+        .await
+        .unwrap();
+    assert_eq!(receipt.funding_source, Some(FundingSource::Transparent));
+    assert!(
+        receipt.findings.is_empty(),
+        "a transparent deposit is not a finding: {:?}",
+        receipt.findings
+    );
+    assert_eq!(receipt.phase, CampaignPhase::Settled);
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn the_receipt_names_nothing_that_the_deposit_spent() {
+    // The 8-recipient batch's deposit spent the 3-recipient batch's change coin. That coin, its
+    // address and its value are all public on the chain; none of them belongs on the receipt.
+    let change = ParsedTx::parse(&real_hex(REAL_BATCH_3, "tx.hex"))
+        .unwrap()
+        .output(0)
+        .unwrap();
+    let address = drop_verify::p2pkh_address(&change, Network::Testnet).unwrap();
+    let value = u64::from(change.value()).to_string();
+    assert_ne!(address, REAL_FUNDING_ADDRESS);
+
+    let (txid, chain) = real_chain(REAL_BATCH_8, 19);
+    let receipt = verify_campaign(&chain, &request(vec![txid], 500_000), &config(3))
+        .await
+        .unwrap();
+    assert_eq!(receipt.funding_source, Some(FundingSource::Transparent));
+    let json = serde_json::to_value(&receipt).unwrap();
+    let text = json.to_string();
+    for needle in [address.as_str(), REAL_BATCH_3.1, value.as_str()] {
+        assert!(!text.contains(needle), "{needle} leaked: {text}");
+    }
+    // One new key and nothing else: no list, count or detail of the deposit's inputs.
+    let keys: BTreeSet<&str> = json
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        keys,
+        BTreeSet::from([
+            "campaign_id",
+            "network",
+            "funding_address",
+            "funding_source",
+            "declared_total",
+            "fee_total",
+            "batches",
+            "manifest_commitment",
+            "phase",
+            "findings",
+        ])
+    );
+    assert_eq!(json["batches"][0].as_object().unwrap().len(), 8);
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn one_transparent_deposit_makes_the_campaign_transparent() {
+    // Both real batches in one request: one funded from the shielded pool, one from transparent
+    // coins. They spend from the same funding address, so nothing is mixed and it settles.
+    let (txid_3, chain_3) = real_chain(REAL_BATCH_3, 6);
+    let (txid_8, mut chain) = real_chain(REAL_BATCH_8, 19);
+    chain.txs.extend(chain_3.txs);
+    let receipt = verify_campaign(&chain, &request(vec![txid_3, txid_8], 560_000), &config(3))
+        .await
+        .unwrap();
+    assert!(receipt.findings.is_empty(), "{:?}", receipt.findings);
+    assert_eq!(receipt.phase, CampaignPhase::Settled);
+    assert_eq!(receipt.funding_source, Some(FundingSource::Transparent));
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn a_batch_that_is_not_found_leaves_the_campaign_source_unknown() {
+    // A found, shielded batch beside one that is not on the chain: shielded is not established
+    // for the campaign, because the missing batch's deposit is unknown.
+    let (txid, chain) = real_chain(REAL_BATCH_3, 6);
+    let absent = Txid::from_bytes([0x5a; 32]);
+    let receipt = verify_campaign(&chain, &request(vec![txid, absent], 60_000), &config(3))
+        .await
+        .unwrap();
+    assert!(receipt
+        .findings
+        .contains(&Finding::TxNotFound { batch_index: 1 }));
+    assert_eq!(receipt.funding_source, None);
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn reading_the_deposit_costs_no_request_beyond_resolving_the_input() {
+    // The batch, then the transaction its input spends: the same two lookups as before the
+    // verifier said where the deposit came from.
+    for batch in [REAL_BATCH_3, REAL_BATCH_8] {
+        let (txid, chain) = real_chain(batch, 6);
+        let receipt = verify_campaign(&chain, &request(vec![txid], 1), &config(3))
+            .await
+            .unwrap();
+        assert!(receipt.funding_source.is_some(), "{}", batch.0);
+        assert_eq!(
+            chain.lookups.load(std::sync::atomic::Ordering::SeqCst),
+            2,
+            "{}",
+            batch.0
+        );
+    }
+}
+
+// covers: REQ-VER-007
+#[tokio::test]
+async fn a_deposit_that_cannot_be_loaded_leaves_the_source_unknown() {
+    let deposit: Txid = real_json(REAL_BATCH_3, "prevouts.json")[0]["txid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let (txid, mut chain) = real_chain(REAL_BATCH_3, 6);
+    let ask = |chain: &FakeChain| {
+        let chain = chain.clone();
+        async move { verify_campaign(&chain, &request(vec![txid], 60_000), &config(3)).await }
+    };
+
+    // Not on the chain.
+    chain.txs.remove(&deposit);
+    let receipt = ask(&chain).await.unwrap();
+    assert_eq!(receipt.funding_source, None);
+    assert!(receipt
+        .findings
+        .contains(&Finding::PrevoutUnresolved { batch_index: 0 }));
+
+    // Bytes that are not a transaction.
+    chain.txs.insert(
+        deposit,
+        FetchedTx {
+            raw: vec![0x05, 0x00, 0x00],
+            mined_height: Some(1),
+        },
+    );
+    assert_eq!(ask(&chain).await.unwrap().funding_source, None);
+
+    // Another transaction's bytes under the deposit's id are refused, never classified.
+    chain.txs.insert(
+        deposit,
+        FetchedTx {
+            raw: real_hex(REAL_BATCH_8, "funding-tx.hex"),
+            mined_height: Some(1),
+        },
+    );
+    assert_eq!(
+        ask(&chain).await.unwrap_err(),
+        VerifyError::Source(SourceError::Inconsistent)
+    );
+
+    // A batch that is not found at all has no deposit to read.
+    let empty = FakeChain {
+        tip: TIP,
+        ..FakeChain::default()
+    };
+    assert_eq!(ask(&empty).await.unwrap().funding_source, None);
 }
 
 // covers: REQ-VER-004

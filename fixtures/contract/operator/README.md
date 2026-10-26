@@ -31,5 +31,6 @@ chain produces, which is in `golden/`: a non-null `funding_address` and
 (`warning`, `campaign_id`, `network`, `ufvk`), and the errors
 `needs_funding_split`, `wrong_wallet_seed`, `chain_unavailable`,
 `confirmation_required` and `dev_only`. On the mock chain a campaign always has
-`wallet_matches: true`, `funding_address: null` and `funding_progress: null`.
+`wallet_matches: true`, `funding_address: null` and `funding_progress: null`, and
+`funding_source` is null unless `fund-observed` declared one (`fund-declared-source.json`).
 None of these shapes has been seen from a real node.

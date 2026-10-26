@@ -10,7 +10,8 @@
 //   - a built asset is cached as immutable
 //   - a picture of the home page tour answers as an image (/tour is files, not a client route)
 //   - the verifier answers /v1/health, and answers the real 8-output batch's receipt
-//     to this site's origin (CORS), as settled, with no findings and the funding address
+//     to this site's origin (CORS), as settled, with no findings and the funding address,
+//     and says what its deposit spent as the fixture does (only a note from an older verifier)
 //   - with --mainnet-tx, that the verifier serves mainnet: it answers a receipt request for
 //     that mainnet transaction with a receipt. Any mainnet transaction id will do; the declared
 //     total and the commitment sent are placeholders, so what the receipt finds is not looked at.
@@ -111,6 +112,13 @@ if (body !== null) {
   report(Array.isArray(body.findings) && body.findings.length === 0, "the receipt has no findings", JSON.stringify(body.findings));
   report(typeof body.funding_address === "string" && body.funding_address === sample.funding_address, "the receipt carries the funding address", String(body.funding_address));
   report(body.batches?.[0]?.txid === txid, "the receipt is for the batch asked about");
+  // What the deposit spent (REQ-VER-007). A verifier older than that does not send the key: only a note, because the site is
+  // deployed first and the verifier after it. Once it is sent, it must be what the fixture says.
+  if (!("funding_source" in body)) {
+    console.log("note this verifier does not say what the deposit spent yet (an older build): redeploy it after the site");
+  } else {
+    report(body.funding_source === sample.funding_source, "the receipt says what the deposit spent", String(body.funding_source));
+  }
 }
 
 // ---- mainnet, when asked ----------------------------------------------------------

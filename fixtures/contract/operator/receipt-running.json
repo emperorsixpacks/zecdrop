@@ -1,7 +1,8 @@
 {
-  "campaign_id": "c-000000000006",
+  "campaign_id": "c-000000000007",
   "network": "testnet",
   "funding_address": null,
+  "funding_source": null,
   "declared_total": "1162500000",
   "fee_total": "35000",
   "batches": [
@@ -26,7 +27,7 @@
       "confirmations": 0
     }
   ],
-  "manifest_commitment": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "manifest_commitment": "e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6",
   "phase": {
     "phase": "sending",
     "done": 0,

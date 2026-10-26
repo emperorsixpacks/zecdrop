@@ -12,8 +12,8 @@ const SAMPLES = [
     name: "the 8-output batch",
     path: "/r/demo?demo=real",
     txid: "6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955",
-    line: "Real batch on public testnet, captured at height 4,478,307",
-    details: ["Mined on public testnet at height 4,478,289", "captured at height 4,478,307"],
+    line: "Real batch on public testnet, captured at height 4,533,356",
+    details: ["Mined on public testnet at height 4,478,289", "captured at height 4,533,356"],
     verdict: "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ",
     outputs: "8",
   },
@@ -21,8 +21,8 @@ const SAMPLES = [
     name: "the first, smaller batch",
     path: "/r/demo?demo=real-smoke",
     txid: "50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3",
-    line: "The first real batch on public testnet, captured at height 4,478,201",
-    details: ["Mined on public testnet at height 4,478,065", "captured at height 4,478,201"],
+    line: "The first real batch on public testnet, captured at height 4,533,356",
+    details: ["Mined on public testnet at height 4,478,065", "captured at height 4,533,356"],
     verdict: "Settled: 3 payouts, 0.0006 TAZ, fee 0.0002 TAZ",
     outputs: "3",
   },
@@ -76,7 +76,7 @@ test("the header's sample receipt is the 8-output batch", async ({ page }) => {
   await page.goto("/");
   await chooseFromIsland(page, "Sample receipt");
   await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
-  await expect(page.getByText("Real batch on public testnet, captured at height 4,478,307")).toBeVisible();
+  await expect(page.getByText("Real batch on public testnet, captured at height 4,533,356")).toBeVisible();
 });
 
 test("the home page says what was demonstrated and links to its receipt", async ({ page }) => {

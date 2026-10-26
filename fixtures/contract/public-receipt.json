@@ -2,6 +2,7 @@
   "campaign_id": "golden-fixture",
   "network": "testnet",
   "funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "funding_source": "shielded",
   "declared_total": "534500000",
   "fee_total": "35000",
   "batches": [

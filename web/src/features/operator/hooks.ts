@@ -20,7 +20,7 @@ import {
 import { subscribeToEvents, type StreamStatus } from "@/api/operator/events";
 import type { OperatorCampaign, PayslipsExport, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
 import { getToken, rejectToken, useSession } from "@/api/operator/session";
-import type { OutPointView } from "@/api/types";
+import type { FundingSource, OutPointView } from "@/api/types";
 
 export const operatorKeys = {
   health: ["operator", "health"] as const,
@@ -129,7 +129,7 @@ export function useCheckFunding(id: string) {
 export function useRecordFunding(id: string) {
   const refresh = useRefreshCampaign();
   return useMutation({
-    mutationFn: (deposit: { outpoint: OutPointView; amount: string }) => recordFunding(id, deposit),
+    mutationFn: (deposit: { outpoint: OutPointView; amount: string; source?: FundingSource }) => recordFunding(id, deposit),
     onSettled: () => refresh(id),
   });
 }

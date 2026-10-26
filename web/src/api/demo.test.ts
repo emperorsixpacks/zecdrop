@@ -60,11 +60,17 @@ describe("demoReceipt: the real testnet batches", () => {
   });
 
   it("say where they were mined and captured (from the fixtures' own README and confirmations)", () => {
-    expect(REAL_CAPTURES.real).toEqual({ network: "public testnet", minedAt: "4,478,289", capturedAt: "4,478,307" });
-    expect(REAL_CAPTURES["real-smoke"]).toEqual({ network: "public testnet", minedAt: "4,478,065", capturedAt: "4,478,201" });
+    expect(REAL_CAPTURES.real).toEqual({ network: "public testnet", minedAt: "4,478,289", capturedAt: "4,533,356" });
+    expect(REAL_CAPTURES["real-smoke"]).toEqual({ network: "public testnet", minedAt: "4,478,065", capturedAt: "4,533,356" });
     // captured height = mined height + confirmations - 1, the way the fixture READMEs count
-    expect(4_478_289 + (eight.batches[0]?.confirmations ?? 0) - 1).toBe(4_478_307);
-    expect(4_478_065 + (smoke.batches[0]?.confirmations ?? 0) - 1).toBe(4_478_201);
+    expect(4_478_289 + (eight.batches[0]?.confirmations ?? 0) - 1).toBe(4_533_356);
+    expect(4_478_065 + (smoke.batches[0]?.confirmations ?? 0) - 1).toBe(4_533_356);
+  });
+
+  // covers: REQ-VER-007
+  it("say what their deposits spent: the faucet's shielded payout, and the sweep of the first batch's change", () => {
+    expect(smoke.fundingSource).toBe("shielded");
+    expect(eight.fundingSource).toBe("transparent");
   });
 
   it("are the only samples that are real", () => {

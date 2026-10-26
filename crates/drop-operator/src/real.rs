@@ -6,6 +6,8 @@
 //! * Funding is detected by listing the unspent outputs of that address; the operator
 //!   marks a campaign funded only for an output at the required depth (REQ-FUND-002).
 //! * Batches are built and sent by [`drop_zcash::ZcashDistributor`].
+//! * Where a deposit came from is read from the deposit transaction itself, fetched by id and
+//!   used only if its bytes hash to that id (REQ-FUND-004).
 //!
 //! The server connection sits behind [`ZcashConnector`] so the whole path can be tested with
 //! an in-memory chain. [`LightwalletdConnector`] is the real one.
@@ -18,7 +20,8 @@
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use drop_chain::{ChainConfig, ChainError as LwdError, ChainInfo, LightwalletdSource};
-use drop_core::{FailureKind, OutPoint, Zatoshi};
+use drop_core::{FailureKind, FundingSource, OutPoint, Txid, Zatoshi};
+use drop_verify::{ChainSource, ParsedTx};
 use drop_zcash::lightwalletd::{preflight, BackendError, LightwalletdBackend};
 use drop_zcash::{zcash_network, CampaignKeys, MainnetPermit, ZcashDistributor};
 use tokio::runtime::{Builder, Runtime};
@@ -64,6 +67,9 @@ pub trait ZcashConnector: Send + Sync + 'static {
 
     /// The unspent outputs at `address` with their confirmations.
     fn sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError>;
+
+    /// The raw bytes of the transaction `txid`, or `None` if the server does not know it.
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError>;
 }
 
 /// The operator's [`ChainBackend`] over a [`ZcashConnector`].
@@ -131,6 +137,17 @@ impl<C: ZcashConnector> ChainBackend for ZcashBackend<C> {
 
     fn funding_sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
         self.connector.sightings(address)
+    }
+
+    fn deposit_source(&self, deposit: &Txid) -> Result<Option<FundingSource>, ChainError> {
+        let Some(raw) = self.connector.transaction(deposit)? else {
+            return Ok(None);
+        };
+        // Bytes that are not a transaction, or not this one, say nothing about the deposit.
+        Ok(ParsedTx::parse_any_version(&raw)
+            .ok()
+            .filter(|parsed| parsed.txid() == *deposit)
+            .map(|parsed| parsed.deposit_source()))
     }
 }
 
@@ -208,5 +225,14 @@ impl ZcashConnector for LightwalletdConnector {
                 confirmations: u.height.map_or(0, |h| tip.saturating_sub(h) + 1),
             })
             .collect())
+    }
+
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        let scanner = self.scanner();
+        let fetched = scanner
+            .runtime
+            .block_on(scanner.source.transaction(txid))
+            .map_err(|_| transient("the chain data source is unavailable"))?;
+        Ok(fetched.map(|f| f.raw))
     }
 }

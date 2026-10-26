@@ -2,6 +2,7 @@
   "campaign_id": null,
   "network": "testnet",
   "funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "funding_source": "transparent",
   "declared_total": "2000001",
   "fee_total": "40000",
   "batches": [

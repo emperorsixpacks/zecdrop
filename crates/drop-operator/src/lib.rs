@@ -26,6 +26,11 @@
 //!   only when it is on the chain at the required depth and covers the declared total plus fees.
 //!   `fund-observed` is refused on a real chain. Progress (`funding_progress`) is reported while
 //!   a deposit is still shallow.
+//! * **What the deposit spent.** Once a deposit is seen, at any depth, the operator reads its
+//!   transaction by id (used only if the bytes hash to it) and reports `funding_source`:
+//!   `shielded` when it had no transparent input, `transparent` otherwise (REQ-FUND-004). The
+//!   answer is public chain data, kept in memory and read again after a restart; the mock chain
+//!   reports only what `fund-observed` declares. It never refuses or delays anything.
 //! * **One batch per campaign.** The deposit is the batch's funding input and the change returns
 //!   to the campaign's change address. A campaign that needs several batches is refused with
 //!   `needs_funding_split`: a funding-split transaction (a transparent transaction creating one

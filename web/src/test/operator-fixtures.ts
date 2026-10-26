@@ -44,6 +44,7 @@ import f_export_ufvk_mock_unconfirmed from "../../../fixtures/contract/operator/
 import f_export_ufvk_mock from "../../../fixtures/contract/operator/export-ufvk-mock.json?raw";
 import f_fund_campaign_not_found from "../../../fixtures/contract/operator/fund-campaign-not-found.json?raw";
 import f_fund_conflict from "../../../fixtures/contract/operator/fund-conflict.json?raw";
+import f_fund_declared_source from "../../../fixtures/contract/operator/fund-declared-source.json?raw";
 import f_fund_insufficient from "../../../fixtures/contract/operator/fund-insufficient.json?raw";
 import f_fund_invalid_body from "../../../fixtures/contract/operator/fund-invalid-body.json?raw";
 import f_fund_ok from "../../../fixtures/contract/operator/fund-ok.json?raw";
@@ -77,6 +78,7 @@ import goldenIndexText from "../../../fixtures/contract/operator/golden/index.js
 import g_audit_ufvk_export from "../../../fixtures/contract/operator/golden/audit-ufvk-export.json?raw";
 import g_campaign_real_awaiting_deposit from "../../../fixtures/contract/operator/golden/campaign-real-awaiting-deposit.json?raw";
 import g_campaign_real_batch_failed from "../../../fixtures/contract/operator/golden/campaign-real-batch-failed.json?raw";
+import g_campaign_real_deposit_shallow_shielded from "../../../fixtures/contract/operator/golden/campaign-real-deposit-shallow-shielded.json?raw";
 import g_campaign_real_deposit_shallow from "../../../fixtures/contract/operator/golden/campaign-real-deposit-shallow.json?raw";
 import g_campaign_real_deposit_too_small from "../../../fixtures/contract/operator/golden/campaign-real-deposit-too-small.json?raw";
 import g_campaign_real_funded from "../../../fixtures/contract/operator/golden/campaign-real-funded.json?raw";
@@ -168,6 +170,7 @@ export const FIXTURES: Readonly<Record<string, string>> = {
   "export-ufvk-mock.json": f_export_ufvk_mock,
   "fund-campaign-not-found.json": f_fund_campaign_not_found,
   "fund-conflict.json": f_fund_conflict,
+  "fund-declared-source.json": f_fund_declared_source,
   "fund-insufficient.json": f_fund_insufficient,
   "fund-invalid-body.json": f_fund_invalid_body,
   "fund-ok.json": f_fund_ok,
@@ -233,6 +236,7 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "audit-ufvk-export.json": g_audit_ufvk_export,
   "campaign-real-awaiting-deposit.json": g_campaign_real_awaiting_deposit,
   "campaign-real-batch-failed.json": g_campaign_real_batch_failed,
+  "campaign-real-deposit-shallow-shielded.json": g_campaign_real_deposit_shallow_shielded,
   "campaign-real-deposit-shallow.json": g_campaign_real_deposit_shallow,
   "campaign-real-deposit-too-small.json": g_campaign_real_deposit_too_small,
   "campaign-real-funded.json": g_campaign_real_funded,

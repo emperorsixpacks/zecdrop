@@ -26,6 +26,7 @@
     "amount": "1162535000"
   },
   "funding_progress": null,
+  "funding_source": null,
   "batches": [
     {
       "index": 0,

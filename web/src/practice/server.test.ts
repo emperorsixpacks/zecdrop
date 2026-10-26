@@ -288,6 +288,34 @@ describe("funding a campaign", () => {
     expect(parseOperatorError(other.json).code).toBe("funding_conflict");
   });
 
+  // covers: REQ-FUND-004
+  it("takes what a pretend deposit says it spent, like the mock operator, and nothing it does not say", async () => {
+    const id = idOf(await create("Declared source", csv("csv/valid.csv")));
+    const said = await call("POST", `/campaigns/${id}/fund-observed`, {
+      body: { outpoint: `${"5e".repeat(32)}:0`, amount: "1162535000", source: "shielded" },
+    });
+    expect(said.status).toBe(200);
+    expect(shape(said.json)).toEqual(shape(real("fund-declared-source.json")));
+    expect(parseCampaign(said.json).fundingSource).toBe("shielded");
+
+    // Said nothing: nothing known, as in fund-ok.json.
+    const quiet = idOf(await create("Sentinel campaign", csv("csv/valid.csv")));
+    expect(parseCampaign((await fund(quiet, "1162535000")).json).fundingSource).toBeNull();
+
+    // A null source says nothing too, as the operator's `Option` reads it.
+    const unsaid = idOf(await create("Sentinel campaign", csv("csv/valid.csv")));
+    const nulled = await call("POST", `/campaigns/${unsaid}/fund-observed`, { body: { outpoint: `${DEPOSIT}:0`, amount: "1162535000", source: null } });
+    expect(nulled.status).toBe(200);
+    expect(parseCampaign(nulled.json).fundingSource).toBeNull();
+
+    // Only the two kinds; anything else is a bad body, as the operator's own parser says.
+    const other = idOf(await create("Sentinel campaign", csv("csv/valid.csv")));
+    for (const source of ["mixed", "", 1]) {
+      const bad = await call("POST", `/campaigns/${other}/fund-observed`, { body: { outpoint: `${DEPOSIT}:0`, amount: "1162535000", source } });
+      expect(bad.status, JSON.stringify(source)).toBe(400);
+    }
+  });
+
   it("refuses a deposit that is too small, with both figures", async () => {
     const id = idOf(await create("Sentinel campaign", csv("csv/valid.csv")));
     const small = await fund(id, "1000");

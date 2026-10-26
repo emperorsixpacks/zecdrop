@@ -1,8 +1,11 @@
+import type { FundingSource } from "@/api/types";
 import { Unknown } from "@/components/Zec";
 import { CopyButton } from "@/components/CopyButton";
 import type { ZecNetwork } from "@/lib/config";
 import { explorerAddressUrl } from "@/lib/explorer";
 import { shortId } from "@/lib/ids";
+
+import { RECEIPT_SOURCE_WORDING as WORDING } from "./funding-source-wording";
 
 interface FundingAddressProps {
   /** The one transparent address every batch spends from, or null if the
@@ -13,6 +16,26 @@ interface FundingAddressProps {
   someBatchesNotBuilt: boolean;
   /** A receipt that practice mode made: it has no funding address, because nothing was ever sent from one. */
   practice?: boolean;
+  /** What the deposit spent; null when not established, undefined when the verifier did not say (an older build). */
+  source?: FundingSource | null | undefined;
+}
+
+/** What the deposit spent, in the receipt's words. Nothing when the verifier did not report it. */
+function DepositSpent({ source }: { source: FundingSource | null | undefined }) {
+  if (source === undefined) return null;
+  return (
+    <div className="space-y-1" data-testid="deposit-spent">
+      <h3 className="text-base font-bold">{WORDING.heading}</h3>
+      {source === null ? (
+        <p className="text-sm text-muted-foreground">{WORDING.unknown}</p>
+      ) : (
+        <>
+          <p className="text-base">{source === "shielded" ? WORDING.shielded : WORDING.transparent}</p>
+          <p className="text-sm text-muted-foreground">{source === "shielded" ? WORDING.shieldedMore : WORDING.transparentMore}</p>
+        </>
+      )}
+    </div>
+  );
 }
 
 /** The campaign's funding address, and how to use it.
@@ -25,7 +48,7 @@ interface FundingAddressProps {
  * When the verifier could not establish one address it says "Unknown" (never a
  * blank): an input could not be looked up, the batches did not all spend from the
  * same address, or the producer has none. */
-export function FundingAddress({ address, network, someBatchesNotBuilt, practice = false }: FundingAddressProps) {
+export function FundingAddress({ address, network, someBatchesNotBuilt, practice = false, source }: FundingAddressProps) {
   const link = address === null ? null : explorerAddressUrl(network, address);
 
   return (
@@ -66,6 +89,7 @@ export function FundingAddress({ address, network, someBatchesNotBuilt, practice
           </p>
         </>
       )}
+      <DepositSpent source={source} />
       <p className="text-sm text-muted-foreground">
         The campaign name on this page is only a label from whoever made the link. The funding
         address and the list fingerprint are what tie a receipt to a campaign.

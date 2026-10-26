@@ -17,12 +17,14 @@ import { z } from "zod";
 
 import { parseWarningViews, type PrivacyWarning } from "@/api/warnings";
 import {
+  FUNDING_SOURCES,
   hex32Wire,
   outPointWire,
   phaseWire,
   RECEIPT_POOLS,
   u32Wire,
   zatoshiWire,
+  type FundingSource,
   type OutPointView,
   type ReceiptPool,
 } from "@/api/types";
@@ -413,6 +415,10 @@ export interface OperatorCampaign {
   funding: { outpoint: OutPointView; amount: string } | null;
   /** The best candidate deposit seen so far, while the campaign is unfunded. */
   fundingProgress: FundingProgressView | null;
+  /** What the deposit (recorded, or still short of the depth) spent, once the
+   * operator has read it (REQ-FUND-004); `null` until then, and on the mock
+   * chain unless the pretend deposit said. It never blocks anything. */
+  fundingSource: FundingSource | null;
   batches: OperatorBatch[];
   warnings: PrivacyWarning[];
   run: RunState;
@@ -439,6 +445,7 @@ const campaignWire = z
     funding_address: addressText.nullable(),
     funding: fundingWire.nullable(),
     funding_progress: fundingProgressWire.nullable(),
+    funding_source: z.enum(FUNDING_SOURCES).nullable(),
     batches: z.array(batchWire).max(10_000),
     warnings: z.unknown().transform((value, ctx) => {
       try {
@@ -471,6 +478,7 @@ const campaignWire = z
       fundingAddress: c.funding_address,
       funding: c.funding,
       fundingProgress: c.funding_progress,
+      fundingSource: c.funding_source,
       batches: c.batches,
       warnings: c.warnings,
       run: c.run,

@@ -16,6 +16,7 @@
   "fee_total": "20000",
   "findings": [],
   "funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "funding_source": "transparent",
   "manifest_commitment": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
   "network": "testnet",
   "phase": {

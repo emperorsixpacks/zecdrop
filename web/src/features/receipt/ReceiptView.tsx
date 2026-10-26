@@ -42,6 +42,7 @@ export function ReceiptView({ receipt }: { receipt: PublicReceipt }) {
             network={receipt.network}
             someBatchesNotBuilt={receipt.batches.some((b) => b.txid === null)}
             practice={isPracticeId(receipt.manifestCommitment)}
+            source={receipt.fundingSource}
           />
         </Disclosure>
         <Disclosure summary="List fingerprint">
