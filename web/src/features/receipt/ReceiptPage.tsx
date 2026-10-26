@@ -8,9 +8,11 @@ import { parseReceiptLink, type ReceiptQuery } from "@/api/receipt-query";
 import type { PublicReceipt } from "@/api/types";
 import { PageHeader } from "@/components/PageHeader";
 import { UnitProvider } from "@/components/UnitProvider";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { config, type ZecNetwork } from "@/lib/config";
 import { isTerminalPhase } from "@/lib/phase";
+import { isPracticeId } from "@/lib/practice-mode";
 
 import { checkReceipt } from "./checks";
 import {
@@ -19,6 +21,7 @@ import {
   MismatchNotice,
   NetworkNotServedNotice,
   NotFoundNotice,
+  PracticeNotice,
   ReceiptLoading,
   RejectedNotice,
   UnreachableNotice,
@@ -40,6 +43,8 @@ export default function ReceiptPage() {
   // Amounts are in the coin of the receipt's network (TAZ on testnet), or of the
   // link's claim while the answer is still on its way.
   const network = receipt?.network ?? query?.network ?? config.network;
+  // A receipt that practice mode made has a list fingerprint that says so (lib/practice-mode.ts): it is on no chain.
+  const practice = isPracticeId(receipt?.manifestCommitment ?? query?.commitment ?? "");
 
   return (
     <UnitProvider network={network}>
@@ -49,15 +54,28 @@ export default function ReceiptPage() {
           demo !== null ? (
             sampleLine(demo)
           ) : (
-            <span className="font-mono break-all" translate="no">
-              {receipt?.campaignId ?? id}
-            </span>
+            <>
+              {practice && "Practice id: "}
+              <span className="font-mono break-all" translate="no">
+                {receipt?.campaignId ?? id}
+              </span>
+            </>
           )
         }
       />
 
       <div className="space-y-10">
         {demo !== null && <SampleBar current={demo} />}
+
+        {practice && (
+          <Alert variant="info" role="note">
+            <AlertTitle>A practice receipt</AlertTitle>
+            <AlertDescription className="text-card-foreground">
+              Practice mode made this receipt in your browser from the simulated payout. No transaction was sent to any chain, so no
+              explorer can find these ids, and the figures below come from the simulation, not from a chain.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {link && !link.ok ? (
           <BadLinkNotice problem={link.problem} />
@@ -107,6 +125,8 @@ function FailureNotice({
       return <RejectedNotice />;
     case "network_not_served":
       return <NetworkNotServedNotice network={network} />;
+    case "practice":
+      return <PracticeNotice />;
     case "invalid_response":
       return <InvalidResponseNotice />;
   }

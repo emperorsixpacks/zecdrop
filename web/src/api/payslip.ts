@@ -12,7 +12,7 @@
 
 import { z } from "zod";
 
-import { apiUrl } from "./client";
+import { PRACTICE_REFUSAL, sendToApi } from "./client";
 import { PAYSLIP_ENDPOINT } from "./endpoints";
 import { parsePayslipAnswer, type PayslipAnswer } from "./payslip-answer";
 import { payslipBody, type Payslip } from "./payslip-input";
@@ -26,6 +26,8 @@ export type PayslipFailureKind =
   | "network_not_served"
   /** The verifier says the request is too large. */
   | "too_large"
+  /** Practice mode answered: it asks no verifier and reads no chain, so it checks no payslip. */
+  | "practice"
   /** The verifier could not read the chain, or its source of chain data contradicted itself. */
   | "chain_unavailable"
   /** It answered, but not in the format we accept, or about another payslip than the one sent. */
@@ -45,6 +47,7 @@ export class PayslipFetchError extends Error {
 
 /** Status, and the code the verifier gave with it, to failure kind. */
 export function mapFailure(status: number, code: string | null = null): PayslipFailureKind {
+  if (status === 409 && code === PRACTICE_REFUSAL) return "practice";
   if (status === 413) return "too_large";
   if (status === 400 && code === "network_not_configured") return "network_not_served";
   if (status === 400 || status === 422) return "rejected";
@@ -60,7 +63,7 @@ const refusalWire = z.looseObject({ error: z.looseObject({ code: z.string() }) }
 /** The code of a refusal, for the statuses where it changes what the refusal means; null otherwise.
  * The verifier's words are never read or kept. */
 async function refusalCode(response: Response): Promise<string | null> {
-  if (response.status !== 400 && response.status !== 502 && response.status !== 503) return null;
+  if (response.status !== 400 && response.status !== 409 && response.status !== 502 && response.status !== 503) return null;
   try {
     const refusal = refusalWire.safeParse(await response.json());
     return refusal.success ? refusal.data.error.code : null;
@@ -78,8 +81,6 @@ export interface CheckPayslipOptions {
 export const DEFAULT_TIMEOUT_MS = 15_000;
 
 export async function checkPayslip(payslip: Payslip, options: CheckPayslipOptions = {}): Promise<PayslipAnswer> {
-  const url = apiUrl(PAYSLIP_ENDPOINT);
-
   // Already cancelled: do not start a request nobody wants.
   if (options.signal?.aborted) {
     throw options.signal.reason ?? new DOMException("The request was cancelled", "AbortError");
@@ -101,7 +102,7 @@ export async function checkPayslip(payslip: Payslip, options: CheckPayslipOption
   try {
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await sendToApi(PAYSLIP_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: payslipBody(payslip),

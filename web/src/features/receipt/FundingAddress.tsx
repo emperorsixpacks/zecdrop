@@ -11,6 +11,8 @@ interface FundingAddressProps {
   network: ZecNetwork;
   /** Some batches have no transaction yet, so they say nothing about the address. */
   someBatchesNotBuilt: boolean;
+  /** A receipt that practice mode made: it has no funding address, because nothing was ever sent from one. */
+  practice?: boolean;
 }
 
 /** The campaign's funding address, and how to use it.
@@ -23,7 +25,7 @@ interface FundingAddressProps {
  * When the verifier could not establish one address it says "Unknown" (never a
  * blank): an input could not be looked up, the batches did not all spend from the
  * same address, or the producer has none. */
-export function FundingAddress({ address, network, someBatchesNotBuilt }: FundingAddressProps) {
+export function FundingAddress({ address, network, someBatchesNotBuilt, practice = false }: FundingAddressProps) {
   const link = address === null ? null : explorerAddressUrl(network, address);
 
   return (
@@ -34,9 +36,9 @@ export function FundingAddress({ address, network, someBatchesNotBuilt }: Fundin
             <Unknown />
           </p>
           <p className="text-sm text-muted-foreground">
-            The verifier could not establish one address that every batch spends from, so there
-            is nothing here to compare with the address the campaign published. Any problem it
-            found is listed under what the verifier found.
+            {practice
+              ? "A practice payout has no funding address: nothing was sent from one, so there is nothing here to compare with an address the campaign published."
+              : "The verifier could not establish one address that every batch spends from, so there is nothing here to compare with the address the campaign published. Any problem it found is listed under what the verifier found."}
           </p>
         </>
       ) : (

@@ -2,6 +2,7 @@ import { Link } from "react-router";
 
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import type { OperatorCampaign } from "@/api/operator/schemas";
+import { usePractice } from "@/lib/practice-mode";
 
 import { useReceiptShare } from "./useReceiptShare";
 
@@ -22,6 +23,7 @@ const HIDDEN: readonly string[] = [
  * "Share the receipt" section. The buttons that open and copy it are in the done panel. */
 export function ShareDetails({ campaign }: { campaign: OperatorCampaign }) {
   const { everyBatchBuilt, receipt, link, shown } = useReceiptShare(campaign);
+  const practice = usePractice((state) => state.on);
 
   return (
     <div className="max-w-[64ch] space-y-5">
@@ -45,7 +47,12 @@ export function ShareDetails({ campaign }: { campaign: OperatorCampaign }) {
           <p className="mono text-xs break-all" data-testid="receipt-link">
             {shown.text}
           </p>
-          {!shown.complete && (
+          {!shown.complete && practice && (
+            <p className="text-sm text-muted-foreground">
+              This is a practice receipt: it exists only in this tab, so its link opens here while practice mode is on and nowhere else.
+            </p>
+          )}
+          {!shown.complete && !practice && (
             <p className="text-sm text-muted-foreground">
               This is the path only: put the address of the public verifier in front of it. To have the full link shown here, build
               the page with the verifier&apos;s address set (see the README).

@@ -108,8 +108,11 @@ bar that can overlap content (it overlapped the stepper and the title in screens
 screen. Below it, on the left the status line, the two buttons and three short lines; on the right one white sheet holding the
 lens demo (stacked, sheet before the lines, on a phone). The lens demo is on the real
 8-payout sample list (rows labelled Person 1..8; amounts from the public sample CSV), with the lens switch as the hero
-interaction. Two buttons: *See a real receipt* and *How it works*. Three short lines (what is public / hidden / checkable)
-and the one-sentence testnet status. No paragraphs of explanation above the fold.
+interaction. Three buttons: *See a real receipt* (the one that is filled), *How privacy works* and *Try a practice payout*, which
+turns practice mode on and opens the first screen of a payout. Three short lines (what is public / hidden / checkable)
+and the one-sentence testnet status. No paragraphs of explanation above the fold. Between the four steps and the tour a calm
+section, *Try it yourself*, two short lines and one outline button (*Try it yourself in practice mode*): rather than read the
+tour, do it. Neither button is the highlighted one, and neither changes a pinned sentence.
 
 **Receipt.** One white **sheet** with an ink rule on top and a torn bottom edge (`.receipt-sheet`, a mask). On the left a
 verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), then what the verifier found, then the funds flow as three
@@ -158,6 +161,35 @@ that says what scanning it does, in the text and not only in the picture. It is 
 up beside the address it belongs to, and below that behind a button, because a phone cannot scan itself; a payslip's is behind its button at every width. Where there is room a module
 is a whole number of pixels (five for the funding code, four for the longer payslip link); on a phone the code fills its box.
 Until the library is loaded a dashed square in its place says the code is being made, and a code that cannot be made says so.
+
+## Practice mode
+
+The operator's own screens against a simulation in the page, so that anyone can try a whole payout on a phone (REQ-DEMO-001). The
+design rule is that it can never be taken for a real payout, and that nothing about it is quiet:
+
+- **The banner**, at the very top of every screen, above the header, in the page's frame, so that no screen can be drawn without it.
+  A full-width band with the faint diagonal hatching that already means "not real" (the practice chain's pill), a hairline under it,
+  the sentence in one paragraph in the body size ("Practice mode: everything here is simulated in your browser. No real money,
+  nothing is sent anywhere, nothing is saved. Reloading starts over.") and one outline button, *Leave practice mode*, beside it on a wide screen and
+  under it on a phone. It is not dismissed, collapsed or shortened, and it is a labelled region of its own, so a screen reader finds
+  it. It is not sticky: nothing in this app is, and on a phone it is three lines and a button.
+- **The header** names no network: a hatched outline pill, *Practice*, stands where "Zcash testnet" stood (on the operator's line of
+  its own, on the public header's first line from the small breakpoint and on a line of its own below it). The operator header's
+  practice-chain pill is not shown beside it: one statement is enough.
+- **Amounts** are TAZ, as on any testnet page, and no practice screen says ZEC.
+- **Ids.** A simulated id begins with the ASCII of "practice" in hex, and where a real id has an *Explorer* link a practice id says
+  "Practice id: on no chain, so no explorer". The receipt's heading line says "Practice id:" before the campaign's id, and a quiet note
+  (the information notice, a rule on the left) says in two sentences that this receipt was made in the page from the simulated payout
+  and that no explorer can find its ids. The funding address says a practice payout has none, instead of "unknown to the verifier".
+- **The example list** is the main button of the drop zone, before *Choose a file* and *or paste it*, on the payouts screen and on the
+  empty payouts list. The list is the repository's own public sample (the one the home page's lens shows).
+- **The operator's own sentences** that would be untrue of a pretended run say so, and only in practice mode: the timeline's
+  "Sending to the network." is "Pretending to send: nothing leaves your browser.", its "Waiting for the next block." is "(simulated)", the
+  activity log's "sent to the network" is "pretend-sent (practice)", and the send sheet's "It cannot be undone." is "In a real run this
+  cannot be undone." (above its own line, "Practice mode: nothing is sent anywhere. This only simulates it.", because the sheet covers
+  the banner on a phone that has scrolled). Off, they are the operator's words.
+- **Where it does not apply**, it says so: a payslip and a receipt link that practice mode did not make get a calm notice
+  (*Practice mode does not check payslips*, *Practice mode does not read the chain*), as a verifier that cannot be asked would give.
 
 ## No wallet to connect
 

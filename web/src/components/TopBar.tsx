@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { config, type ZecNetwork } from "@/lib/config";
+import { usePractice } from "@/lib/practice-mode";
 import { useMediaQuery } from "@/lib/use-media";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +93,7 @@ function PhoneMenu() {
 
 export function TopBar({ showOperatorNav, network = config.network, mock = false, modeUnknown = false }: TopBarProps) {
   const { pathname } = useLocation();
+  const practice = usePractice((state) => state.on);
   // One highlighted button per screen. Starting a payout is the point of the payouts page, so
   // there it is highlighted; elsewhere it is a quiet outline, and while paying it is not shown.
   const wide = useMediaQuery("(min-width: 40rem)");
@@ -102,13 +104,15 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
       <Link to="/new">New payout</Link>
     </Button>
   );
-  // Quiet on testnet, which is the default; loud on mainnet, where the coins are real.
-  const networkLabel =
-    network === "mainnet" ? (
-      <span className={cn(pill, "border-foreground bg-foreground text-background")}>Zcash mainnet</span>
-    ) : (
-      <span className="inline-flex min-h-8 items-center px-2 text-sm text-muted-foreground">Zcash testnet</span>
-    );
+  // In practice mode there is no network to name: the pill says what this is. Otherwise quiet on testnet, which is the
+  // default, and loud on mainnet, where the coins are real.
+  const networkLabel = practice ? (
+    <span className={cn(pill, "hatched border-foreground/50")}>Practice</span>
+  ) : network === "mainnet" ? (
+    <span className={cn(pill, "border-foreground bg-foreground text-background")}>Zcash mainnet</span>
+  ) : (
+    <span className="inline-flex min-h-8 items-center px-2 text-sm text-muted-foreground">Zcash testnet</span>
+  );
 
   return (
     <header className="border-b border-border">
@@ -167,7 +171,7 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
         {/* The state of the chain: a quiet line of its own under the first one. On a phone the one button waits at its end. */}
         {showOperatorNav ? (
           <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 pb-1">
-            {mock && (
+            {mock && !practice && (
               <span role="status" className={cn(pill, "hatched min-h-7 border-foreground/50 text-xs sm:text-sm")}>
                 Practice mode: nothing is sent to Zcash
               </span>
@@ -178,11 +182,11 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
               </span>
             )}
             {/* In practice mode the pill already says it; on a phone the network label gives its line back. */}
-            <span className={mock ? "hidden sm:inline-flex" : "inline-flex"}>{networkLabel}</span>
+            <span className={mock && !practice ? "hidden sm:inline-flex" : "inline-flex"}>{networkLabel}</span>
             {!wide && <span className="ml-auto">{newPayout}</span>}
           </div>
         ) : (
-          network === "mainnet" && <span className="sm:hidden">{networkLabel}</span>
+          (network === "mainnet" || practice) && <span className="sm:hidden">{networkLabel}</span>
         )}
       </div>
     </header>

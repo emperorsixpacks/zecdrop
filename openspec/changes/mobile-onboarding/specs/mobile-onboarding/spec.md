@@ -23,7 +23,7 @@ payslip (its receiver, its amount and the key to its memo). A negative test SHAL
 address, no header, no storage and no log line, other than the body of the check the visitor asked for.
 
 ### REQ-DEMO-001 — Practice mode is simulated in the browser and says so on every screen
-Status: planned
+Status: implemented
 Practice mode SHALL run the operator's screens against a simulation inside the page. It SHALL make no network request to any
 operator, verifier or node, SHALL keep its state in memory only, SHALL mark every screen as a simulation and never show a simulated
 figure, id or address as if it were chain data, and SHALL leave nothing behind after the page closes except a flag saying it is on.

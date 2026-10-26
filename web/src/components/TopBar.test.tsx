@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "@/test/dom";
+import { usePractice } from "@/lib/practice-mode";
 
 import { TopBar } from "./TopBar";
 
@@ -78,5 +79,42 @@ describe("the operator's header", () => {
     const links = screen.getAllByRole("link", { name: "New payout" });
     expect(links).toHaveLength(1);
     expect(links[0]?.closest("div")?.className).not.toContain("w-full");
+  });
+});
+
+// covers: REQ-DEMO-001
+describe("in practice mode", () => {
+  afterEach(() => {
+    usePractice.setState({ on: false });
+  });
+
+  it("the public header says Practice where it named the network, and names no network", () => {
+    usePractice.setState({ on: true });
+    show({ showOperatorNav: false });
+    expect(screen.getAllByText("Practice", { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Zcash testnet")).toBeNull();
+    expect(screen.queryByText("Zcash mainnet")).toBeNull();
+  });
+
+  it("even a page built for mainnet does not say mainnet in practice mode: nothing in it is on a network", () => {
+    usePractice.setState({ on: true });
+    show({ showOperatorNav: false, network: "mainnet" });
+    expect(screen.queryByText("Zcash mainnet")).toBeNull();
+    expect(screen.getAllByText("Practice", { exact: true }).length).toBeGreaterThan(0);
+  });
+
+  it("the operator's header says Practice, once, and not both that and the practice chain's pill", () => {
+    usePractice.setState({ on: true });
+    show({ showOperatorNav: true, mock: true, network: "testnet" }, "/campaigns");
+    expect(screen.getAllByText("Practice", { exact: true })).toHaveLength(1);
+    expect(screen.queryByText("Practice mode: nothing is sent to Zcash")).toBeNull();
+    expect(screen.queryByText("Zcash testnet")).toBeNull();
+  });
+
+  it("is the header it was when practice mode is off", () => {
+    show({ showOperatorNav: true, mock: true, network: "testnet" }, "/campaigns");
+    expect(screen.queryByText("Practice", { exact: true })).toBeNull();
+    expect(screen.getByText("Practice mode: nothing is sent to Zcash")).toBeInTheDocument();
+    expect(screen.getByText("Zcash testnet")).toBeInTheDocument();
   });
 });

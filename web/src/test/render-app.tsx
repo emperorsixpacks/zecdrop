@@ -7,6 +7,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 
 import { adoptTokenFromText, clearSession } from "@/api/operator/session";
+import { usePractice } from "@/lib/practice-mode";
 import { AppRoutes } from "@/routes";
 
 export const TEST_TOKEN = "ab".repeat(32);
@@ -19,7 +20,8 @@ export function signIn(): void {
 
 export function renderApp(path: string, options: { signedIn?: boolean } = {}) {
   if (options.signedIn) signIn();
-  else clearSession();
+  // Practice mode needs no operator link, and its stand-in for one is not this helper's to take away.
+  else if (!usePractice.getState().on) clearSession();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
   const view = render(
     <QueryClientProvider client={client}>

@@ -1,5 +1,6 @@
 import type { PublicReceipt } from "@/api/types";
 import { Disclosure } from "@/components/Disclosure";
+import { isPracticeId } from "@/lib/practice-mode";
 
 import { BatchList } from "./BatchList";
 import { Fingerprint } from "./Fingerprint";
@@ -40,6 +41,7 @@ export function ReceiptView({ receipt }: { receipt: PublicReceipt }) {
             address={receipt.fundingAddress}
             network={receipt.network}
             someBatchesNotBuilt={receipt.batches.some((b) => b.txid === null)}
+            practice={isPracticeId(receipt.manifestCommitment)}
           />
         </Disclosure>
         <Disclosure summary="List fingerprint">

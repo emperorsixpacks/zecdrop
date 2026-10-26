@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ZecNetwork } from "@/lib/config";
+import { usePractice } from "@/lib/practice-mode";
 import { useCoinUnit, type CoinUnit } from "@/lib/units";
 import { zecFromZatoshi } from "@/lib/zec";
 import { shortId } from "@/lib/ids";
@@ -48,9 +49,12 @@ const sampleLink = (
 // ---- Loading ---------------------------------------------------------------
 
 export function ReceiptLoading() {
+  const practice = usePractice((state) => state.on);
   return (
     <div role="status" aria-busy="true" className="space-y-6">
-      <p className="text-sm text-muted-foreground">Asking the verifier to read the chain&hellip;</p>
+      <p className="text-sm text-muted-foreground">
+        {practice ? "Asking the practice verifier, which is part of this page\u2026" : "Asking the verifier to read the chain\u2026"}
+      </p>
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-40" />
@@ -127,6 +131,15 @@ export function NetworkNotServedNotice({ network }: { network: ZecNetwork }) {
         about the campaign itself.
       </p>
       <p>Ask whoever sent the link which verifier to use for it.</p>
+    </Notice>
+  );
+}
+
+export function PracticeNotice() {
+  return (
+    <Notice title="Practice mode does not read the chain" actions={sampleLink}>
+      <p>This is not a receipt that practice mode made, and practice mode asks no verifier, so there is nothing to show for it.</p>
+      <p>Leave practice mode to open a receipt link from someone else.</p>
     </Notice>
   );
 }

@@ -516,6 +516,95 @@ test.describe("the operator pages on a public copy", () => {
   });
 });
 
+// Practice mode on a public copy (openspec REQ-DEMO-001): the operator's screens against a simulation inside the page. It makes
+// no request, so it needs no allowance: the policy a public copy is served with is the one it always had, and a whole practice
+// payout runs under it with no violation, with nothing asked of the stub verifier or of anyone, and with only the app's own
+// static files fetched (the simulation's own chunk is one of them, fetched when practice mode is asked for).
+test.describe("practice mode on a public copy", () => {
+  /** The policy as `scripts/hosted-config.mjs` writes it for this build, word for word: if practice mode ever needed it loosened,
+   * this is where that would be seen. */
+  const POLICY = `default-src 'self'; connect-src 'self' ${STUB}; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'`;
+  const FLAG = "zecdrop.practice";
+  const staticFile = (href: string): boolean => {
+    const url = new URL(href);
+    return url.origin === SITE && (url.pathname === "/" || /^\/(assets|tour)\//u.test(url.pathname) || /^\/favicon\./u.test(url.pathname));
+  };
+
+  test("a whole practice payout runs under the unchanged policy: no violation, and nothing asked of the verifier or of anyone", async ({ page }) => {
+    test.setTimeout(90_000);
+    const seen = await watch(page);
+    const requested: string[] = [];
+    page.on("request", (r) => requested.push(r.url()));
+
+    const response = await page.goto("/");
+    expect(response?.headers()["content-security-policy"]).toBe(POLICY);
+    await expect(page.getByRole("heading", { level: 1, name: /Pay many people/u })).toBeVisible();
+    // Before it is asked for, practice mode is not fetched.
+    expect(requested.some((url) => /\/assets\/simulation-/u.test(url))).toBe(false);
+
+    await page.getByRole("button", { name: "Try a practice payout" }).click();
+    // On a public copy the operator's screens open, instead of the explanation they show without practice mode.
+    await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run the operator on your own machine" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Practice mode", exact: true })).toBeVisible();
+    expect(requested.some((url) => /\/assets\/simulation-/u.test(url))).toBe(true);
+
+    await page.getByRole("button", { name: "Use the example list" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Check the payouts" })).toBeVisible();
+    await page.getByRole("link", { name: "Looks right, continue" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Fund and send" })).toBeVisible();
+    await page.getByRole("button", { name: "Record mock deposit" }).click();
+    await expect(page.getByText("Funded.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Send 8 payouts" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Send 8 payouts" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "All 1 batch is confirmed" })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("link", { name: "Open public receipt" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Payout receipt" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeAttached();
+    await expect(page.getByText("A practice receipt")).toBeVisible();
+
+    // The policy was never broken, nothing was reported, and the stub verifier was not called, nor was anything else but
+    // the app's own files.
+    expect(await seen.violations()).toEqual([]);
+    expect(seen.problems()).toEqual([]);
+    expect(requested.filter((url) => url.startsWith(STUB))).toEqual([]);
+    expect(requested.filter((url) => !staticFile(url))).toEqual([]);
+    expect((await page.evaluate(() => Object.keys(sessionStorage)))).toEqual([FLAG]);
+  });
+
+  test("a tab that was in practice mode opens the operator pages, and a tab that was not still gets the explanation", async ({ page, browser }) => {
+    await page.addInitScript((flag) => {
+      sessionStorage.setItem(flag, "1");
+    }, FLAG);
+    await page.goto("/campaigns");
+    await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
+    await expect(page.getByTestId("payouts-empty")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run the operator on your own machine" })).toHaveCount(0);
+
+    // A tab of its own has no flag: the same address is the explanation.
+    const other = await browser.newPage();
+    try {
+      await other.goto(`${SITE}/campaigns`);
+      await expect(other.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeVisible();
+    } finally {
+      await other.close();
+    }
+  });
+
+  test("leaving it puts the explanation back", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Try it yourself in practice mode" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
+    await page.getByRole("region", { name: "Practice mode", exact: true }).getByRole("button", { name: "Leave practice mode" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: /Pay many people/u })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Practice mode", exact: true })).toHaveCount(0);
+    await page.getByRole("link", { name: "Running a payout? Open the operator app" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeVisible();
+    expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
+  });
+});
+
 for (const viewport of VIEWPORTS) {
   for (const theme of THEMES) {
     test.describe(`explainer, ${viewport.name}, ${theme} theme`, () => {

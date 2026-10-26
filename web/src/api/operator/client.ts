@@ -6,7 +6,7 @@
 // sent once, to the loopback operator, and is never logged, stored or put in a
 // URL; the response, like every response, contains none of it.
 
-import { apiUrl } from "@/api/client";
+import { sendToApi } from "@/api/client";
 import { parsePublicReceipt, type OutPointView, type PublicReceipt } from "@/api/types";
 
 import { getToken, rejectToken } from "./session";
@@ -94,7 +94,7 @@ async function request<T>(path: string, options: RequestOptions<T>): Promise<T> 
 
   let response: Response;
   try {
-    response = await fetch(apiUrl(path), {
+    response = await sendToApi(path, {
       method: options.method ?? "GET",
       headers,
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),

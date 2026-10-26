@@ -13,7 +13,7 @@
 // every (re)connect the consumer is told to start its log afresh (`onOpen`),
 // and a reconnect never double-counts.
 
-import { apiUrl } from "@/api/client";
+import { sendToApi } from "@/api/client";
 
 import { isTerminalEvent, parseProgressEvent, type ProgressEvent } from "./schemas";
 
@@ -176,7 +176,7 @@ export async function subscribeToEvents(options: SubscribeOptions): Promise<void
 
     options.onStatus(attempt === 0 ? "connecting" : "reconnecting");
     try {
-      const response = await fetch(apiUrl(`/campaigns/${encodeURIComponent(campaignId)}/events`), {
+      const response = await sendToApi(`/campaigns/${encodeURIComponent(campaignId)}/events`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
         cache: "no-store",
         credentials: "omit",
