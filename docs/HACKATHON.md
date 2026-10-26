@@ -30,7 +30,7 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 | Track | open | Shielded Payments |
 | Description | draft | `docs/submission/description.md`, refreshed 2026-10-15; the repository and video links are still blank |
 | Code repository | open | `JemIIahh/zecdrop`, private until the public flip; `main` is still the initial import, the work is on `near-funding-and-redesign` |
-| A working demo | partly | site live at <https://zecdrop-site.vercel.app> with the real receipt as a bundled sample; the hosted key-less verifier is **not deployed** (Fly needs a payment method, Railway has a usage limit); a hosted operator sandbox is not built, see ADR 0002 |
+| A working demo | partly | site live at <https://zecdrop-site.vercel.app> with the real receipt as a bundled sample; the hosted key-less verifier is **not deployed** (Fly needs a payment method and Railway has a usage limit, so the plan is a teammate's VPS: `deploy/vps/` is ready); a hosted operator sandbox is not built, see ADR 0002 |
 | A two-minute demo video | script ready | `docs/submission/video-script.md`; not recorded |
 | Repo public by Oct 28 | open | tick the box; run the pre-flip checklist below |
 | Project submitted | open | |

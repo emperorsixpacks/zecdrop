@@ -3,8 +3,10 @@
 **Status (2026-10-15): the static site is deployed, the verifier is not.** The site is live at
 <https://zecdrop-site.vercel.app> (uploaded with the Vercel CLI from `web/dist`, built with `npm run build:hosted`; it was
 checked from outside: every route answers, the headers are present, no console errors, the bundled real receipt renders). It
-was built for a verifier at `https://zecdrop-verifier.fly.dev`, which does not exist yet: `deploy/fly.toml` is ready, but
-Fly.io needs a payment method before it will create the app. Until the verifier is up, live receipt links say it is
+was built for a verifier at `https://zecdrop-verifier.fly.dev`, which does not exist. The plan is a VPS instead of Fly.io
+(which needs a payment method): [`deploy/vps/`](../../deploy/vps/README.md) is ready and was tested locally, and a teammate
+hosts it. When its https address is known, the site is rebuilt with `VITE_API_URL=<that address>` (the content-security
+policy names the verifier's origin at build time) and uploaded again. Until then, live receipt links say the verifier is
 unreachable; the bundled samples work. Before that, everything below was also checked locally against a stub verifier
 (`web/e2e/hosted/`).
 
