@@ -99,6 +99,11 @@ async function shoot(page: Page, id: string, look: TourLook, options: { viewport
   await page.evaluate(async () => {
     await document.fonts.ready;
     window.scrollTo(0, 0);
+    // The pictures are of the operator's screens, shown on a page that has a screen frame and a paper grain of its own: leave both
+    // out of them (a frame inside a frame is no help, and lossless WebP of a faint speckle is many times the size). Through the
+    // CSSOM, which the operator's Content-Security-Policy allows, and not by a style element, which it refuses.
+    document.documentElement.style.setProperty("--grain-opacity", "0");
+    for (const frame of document.querySelectorAll<HTMLElement>(".screen-frame")) frame.style.display = "none";
   });
   // No row under the pointer, so none is tinted.
   await page.mouse.move(2, 2);
