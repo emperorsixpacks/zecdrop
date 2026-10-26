@@ -18,7 +18,7 @@ import {
   type CreateCampaignInput,
 } from "@/api/operator/client";
 import { subscribeToEvents, type StreamStatus } from "@/api/operator/events";
-import type { OperatorCampaign, PayslipsExport, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
+import type { InboxState, OperatorCampaign, PayslipsExport, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
 import { getToken, rejectToken, useSession } from "@/api/operator/session";
 import type { FundingSource, OutPointView } from "@/api/types";
 
@@ -62,6 +62,19 @@ export function useCampaigns() {
  * operator polls the chain itself; this only picks up what it found. */
 const FUNDING_REFRESH_MS = 5_000;
 
+/** The inbox states in which something is still to happen. */
+const INBOX_IN_PROGRESS: ReadonlySet<InboxState> = new Set<InboxState>([
+  "preparing",
+  "unavailable",
+  "waiting",
+  "confirming",
+  "short",
+  "dust",
+  "scheduled",
+  "moving",
+  "returning",
+]);
+
 /** One campaign. While a run is going, also looks again every two seconds as a
  * safety net beside the event stream; every few seconds while a real-chain
  * campaign waits for its deposit; and every few seconds while a real-chain
@@ -80,6 +93,8 @@ export function useCampaign(id: string) {
       if (campaign.run.state === "running") return 2_000;
       if (campaign.funding === null && campaign.fundingAddress !== null) return FUNDING_REFRESH_MS;
       if (campaign.funding !== null && campaign.fundingSource === null && campaign.fundingAddress !== null) return FUNDING_REFRESH_MS;
+      // A shielded deposit address that is still being set up, filled, or moved from (REQ-FUND-008).
+      if (campaign.inbox !== null && INBOX_IN_PROGRESS.has(campaign.inbox.state)) return FUNDING_REFRESH_MS;
       return false;
     },
   });

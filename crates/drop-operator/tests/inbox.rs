@@ -93,7 +93,7 @@ async fn an_unfunded_payout_gets_an_inbox_and_the_page_shows_it_from_memory() {
     );
     let v = view(&h, &id).await;
     assert_eq!(v["inbox"]["state"], "waiting");
-    assert_eq!(v["inbox"]["address"], FakeInbox::address(account));
+    assert_eq!(v["inbox"]["deposit_address"], FakeInbox::address(account));
     assert_eq!(v["inbox"]["asked"], (REQUIRED + FEE).to_string());
     assert_eq!(v["inbox"]["required_confirmations"], 10);
     assert!(
@@ -338,7 +338,7 @@ async fn short_and_unavailable_are_said_plainly() {
     inboxes.round(&h.state).await;
     assert_eq!(view(&h, &id).await["inbox"]["state"], "unavailable");
     assert!(
-        view(&h, &id).await["inbox"]["address"].is_null(),
+        view(&h, &id).await["inbox"]["deposit_address"].is_null(),
         "no address until the wallet is set up and checked"
     );
 

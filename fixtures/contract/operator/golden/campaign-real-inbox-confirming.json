@@ -27,9 +27,9 @@
   "funding_source": null,
   "id": "c-000000000001",
   "inbox": {
-    "address": "utest1FAKErecipientAddressNotARealAddress0000",
     "asked": "450035000",
     "confirmations": 1,
+    "deposit_address": "utest1FAKEinboxDepositAddressNotARealAddress",
     "left": "0",
     "move_at": null,
     "need": null,

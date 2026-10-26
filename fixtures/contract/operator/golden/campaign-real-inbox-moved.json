@@ -30,9 +30,9 @@
   "funding_source": "shielded",
   "id": "c-000000000001",
   "inbox": {
-    "address": "utest1FAKErecipientAddressNotARealAddress0000",
     "asked": "450035000",
     "confirmations": null,
+    "deposit_address": "utest1FAKEinboxDepositAddressNotARealAddress",
     "left": "100000",
     "move_at": null,
     "need": null,

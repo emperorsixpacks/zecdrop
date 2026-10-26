@@ -206,8 +206,8 @@ pub enum InboxState {
 pub struct InboxView {
     /// Where it stands.
     pub state: InboxState,
-    /// Its address, once it is set up.
-    pub address: Option<String>,
+    /// Its address, once it is set up: where the payer deposits.
+    pub deposit_address: Option<String>,
     /// What the payer is asked to send: the funding and the move's fee.
     pub asked: String,
     /// Everything unspent that has arrived, confirmed or not.
@@ -234,7 +234,7 @@ impl InboxView {
     fn preparing(asked_zat: u64) -> InboxView {
         InboxView {
             state: InboxState::Preparing,
-            address: None,
+            deposit_address: None,
             asked: asked_zat.to_string(),
             received: "0".into(),
             spendable: "0".into(),
@@ -431,7 +431,7 @@ impl Inboxes {
         let decided = plan(payout, &notes);
         let mut view = InboxView {
             state: InboxState::Waiting,
-            address: Some(inbox.address.clone()),
+            deposit_address: Some(inbox.address.clone()),
             asked: asked(required).to_string(),
             received: held.received.to_string(),
             spendable: held.spendable.to_string(),

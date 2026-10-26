@@ -4,7 +4,7 @@
   "campaign_funded": false,
   "campaign_funding_address": "tFAKEfundingAddressNotARealAddress0000",
   "deadline": "2026-10-08T06:00:00Z",
-  "deposit_address": "docs-example-deposit-address.near",
+  "deposit_address": "utest1FAKEinboxDepositAddressNotARealAddress",
   "deposit_memo": null,
   "instructions": [
     "Send exactly 7.679013 USDC (smallest units: 7679013) to docs-example-deposit-address.near on the USDC network.",

@@ -27,6 +27,7 @@
   },
   "funding_progress": null,
   "funding_source": "shielded",
+  "inbox": null,
   "batches": [
     {
       "index": 0,

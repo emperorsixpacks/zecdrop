@@ -126,6 +126,8 @@ export function campaignView(campaign: Campaign) {
     funding_progress: null,
     // Only what the pretend deposit declared: the practice chain has no deposit transaction to read.
     funding_source: campaign.funding?.source ?? null,
+    // Practice mode has no shielded deposit address (REQ-FUND-008): the pretend deposit stands in for it.
+    inbox: null,
     batches: plan.batches.map((batch, index) => {
       const state = campaign.states[index];
       return {

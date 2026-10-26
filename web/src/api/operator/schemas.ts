@@ -391,6 +391,83 @@ const fundingProgressWire = z
 /** An address the server produced. Bounded and free of whitespace. */
 const addressText = z.string().min(1).max(512).regex(/^\S+$/u, "address contains whitespace");
 
+/** Where a payout's shielded deposit address stands (REQ-FUND-008): `InboxState` in
+ * crates/drop-operator/src/inbox/engine.rs. */
+export const INBOX_STATES = [
+  "preparing",
+  "unavailable",
+  "waiting",
+  "confirming",
+  "short",
+  "dust",
+  "scheduled",
+  "moving",
+  "moved",
+  "unused",
+  "returning",
+] as const;
+export type InboxState = (typeof INBOX_STATES)[number];
+
+/** A payout's shielded deposit address and what it holds (docs/ADR/0006-shielded-inbox.md). Only on a real testnet
+ * chain with zcash-devtool; the mock chain and practice mode answer `null`. Amounts are zatoshi. */
+export interface InboxView {
+  state: InboxState;
+  /** Its address, where the payer deposits, once the wallet is set up and checked; `null` before. */
+  depositAddress: string | null;
+  /** What the payer is asked to send: the funding and the move's fee. */
+  asked: string;
+  /** Everything unspent that has arrived, confirmed or not. */
+  received: string;
+  /** What the wallet can spend now. */
+  spendable: string;
+  /** The fewest confirmations of a deposit still confirming. */
+  confirmations: number | null;
+  requiredConfirmations: number;
+  /** How much more is needed when short (or to lift the change over the dust limit). */
+  need: string | null;
+  /** Seconds since the Unix epoch, when the move is due. */
+  moveAt: number | null;
+  /** The move's (or send-back's) transaction id, once sent. */
+  txid: string | null;
+  /** What is left in the inbox once the payout is funded. */
+  left: string;
+  /** Orchard (not Ironwood) value that reached the inbox, which a move never spends. */
+  orchard: string;
+}
+
+const inboxWire = z
+  .object({
+    state: z.enum(INBOX_STATES),
+    deposit_address: addressText.nullable(),
+    asked: zatoshiWire,
+    received: zatoshiWire,
+    spendable: zatoshiWire,
+    confirmations: u32Wire.nullable(),
+    required_confirmations: u32Wire,
+    need: zatoshiWire.nullable(),
+    move_at: unixSeconds.nullable(),
+    txid: hex32Wire.nullable(),
+    left: zatoshiWire,
+    orchard: zatoshiWire,
+  })
+  .strict()
+  .transform(
+    (i): InboxView => ({
+      state: i.state,
+      depositAddress: i.deposit_address,
+      asked: i.asked,
+      received: i.received,
+      spendable: i.spendable,
+      confirmations: i.confirmations,
+      requiredConfirmations: i.required_confirmations,
+      need: i.need,
+      moveAt: i.move_at,
+      txid: i.txid,
+      left: i.left,
+      orchard: i.orchard,
+    }),
+  );
+
 export interface OperatorCampaign {
   id: string;
   name: string;
@@ -419,6 +496,8 @@ export interface OperatorCampaign {
    * operator has read it (REQ-FUND-004); `null` until then, and on the mock
    * chain unless the pretend deposit said. It never blocks anything. */
   fundingSource: FundingSource | null;
+  /** The payout's shielded deposit address, when the operator has one for it (REQ-FUND-008). */
+  inbox: InboxView | null;
   batches: OperatorBatch[];
   warnings: PrivacyWarning[];
   run: RunState;
@@ -446,6 +525,7 @@ const campaignWire = z
     funding: fundingWire.nullable(),
     funding_progress: fundingProgressWire.nullable(),
     funding_source: z.enum(FUNDING_SOURCES).nullable(),
+    inbox: inboxWire.nullable(),
     batches: z.array(batchWire).max(10_000),
     warnings: z.unknown().transform((value, ctx) => {
       try {
@@ -479,6 +559,7 @@ const campaignWire = z
       funding: c.funding,
       fundingProgress: c.funding_progress,
       fundingSource: c.funding_source,
+      inbox: c.inbox,
       batches: c.batches,
       warnings: c.warnings,
       run: c.run,

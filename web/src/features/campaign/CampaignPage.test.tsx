@@ -19,6 +19,8 @@ import {
   type RouteHandler,
 } from "@/test/fake-operator";
 import { FUNDING_SOURCE_WORDING } from "@/features/operator/funding-source-wording";
+import { INBOX_WORDING } from "@/features/operator/inbox-wording";
+import { BANNED } from "@/test/banned-phrases";
 import { fixtureJson, goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
 import { useAudience } from "@/lib/audience";
@@ -784,6 +786,75 @@ describe("a real chain", () => {
     expect(await screen.findByText(/has 2 of 3 confirmations/u)).toBeInTheDocument();
     expect(screen.queryByText(/does not count/u)).toBeNull();
     expect(screen.getByRole("button", { name: /^Send \d+ payouts?$/u })).toBeDisabled();
+  });
+
+  // covers: REQ-FUND-008
+  describe("the shielded deposit address", () => {
+    it("leads with the payout's shielded address, says why one tap away, and keeps the public address as the fallback", async () => {
+      const user = userEvent.setup();
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-waiting.json") }, realHealth);
+      const ask = await screen.findByTestId("inbox-ask");
+      expect(ask).toHaveTextContent(INBOX_WORDING.ask);
+      expect(screen.getByTestId("inbox-address")).toHaveTextContent("utest1FAKEinboxDepositAddressNotARealAddress");
+      expect(screen.getByRole("button", { name: INBOX_WORDING.copyLabel })).toBeInTheDocument();
+      expect(screen.getByTestId("inbox-status")).toHaveTextContent(INBOX_WORDING.waiting);
+      await user.click(screen.getByRole("button", { name: INBOX_WORDING.whyLabel }));
+      for (const line of INBOX_WORDING.why) expect(await screen.findByText(line)).toBeInTheDocument();
+      // The public address is one tap away, not the lead.
+      const fallback = screen.getByTestId("public-instead");
+      expect(within(fallback).queryByTestId("funding-address")).toBeNull();
+      await user.click(within(fallback).getByRole("button", { name: INBOX_WORDING.publicInstead }));
+      expect(await within(fallback).findByTestId("funding-address")).toHaveTextContent("tFAKEfundingAddressNotARealAddress0000");
+      expect(screen.getAllByRole("heading", { name: "Is it funded?" })).toHaveLength(1);
+    });
+
+    it("says how far a deposit has got, and closes the public fallback once anything has arrived", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-confirming.json") }, realHealth);
+      expect(await screen.findByText(/has 1 of 10 confirmations/u)).toBeInTheDocument();
+      expect(screen.queryByTestId("public-instead")).toBeNull();
+    });
+
+    it("says how much more is needed when short", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-short.json") }, realHealth);
+      const status = await screen.findByTestId("inbox-status");
+      expect(status).toHaveTextContent(/has arrived\. Send .+ more\./u);
+      expect(status).toHaveTextContent(INBOX_WORDING.shortTail);
+    });
+
+    it("says when the move is due, and why it waits", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-scheduled.json") }, realHealth);
+      const status = await screen.findByTestId("inbox-status");
+      expect(status).toHaveTextContent(/is ready\. At about .+, ZecDrop moves .+ to the payout's public address\./u);
+      expect(status).toHaveTextContent(INBOX_WORDING.scheduledWhy);
+      expect(screen.queryByTestId("public-instead")).toBeNull();
+    });
+
+    it("names the move's transaction while it confirms", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-moving.json") }, realHealth);
+      const status = await screen.findByTestId("inbox-status");
+      expect(status).toHaveTextContent(/Moving .+ to the payout's public address, in transaction a0a0a0/u);
+      expect(status).toHaveTextContent(INBOX_WORDING.movingTail);
+    });
+
+    it("once funded from it: says so, that the deposit came out of the shielded pool, and what is left", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-moved.json") }, realHealth);
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.getByText(INBOX_WORDING.movedFrom)).toBeInTheDocument();
+      expect(screen.getByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.shielded);
+      expect(screen.getByTestId("inbox-left")).toHaveTextContent(INBOX_WORDING.leftTail);
+    });
+
+    it("says plainly when the address can't be used, shows none, and leaves the public address open", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-unavailable.json") }, realHealth);
+      expect(await screen.findByText(INBOX_WORDING.unavailable)).toBeInTheDocument();
+      expect(screen.queryByTestId("inbox-address")).toBeNull();
+      expect(screen.getByTestId("public-instead")).toBeInTheDocument();
+    });
+
+    it("claims nothing the privacy boundary does not", () => {
+      const texts = Object.values(INBOX_WORDING).flatMap((value) => (typeof value === "string" ? [value] : [...value]));
+      for (const text of texts) for (const [label, pattern] of BANNED) expect(text, label).not.toMatch(pattern);
+    });
   });
 
   // covers: REQ-FUND-004

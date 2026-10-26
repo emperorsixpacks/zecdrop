@@ -79,6 +79,10 @@ fn normalise(value: &mut Value) {
                     ("receiver", Value::String(_)) => *inner = json!("f0".repeat(43)),
                     ("rseed", Value::String(_)) => *inner = json!("f1".repeat(32)),
                     ("action", Value::Number(_)) => *inner = json!(0),
+                    // A payout's shielded deposit address (from the fake inbox wallet).
+                    ("deposit_address", Value::String(_)) => {
+                        *inner = json!("utest1FAKEinboxDepositAddressNotARealAddress")
+                    }
                     // When an inbox's move is due: a time.
                     ("move_at", Value::Number(_)) => *inner = json!(1_700_000_600u64),
                     _ => normalise(inner),
