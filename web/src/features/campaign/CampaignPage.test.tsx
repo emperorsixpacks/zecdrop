@@ -464,6 +464,15 @@ describe("a real chain", () => {
     expect(screen.queryByText("Mock chain:")).toBeNull();
   });
 
+  it("offers 'Open in wallet': a zcash link with this address and exactly the amount to send, and nothing else", async () => {
+    open({ "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json") }, realHealth);
+    const link = await screen.findByRole("link", { name: "Open in wallet" });
+    expect(link).toHaveAttribute("href", "zcash:tFAKEfundingAddressNotARealAddress0000?amount=4.5002");
+    // Copying stays available beside it, and the page says what to do when no wallet app opens.
+    expect(screen.getByRole("button", { name: "Copy funding address" })).toBeInTheDocument();
+    expect(screen.getByText("Opens a wallet app that handles zcash links. If nothing opens, copy the address.")).toBeInTheDocument();
+  });
+
   describe("the row 'Fund from another coin'", () => {
     const nearRoutes = (): Record<string, RouteHandler> => ({
       "GET /api/campaigns/:id": campaign("campaign-real-awaiting-deposit.json"),

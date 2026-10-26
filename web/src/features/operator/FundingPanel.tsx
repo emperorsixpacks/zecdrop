@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { operatorNearApi } from "@/features/funding/near/api";
 import { NearFundingPanel } from "@/features/funding/near/NearFundingPanel";
 import { shortId } from "@/lib/ids";
+import { fundingPaymentUri } from "@/lib/payment-uri";
 import { phaseSentence } from "@/lib/phase";
 
 import { FailureNotice } from "./FailureNotice";
@@ -40,6 +41,8 @@ function Progress({ campaign }: { campaign: OperatorCampaign }) {
 function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; address: string }) {
   const check = useCheckFunding(campaign.id);
   const headingId = useId();
+  // A link that opens a wallet app with the address and amount filled in. Null if either looks wrong.
+  const walletLink = fundingPaymentUri(address, campaign.fundingRequired);
   return (
     <section aria-labelledby={headingId} className="space-y-5">
       <h2 id={headingId} className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">
@@ -60,7 +63,19 @@ function RealChainFunding({ campaign, address }: { campaign: OperatorCampaign; a
         <p className="mono text-lg break-all" data-testid="funding-address">
           {address}
         </p>
-        <CopyButton value={address} label="Copy funding address" />
+        <div className="flex flex-wrap items-center gap-3">
+          <CopyButton value={address} label="Copy funding address" />
+          {walletLink !== null && (
+            <Button asChild variant="outline" size="sm">
+              <a href={walletLink}>Open in wallet</a>
+            </Button>
+          )}
+        </div>
+        {walletLink !== null && (
+          <p className="max-w-[64ch] text-sm text-muted-foreground">
+            Opens a wallet app that handles zcash links. If nothing opens, copy the address.
+          </p>
+        )}
       </div>
       <NearFundingPanel
         api={operatorNearApi}
