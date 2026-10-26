@@ -18,7 +18,7 @@ function Picture({ shot }: { shot: TourShot }) {
         height={shot.height}
         loading="lazy"
         decoding="async"
-        className="h-auto w-full max-w-[640px] rounded-md border border-border"
+        className="h-auto w-full max-w-[640px] rounded-(--r-card) border border-border"
       />
       <figcaption className="text-sm text-muted-foreground">{shot.caption}</figcaption>
     </figure>
@@ -48,7 +48,7 @@ export function Tour() {
           <li key={step.id} className="grid gap-x-12 gap-y-6 py-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)]">
             {/* Sticks below the header capsule (which is 56px from the top of the screen, with room to breathe). */}
             <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-              <span aria-hidden className="mono flex size-8 items-center justify-center rounded-[4px] bg-primary text-base font-medium text-primary-foreground">
+              <span aria-hidden className="mono flex size-8 items-center justify-center rounded-full bg-primary text-base font-medium text-primary-foreground">
                 {index + 1}
               </span>
               <h3 className="text-xl leading-snug font-bold tracking-[-0.01em]">{step.title}</h3>
@@ -71,7 +71,7 @@ export function Tour() {
               {step.id === "audit" && (
                 <div className="space-y-2">
                   <p className="text-base">When everything matches, the command ends with:</p>
-                  <code className="mono block rounded-lg border border-border bg-secondary p-3 text-sm break-words">{AUDIT_RESULT}</code>
+                  <code className="mono block rounded-(--r-control) border border-border bg-secondary p-3 text-sm break-words">{AUDIT_RESULT}</code>
                 </div>
               )}
             </div>

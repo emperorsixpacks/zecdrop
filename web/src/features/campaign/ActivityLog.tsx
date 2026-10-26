@@ -37,7 +37,7 @@ export function ActivityLog({ log, status, unreadable }: ActivityLogProps) {
       ) : (
         // The scrollable region takes focus so a keyboard user can scroll it; the
         // list inside keeps its list semantics (role="log" on the <ol> itself would drop them).
-        <div role="log" aria-label="Activity log" tabIndex={0} className="max-h-72 overflow-y-auto rounded-lg text-base outline-none">
+        <div role="log" aria-label="Activity log" tabIndex={0} className="max-h-72 overflow-y-auto rounded-(--r-control) text-base outline-none">
           <ol className="space-y-1">
             {log.map((event, index) => (
               <li key={`${String(index)}-${event.event}`}>{describeEvent(event, practice)}</li>

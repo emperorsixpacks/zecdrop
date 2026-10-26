@@ -38,6 +38,7 @@ const ROLES = [
   "island",
   "island-ink",
   "island-muted",
+  "bezel",
   "good",
   "bad",
   "qr-ink",
@@ -110,6 +111,37 @@ describe("Redacted paper is complete, in both modes", () => {
     expect(light?.accent).toBe(light?.ink);
     expect(colours("dark")?.accent).toBe(colours("dark")?.marker);
     expect(colours("dark")?.["accent-ink"]).toBe("#141414");
+  });
+});
+
+describe("the screen's bezel", () => {
+  it("is ink on the page and pure black after hours", () => {
+    expect(colours("light")?.bezel).toBe("#0b0b0b");
+    expect(colours("dark")?.bezel).toBe("#000000");
+  });
+
+  it("is a role the frame draws, and the dark set marks the curve with a hairline of its ink (black on near-black would not show)", () => {
+    expect(css).toMatch(/--bezel:\s*var\(--p-bezel\)/u);
+    expect(css).toMatch(/box-shadow:\s*0 0 0 100vmax var\(--bezel\)/u);
+    expect(css).toMatch(/:root\[data-theme="dark"\] \{\n\s*\/\*[^*]*\*\/\n\s*--bezel-edge: color-mix\(in srgb, var\(--p-ink\) 1[0-9]%, transparent\);/u);
+  });
+
+  it("is seen against the page: hard in the light set, and by its edge in the dark set", () => {
+    const light = colours("light");
+    expect(contrast(light?.bezel ?? "#000000", light?.bg ?? "#ffffff")).toBeGreaterThanOrEqual(15);
+    // After hours the ring is nearly the page's own colour on purpose (a bright ring would be a frame around a dark page), and the edge is
+    // what shows the curve: a line of the ink at 16%, drawn inside the window, so over the page's own colour. It is seen against the
+    // ring outside it and against the page inside it.
+    const dark = colours("dark");
+    const edge = mix(dark?.ink ?? "#ffffff", dark?.bg ?? "#000000", 0.16);
+    expect(contrast(edge, dark?.bezel ?? "#000000"), "against the ring").toBeGreaterThanOrEqual(1.5);
+    expect(contrast(edge, dark?.bg ?? "#000000"), "against the page").toBeGreaterThanOrEqual(1.4);
+  });
+
+  it("is what the browser's own chrome is told to be on a phone (theme-color), so the two are one frame", () => {
+    const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+    const color = /<meta name="theme-color" content="(#[0-9a-fA-F]{6})"/u.exec(html)?.[1];
+    expect(color?.toLowerCase()).toBe(colours("light")?.bezel);
   });
 });
 

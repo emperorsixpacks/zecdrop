@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { startPractice, type SimulationLoader } from "@/lib/practice-mode";
+import { cn } from "@/lib/utils";
 
 /** The button that turns practice mode on and opens the first screen of a payout: the simulation is fetched when it is
  * pressed, from the page's own origin, and nothing is fetched before. If it cannot be fetched nothing has changed, and
@@ -43,7 +44,12 @@ export function PracticeStart({
         size={size}
         variant={variant}
         aria-disabled={state === "starting"}
-        className="aria-disabled:pointer-events-none aria-disabled:opacity-45"
+        // The label may be long ("Try it yourself in practice mode") and a phone may be 320px wide: where it does not fit on one line it wraps
+        // inside the button, which grows to hold it. On one line it is the size it always was (the height is a minimum, not a height).
+        className={cn(
+          "h-auto max-w-full py-2.5 text-center leading-snug whitespace-normal aria-disabled:pointer-events-none aria-disabled:opacity-45",
+          size === "lg" ? "min-h-14" : "min-h-11",
+        )}
         onClick={() => void start()}
       >
         {state === "starting" ? "Starting practice mode…" : label}

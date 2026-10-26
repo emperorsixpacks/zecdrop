@@ -134,8 +134,10 @@ payslip loads nothing and says so. The QR code is the same link, at the lowest e
 ## The get-paid page
 
 `/get-paid` ("Get paid in ZEC") is for someone who is going to be paid by a ZecDrop payout, on a phone, and may never have used
-Zcash. It is static: it says what a shielded wallet is, names Zodl as the example (the one wallet whose release notes have been
-read; the only link out is `https://zodl.com`, in a new tab, and no app-store link is made up), says which address to copy
+Zcash, and it is kept short (under 240 words before anything is opened; the test keeps that as a ceiling). It is static: it names
+Zodl as the example (the one wallet whose release notes have been read; the only link out is `https://zodl.com`, in a new tab, and no
+app-store link is made up), keeps what a shielded wallet is, and what has not been checked about other wallets, behind one closed row
+(*More about wallets*), says which address to copy
 (`u1…`, real money; `utest1…` is practice; `t1…`/`t3…` are transparent and do not suit payouts; `zs1…` is an older Sapling
 address) and what to expect when the payout arrives, with a link to the payslip page. The one thing it does is look at an
 address the person pastes: `src/lib/address-shape.ts` says what it **looks like** from its prefix, its characters and its
@@ -362,6 +364,13 @@ its hook mention storage, navigation, logging or a cache.
     as a link and a QR code (read back from the pixels), and opened from a link, good and bad, with the address bar bare afterwards.
     The get-paid page is checked with an address of every shape, with a share sheet that accepts, is closed and refuses, at 360px
     for thumb-sized controls, and for the requests it makes after it has loaded (none).
+    The screen (`screen.spec.ts`, "The screen" in DESIGN.md): at 360, 390, 768 and 1280px that no focusable element and no line of text on any
+    public page is clipped by the curves of the frame (a rounded box by the middle of its arc), that the frame takes no press and what is above
+    what, the scale of curves, the grain, a press, a bar's label and the lens's pill, a new page's cross-fade, and forced colours and print;
+    each of these is also checked under "reduce motion", where none of it moves.
+    Narrow screens (`responsive.spec.ts`, "Narrow screens" in DESIGN.md): every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px,
+    and every screen of the practice payout at 320x568, in landscape (667x375) and on a tablet (768x1024), with nothing wider than the screen,
+    the capsule inside it, and the confirm sheet inside its window or scrolling.
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
     rewrites of the `vercel.json` generated for it, against a stub verifier on another origin
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
@@ -382,7 +391,7 @@ its hook mention storage, navigation, logging or a cache.
     malformed and query-string token. `csp.spec.ts` walks the main pages under the
     operator's Content-Security-Policy and fails on any violation.
     `viewing-key.spec.ts` is the key test above. `a11y.spec.ts` runs axe on every
-    operator page at 360px and 1280px in both themes, with every section opened,
+    operator page at 320px, 360px and 1280px in both themes (and asks, at each, that nothing is wider than the screen), with every section opened,
     the send sheet, a run in progress, a stopped run and a failed one (from the operator's captured
     files), and the real-chain funding states and the key (from its `golden/` files). `funding-qr.spec.ts` reads the funding
     QR code from the pixels, at both widths and in both themes, for testnet and mainnet. The global setup refuses to run
@@ -413,9 +422,9 @@ src/
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
   practice/     practice mode's simulation, a chunk of its own (importer, planner, server, run, events, verifier)
-  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, practice-mode (the flag and the switch), phase, fees, ids, explorer, theme, utils
+  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, practice-mode (the flag and the switch), view-transition (a new page's cross-fade, where the browser has it), phase, fees, ids, explorer, theme, utils
   test/         fake operator, fixture loader, Rust-source reader, render helper, leak watcher, the practice payout walk
-  index.css     palette (Redacted paper, light and dark), roles, motion, Tailwind map
+  index.css     palette (Redacted paper, light and dark), roles, the screen's frame and the scale of curves, slips, motion, Tailwind map
 tests/          guard tests that run ESLint itself
 e2e/            Playwright specs (public pages) and e2e/operator/ (real operator)
 PROVENANCE.md   what is hand-written, what is generated, and by which tool

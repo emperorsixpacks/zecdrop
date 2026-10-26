@@ -35,6 +35,10 @@ export const VIEWPORTS = [
   { name: "desktop 1280px", width: 1280, height: 800 },
 ] as const;
 
+/** The smallest screen a page is asked to fit: 320px, the width WCAG 2.2 (1.4.10 Reflow) names. Not in VIEWPORTS, which every spec
+ * walks: `operator/a11y.spec.ts`, which walks all of the operator's pages, asks for it by name (`responsive.spec.ts` has its own widths). */
+export const NARROWEST = { name: "phone 320px", width: 320, height: 568 } as const;
+
 export const THEMES = ["dark", "light"] as const;
 export type Theme = (typeof THEMES)[number];
 
@@ -98,6 +102,13 @@ export async function overflowReport(page: Page): Promise<{ page: number; wide: 
 /** WCAG 2.2 A and AA violations on the page as it is now, including colour
  * contrast and target size. Empty means none. */
 export async function axeViolations(page: Page, scope?: string) {
+  // From the top of the page. The header capsule is sticky, so it covers whatever has been scrolled under it, and an earlier click that
+  // scrolled a control into view (Playwright does) would leave some other control half behind it: axe's target-size rule then reports
+  // a control that is only covered by where the last click happened to leave the page. What keeps a focused control clear of the capsule
+  // is `scroll-padding-top` (index.css), which e2e/island.spec.ts checks.
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
   const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
   // `scope`: a selector, to check one part of the page (its colours are still measured against what is behind it).
   const results = await (scope === undefined ? builder : builder.include(scope)).analyze();

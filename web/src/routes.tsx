@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router";
 import { PublicLayout } from "@/components/AppShell";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { PracticeLeaver } from "@/components/PracticeBanner";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import AuditPage from "@/features/audit/AuditPage";
 import CampaignPage from "@/features/campaign/CampaignPage";
 import CampaignsPage from "@/features/campaigns/CampaignsPage";
@@ -21,6 +22,7 @@ export function AppRoutes() {
   return (
     <>
       <PracticeLeaver />
+      <ScrollToTop />
       <Routes>
         {/* Operator routes: served by the local binary. On a hosted public copy they explain themselves. */}
         <Route element={<OperatorArea />}>

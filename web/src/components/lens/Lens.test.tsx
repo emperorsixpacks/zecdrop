@@ -34,6 +34,18 @@ describe("the redaction lens", () => {
     expect(screen.getByText("Person 2")).toBeInTheDocument();
   });
 
+  it("a hidden bar answers a touch with a picture only: it is named once, and no word of it is in the page", () => {
+    render(<Harness />);
+    const bars = screen.getAllByRole("img", { name: "hidden" });
+    for (const bar of bars) {
+      // The label that slides up in it is drawn by the stylesheet (index.css, .bar-touch) with an empty alternative text, so it
+      // is not in the page for a screen reader, nor for a script, nor for a copy of the page's text.
+      expect(bar).toHaveClass("redacted", "bar-touch");
+      expect(bar.textContent?.replace(/\u00a0/gu, "")).toBe("");
+      expect(bar).not.toHaveAttribute("tabindex");
+    }
+  });
+
   it("one person: exactly the chosen row is revealed, the others stay out of the page", async () => {
     const user = userEvent.setup();
     render(<Harness />);

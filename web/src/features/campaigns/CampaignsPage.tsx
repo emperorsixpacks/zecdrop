@@ -24,7 +24,7 @@ function Row({ campaign }: { campaign: OperatorCampaignSummary }) {
     <li>
       <Link
         to={`/campaign/${encodeURIComponent(campaign.id)}`}
-        className="row-hover grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1 px-2 py-4 sm:grid-cols-[1fr_7rem_10rem_9rem_8rem]"
+        className="row-hover press-only grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1 px-2 py-4 sm:grid-cols-[1fr_7rem_10rem_9rem_8rem]"
       >
         <span className="min-w-0 text-xl leading-snug font-bold tracking-tight break-words">{campaign.name}</span>
         <StatusDot phase={campaign.phase} className="justify-self-end sm:order-4 sm:justify-self-start" />

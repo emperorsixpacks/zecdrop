@@ -99,7 +99,7 @@ export default function HomePage() {
           {/* The one sheet: a payout list as a document, seen through whichever lens is chosen. */}
           <section
             aria-labelledby="lens-heading"
-            className="space-y-6 rounded-md border border-border bg-card p-4 sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+            className="slip space-y-6 p-4 sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1"
           >
             <h2 id="lens-heading" className="text-xl leading-tight font-bold tracking-[-0.01em]">
               Same payout, three views
@@ -129,7 +129,7 @@ export default function HomePage() {
           <ol className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step, index) => (
               <li key={step.title} className="space-y-3">
-                <span aria-hidden className="mono flex size-8 items-center justify-center rounded-[4px] bg-primary text-base font-medium text-primary-foreground">
+                <span aria-hidden className="mono flex size-8 items-center justify-center rounded-full bg-primary text-base font-medium text-primary-foreground">
                   {index + 1}
                 </span>
                 <h3 className="text-xl leading-snug font-bold tracking-[-0.01em]">{step.title}</h3>

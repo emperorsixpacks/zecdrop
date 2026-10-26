@@ -6,12 +6,12 @@ import { Slot } from "radix-ui"
 // ZecDrop: restyled for web/DESIGN.md. The primary button is ink (the marker in the dark set); every
 // size is at least 44px tall, so it is a comfortable touch target.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-transparent font-semibold whitespace-nowrap transition-[background-color,color,transform] select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/button press inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-transparent font-semibold whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         // The one action that matters on a screen.
-        default: "lift bg-primary text-primary-foreground hover:brightness-95 dark:hover:brightness-110",
+        default: "bg-primary text-primary-foreground hover:brightness-95 dark:hover:brightness-110",
         // A strong, quiet alternative: an ink outline that fills on hover.
         outline: "border-foreground bg-transparent text-foreground hover:bg-foreground hover:text-background",
         secondary: "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_srgb,var(--secondary),var(--foreground)_8%)]",

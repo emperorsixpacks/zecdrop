@@ -114,7 +114,7 @@ function BatchCard({ receipt, batch }: { receipt: PublicReceipt; batch: PublicRe
 export function BatchList({ receipt }: { receipt: PublicReceipt }) {
   if (receipt.batches.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+      <p className="rounded-(--r-control) border border-dashed p-4 text-sm text-muted-foreground">
         No payout batches yet. They appear here once the operator builds them.
       </p>
     );

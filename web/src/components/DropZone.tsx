@@ -63,7 +63,7 @@ export function DropZone({ onList, disabled = false, quiet = false, onExample }:
       }}
       onDrop={onDrop}
       className={cn(
-        "rounded-2xl border-2 border-dashed bg-card p-6 transition-[border-color,background-color,transform] duration-200 sm:p-10",
+        "rounded-(--r-card) border-2 border-dashed bg-card p-6 transition-[border-color,background-color,transform] duration-200 sm:p-10",
         // Dragging a file over it: it takes the accent and grows a little (when Lively, via motion).
         over ? "scale-[1.01] border-primary bg-primary/15" : "border-input",
       )}

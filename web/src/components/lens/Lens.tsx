@@ -94,7 +94,7 @@ function Cell({ revealed, index, width, children }: { revealed: boolean; index: 
   if (!revealed) {
     // Fixed width, no text from the row: a bar is only a bar.
     return (
-      <span role="img" aria-label="hidden" className={cn("redacted h-[1.15em] align-middle", width, moving === "in" && "bar-in")} style={style}>
+      <span role="img" aria-label="hidden" className={cn("redacted bar-touch h-[1.15em] align-middle", width, moving === "in" && "bar-in")} style={style}>
         &nbsp;
       </span>
     );
@@ -148,7 +148,7 @@ export function LensList({ rows, mode, selectedId, onSelect, unit, className }: 
               // first, the address under them. A bar row stays one line, whatever the width.
               open ? "grid-cols-[1fr_auto] sm:grid-cols-[minmax(5.5rem,auto)_1fr_auto]" : "grid-cols-[minmax(5.5rem,auto)_1fr_auto]",
               open && mode === "recipient" && "bg-marker/12",
-              mode === "recipient" && onSelect && "cursor-pointer",
+              mode === "recipient" && onSelect && "press-only cursor-pointer",
             )}
           >
             <span className="font-semibold">{row.label}</span>
@@ -208,7 +208,7 @@ export function RedactionLens({ rows: all, mode, onModeChange, selectedId, onSel
               onChange={(e) => {
                 onSelect(e.target.value);
               }}
-              className="h-11 rounded-lg border border-input bg-card px-3 text-base"
+              className="h-11 rounded-(--r-control) border border-input bg-card px-3 text-base"
             >
               {rows.map((row) => (
                 <option key={row.id} value={row.id}>
