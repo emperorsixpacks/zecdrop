@@ -32,6 +32,21 @@ Send the owner `https://<your-name>` (no trailing slash). They rebuild the site 
 Then, from the repository's `web/` folder, run `node scripts/check-hosted.mjs --site https://zecdrop-site.vercel.app --verifier https://<your-name>`
 (add `--mainnet-tx <any mainnet txid>` once mainnet is turned on below).
 
+## The payslip route
+
+The same container also answers `POST /v1/payslip` (a recipient's proof of one output, `docs/PRIVACY_BOUNDARY.md`, "Payslips").
+It needs nothing to turn on. A payslip travels in the request body and is never logged or echoed. Check it after an update:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://<your-name>/v1/payslip      # 405: only POST is answered
+curl -s -X POST -H 'content-type: application/json' -d '{}' https://<your-name>/v1/payslip   # invalid_payslip
+curl -si -X OPTIONS https://<your-name>/v1/payslip -H 'Origin: https://zecdrop-site.vercel.app' \
+  -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' | grep -i access-control
+```
+
+A real payslip of the public testnet batch is in `fixtures/testnet-ironwood-batch-8/*/payslips/`; posting one with
+`--data-binary @payslip-3.json` answers `"verdict":"verified"`.
+
 ## Serving mainnet receipts too
 
 One process serves both networks. Turn mainnet on only after the host can reach the mainnet node, because the verifier
