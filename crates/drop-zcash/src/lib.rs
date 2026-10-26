@@ -13,6 +13,7 @@
 //! | [`codec`] | `drop_core::codec::AddressCodec` | REQ-IMP-001 (core) |
 //! | [`builder`] | the batch transaction | REQ-TX-001, REQ-TX-002 |
 //! | [`inspect`] | public totals and key-holder recovery of a built/mined tx | REQ-TX-001, REQ-TX-002 |
+//! | [`payslip`] | one recipient's proof of payment, issued locally from a viewing key | |
 //! | [`chain`] | the small chain port the distributor needs (tip, anchor, prevout, send, status) | |
 //! | [`lightwalletd`] | [`ChainBackend`] over `drop-chain`'s key-less client | |
 //! | [`distributor`] | `drop_core::engine::Distributor` | REQ-TX-001 |
@@ -108,6 +109,7 @@ pub mod inspect;
 pub mod keys;
 pub mod lightwalletd;
 pub mod memo;
+pub mod payslip;
 
 mod txid;
 

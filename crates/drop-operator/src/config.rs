@@ -138,6 +138,13 @@ pub enum Command {
     Audit(AuditArgs),
     /// Print a campaign's viewing key (UFVK) for an auditor. Disclosing it is irreversible.
     ExportUfvk(ExportArgs),
+    /// Write one payslip per payout of a settled campaign, into a new directory, from the campaign's own key.
+    /// A payslip is one recipient's proof that one output of a public transaction paid them an amount; it also opens
+    /// that output's memo, so give each only to its recipient. Needs --lightwalletd-url. Prints no address, amount or memo.
+    Payslips(PayslipsArgs),
+    /// Check a payslip against a transaction: offline with --tx FILE, or by fetching it with --lightwalletd-url.
+    /// Needs no store and no key, and says what a successful check does not prove.
+    VerifyPayslip(VerifyPayslipArgs),
     /// Audit one transaction from files, with no store and no node: recover its outputs with a
     /// viewing key and compare their number and sum with what the chain publishes (REQ-AUD-001).
     AuditTx(AuditTxArgs),
@@ -219,6 +226,31 @@ pub struct AuditTxArgs {
     /// Print the report as JSON.
     #[arg(long)]
     pub json: bool,
+}
+
+/// Arguments of `payslips`.
+#[derive(Args, Debug, Clone)]
+pub struct PayslipsArgs {
+    /// The campaign whose payslips to write.
+    #[arg(long)]
+    pub campaign: String,
+
+    /// A new directory to write one payslip file per payout into (owner-only; it must not exist).
+    #[arg(long)]
+    pub out_dir: PathBuf,
+}
+
+/// Arguments of `verify-payslip`.
+#[derive(Args, Debug, Clone)]
+pub struct VerifyPayslipArgs {
+    /// The payslip file (JSON).
+    #[arg(long)]
+    pub payslip: PathBuf,
+
+    /// The transaction as hexadecimal text in a file: checks offline, with no node. Without it,
+    /// the transaction is fetched through --lightwalletd-url.
+    #[arg(long)]
+    pub tx: Option<PathBuf>,
 }
 
 /// Arguments of `export-ufvk`.

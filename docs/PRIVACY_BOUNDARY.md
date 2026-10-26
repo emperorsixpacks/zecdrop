@@ -32,6 +32,28 @@ away.
 **Possible hardening (not built):** setting `enableSpendsIronwood = 0` would let consensus *prove* a batch has no
 shielded spends. It needs custom transaction assembly.
 
+## Payslips: one recipient's proof of one output
+
+A payslip lets one recipient show a third party that one output of a public transaction paid them an amount, without
+a viewing key. It holds the transaction id, the position of the output in the transaction's Ironwood bundle, the
+recipient's Orchard receiver, the amount and the note's `rseed`. Anyone can check it against the chain with no key: the
+check rebuilds the note with the action's own `rho` and the bundle's note version and compares its commitment with the
+one the transaction publishes (REQ-PAY-001). The operator issues payslips from the campaign's key (REQ-PAY-002); a recipient
+can issue their own with their incoming viewing key.
+
+**It proves** that action *i* of that transaction creates a note worth that amount for that receiver, and nothing about any
+other output. **It does not prove** who the person is or that whoever presents it controls the receiver (a payslip is a
+bearer document: anyone who holds it can present it); the memo (the commitment does not cover it); that the transaction is
+mined or final (the check reports the confirmations); that the funds are unspent; or that the transaction belongs to a
+given campaign (compare its id with the campaign's public receipt).
+
+**It costs the recipient** more than it looks. The holder learns the receiver and the amount, and the `rseed` also fixes
+the note's ephemeral key (ZIP 212), so **the holder can read that one output's memo as well**. Checking a payslip on the
+hosted verifier (`POST /v1/payslip`, REQ-VER-006) hands all of that to the service for the length of the request: it never
+logs or echoes the body, but whoever runs it can see it. Check offline (`drop-operator verify-payslip --tx <file>`)
+when that matters. Not built: a payslip without the memo, a proof that the presenter controls the receiver, and a check in
+the browser.
+
 ## Public (anyone can see, and the verifier recomputes)
 
 | Item | Why it is public |
@@ -66,6 +88,8 @@ Recipient addresses · per-recipient amounts · memos · which output belongs to
    campaign (one ZIP-32 account per campaign); there is no revocation.
 8. **The operator sees everything** (recipient list, amounts, memos) and holds the spend key.
 9. **Recipients' later behaviour** (spending, exchange deposits) is out of scope.
+10. **A payslip discloses its output's receiver, amount and memo to whoever holds it** (and to a hosted verifier that checks
+    it). See "Payslips" above.
 
 ## Trust assumptions
 

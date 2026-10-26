@@ -58,7 +58,7 @@ pub struct ReceiptQuery {
 /// Longest query string accepted, in bytes.
 pub const MAX_QUERY_BYTES: usize = 8 * 1024;
 
-fn looks_like_a_viewing_key(text: &str) -> bool {
+pub(crate) fn looks_like_a_viewing_key(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     VIEWING_KEY_MARKERS.iter().any(|m| lower.contains(m))
 }

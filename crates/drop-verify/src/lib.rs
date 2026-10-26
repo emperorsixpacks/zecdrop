@@ -14,7 +14,8 @@
 //! * the confirmation depth: below it a batch is pending and the campaign is never
 //!   settled (REQ-VER-003).
 //!
-//! It cannot tell where the shielded value went. That is the auditor's check.
+//! It cannot tell where the shielded value went. That is the auditor's check. A recipient can
+//! still prove their own output with a [`payslip`], which anyone can check without a key.
 //!
 //! **No keys (REQ-VER-002).** This crate depends on no spend-key or viewing-key
 //! types; the hosted verifier's structural test asserts `zcash_keys` is absent from
@@ -26,9 +27,13 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod analyze;
+pub mod payslip;
 pub mod source;
 pub mod verify;
 
 pub use analyze::{ParsedTx, Problem, TxAnalysis, Unparseable};
+pub use payslip::{
+    check_payslip, verify_payslip, CheckError, Payslip, PayslipCheck, PayslipError, PayslipProof,
+};
 pub use source::{confirmations, ChainSource, FetchedTx, SourceError};
 pub use verify::{p2pkh_address, verify_campaign, VerifyConfig, VerifyError, VerifyRequest};

@@ -243,6 +243,7 @@ pub mod http;
 pub mod logging;
 pub mod mock;
 pub mod near;
+pub mod payslips;
 pub mod real;
 pub mod secret;
 pub mod seedfile;

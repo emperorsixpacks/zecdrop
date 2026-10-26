@@ -13,8 +13,9 @@ use drop_zcash::{zcash_network, CampaignKeys};
 use thiserror::Error;
 
 use crate::audit::{audit_campaign, read_ufvk, AuditError, AuditInput, UfvkSource};
-use crate::config::{AuditArgs, ExportArgs};
+use crate::config::{AuditArgs, ExportArgs, PayslipsArgs};
 use crate::error::StoreError;
+use crate::payslips::{issue_campaign_payslips, write_payslips, PayslipsError};
 use crate::secret::SecretSeed;
 use crate::store::Store;
 
@@ -53,6 +54,9 @@ pub enum CommandError {
     /// The audit could not be carried out.
     #[error(transparent)]
     Audit(#[from] AuditError),
+    /// The payslips could not be issued, written, read or checked.
+    #[error(transparent)]
+    Payslips(#[from] PayslipsError),
     /// Writing the result failed.
     #[error("could not write the result")]
     Io,
@@ -137,6 +141,57 @@ pub async fn run_audit<S: ChainSource>(
     out.write_all(text.as_bytes())
         .map_err(|_| CommandError::Io)?;
     Ok(report.reconciled)
+}
+
+/// Runs `payslips`: one payslip per payout of the campaign, written into the new directory
+/// `args.out_dir` (REQ-PAY-002). Needs every batch to be final on the chain. Prints counts and a
+/// reminder to `out`, never an address, an amount, a memo or a key. Returns whether every payout
+/// row got a payslip and no opened output was left over.
+pub async fn run_payslips<S: ChainSource>(
+    store: &Arc<Store>,
+    seed: &SecretSeed,
+    args: &PayslipsArgs,
+    source: &S,
+    required_depth: u32,
+    out: &mut dyn Write,
+) -> Result<bool, CommandError> {
+    let record = load_campaign(store, &args.campaign)?;
+    if record
+        .seed_fingerprint
+        .as_deref()
+        .is_some_and(|recorded| recorded != seed.fingerprint())
+    {
+        return Err(CommandError::WrongWallet);
+    }
+    let ufvk = campaign_ufvk(seed, record.network, record.account)?;
+    let batch_count = u32::try_from(crate::api_plan_len(&record)?).map_err(|_| AuditError::Plan)?;
+    let statuses = store
+        .ledger()
+        .statuses(&record.id, batch_count)
+        .map_err(|e| StoreError::Database(e.to_string()))?;
+    let issued = issue_campaign_payslips(source, &record, &statuses, &ufvk, required_depth).await?;
+    let written = write_payslips(&args.out_dir, &issued.rows)?;
+    let missing = issued.rows.len() - written;
+    writeln!(
+        out,
+        "Wrote {written} payslip(s) to {}, one owner-only file per payout, numbered in the order of the payout list.",
+        args.out_dir.display()
+    )
+    .map_err(|_| CommandError::Io)?;
+    writeln!(
+        out,
+        "Each one names its recipient's receiver and amount, and its rseed also opens that output's memo: give each only to its recipient."
+    )
+    .map_err(|_| CommandError::Io)?;
+    if missing > 0 || issued.unmatched_outputs > 0 {
+        writeln!(
+            out,
+            "WARNING: {missing} payout(s) got no payslip and {} opened output(s) matched no payout: the chain and the payout list differ; run the audit.",
+            issued.unmatched_outputs
+        )
+        .map_err(|_| CommandError::Io)?;
+    }
+    Ok(missing == 0 && issued.unmatched_outputs == 0)
 }
 
 /// Runs `export-ufvk`: the warning to `err`, the key alone to `out`.

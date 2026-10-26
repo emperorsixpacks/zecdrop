@@ -16,16 +16,21 @@ use drop_operator::audit::{read_ufvk, UfvkSource};
 use drop_operator::auth::Token;
 use drop_operator::chain::ChainBackend;
 use drop_operator::codec::LooseAddressCodec;
-use drop_operator::commands::{campaign_ufvk, ensure_campaign_network, run_audit, run_export_ufvk};
+use drop_operator::commands::{
+    campaign_ufvk, ensure_campaign_network, run_audit, run_export_ufvk, run_payslips,
+};
 use drop_operator::config::{
     chain_mode, check_network_gate, check_new_passphrase, check_passphrase, resolve_state_dir,
-    take_env, AuditArgs, AuditTxArgs, ChainMode, Cli, Command, Config, ExportArgs,
-    CONFIRM_MAINNET_ENV, PASSPHRASE_ENV, STATE_DIR_ENV,
+    take_env, AuditArgs, AuditTxArgs, ChainMode, Cli, Command, Config, ExportArgs, PayslipsArgs,
+    VerifyPayslipArgs, CONFIRM_MAINNET_ENV, PASSPHRASE_ENV, STATE_DIR_ENV,
 };
 use drop_operator::crypto::KdfParams;
 use drop_operator::logging::Logger;
 use drop_operator::mock::{MockBackend, MockChain};
 use drop_operator::near::{NearGateway, NearParts, SystemClock};
+use drop_operator::payslips::{
+    payslip_network, run_verify_payslip_offline, run_verify_payslip_on_chain, PayslipsError,
+};
 use drop_operator::real::{LightwalletdConnector, ZcashBackend};
 use drop_operator::secret::SecretSeed;
 use drop_operator::seedfile::read_seed_file;
@@ -184,6 +189,63 @@ fn audit_tx(
     })
 }
 
+async fn payslips(
+    cli: &Cli,
+    args: &PayslipsArgs,
+    confirm: Option<&str>,
+) -> Result<ExitCode, Box<dyn Error>> {
+    let network = tool_network(cli, confirm)?;
+    let ChainMode::Lightwalletd(url) = chain_mode(cli, network)? else {
+        return Err("payslips read the real chain: pass --lightwalletd-url".into());
+    };
+    let store = Arc::new(open_store(&cli.db, false)?);
+    ensure_campaign_network(&store, &args.campaign, network)?;
+    let seed = wallet_seed(cli.seed_file.as_deref(), false, &store)?;
+    let (source, _info) = LightwalletdSource::connect(&ChainConfig::new(url, network)).await?;
+    let complete = run_payslips(
+        &store,
+        &seed,
+        args,
+        &source,
+        Options::default().required_depth,
+        &mut std::io::stdout(),
+    )
+    .await?;
+    // Differences are not a failure of the tool: exit code 2, as for the audit.
+    Ok(if complete {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(2)
+    })
+}
+
+async fn verify_payslip(cli: &Cli, args: &VerifyPayslipArgs) -> Result<ExitCode, Box<dyn Error>> {
+    let mut stdout = std::io::stdout();
+    if let Some(tx) = &args.tx {
+        run_verify_payslip_offline(&args.payslip, tx, &mut stdout)?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let url = cli
+        .lightwalletd_url
+        .clone()
+        .ok_or(PayslipsError::NoTransaction)?;
+    let network = payslip_network(&args.payslip)?;
+    let (source, _info) = LightwalletdSource::connect(&ChainConfig::new(url, network)).await?;
+    let is_final = run_verify_payslip_on_chain(
+        &args.payslip,
+        &source,
+        Options::default().required_depth,
+        &mut stdout,
+    )
+    .await?;
+    // A payslip that verifies but is not final yet is PENDING: exit code 2.
+    Ok(if is_final {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(2)
+    })
+}
+
 async fn audit(
     cli: &Cli,
     args: &AuditArgs,
@@ -326,6 +388,8 @@ async fn run(cli: Cli) -> Result<ExitCode, Box<dyn Error>> {
         Some(Command::InitWallet) => init_wallet(&cli, confirm.as_deref()),
         Some(Command::Audit(args)) => audit(&cli, &args, confirm.as_deref()).await,
         Some(Command::ExportUfvk(args)) => export_ufvk(&cli, &args, confirm.as_deref()),
+        Some(Command::Payslips(args)) => payslips(&cli, &args, confirm.as_deref()).await,
+        Some(Command::VerifyPayslip(args)) => verify_payslip(&cli, &args).await,
         Some(Command::AuditTx(args)) => audit_tx(&cli, &args, confirm.as_deref()),
     }
 }

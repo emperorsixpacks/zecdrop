@@ -4,12 +4,18 @@
 //! |-------|---------|
 //! | `GET /v1/health` | `{"ok":true}` |
 //! | `GET /v1/receipt?...` | a [`drop_core::PublicReceipt`] computed from chain data |
+//! | `POST /v1/payslip` | checks one recipient's payslip (REQ-VER-006): a JSON body of at most 1 KiB |
 //!
 //! Stateless: nothing is stored between requests. No keys: viewing-key-shaped input
 //! is refused before anything else (REQ-VER-002). Errors and logs carry fixed text,
 //! route templates and counts; caller-supplied text is never echoed.
 //!
-//! Load limits (receipt route only; `/v1/health` bypasses them):
+//! A payslip is a bearer document that names a receiver and an amount, and whose `rseed` also
+//! opens one output's memo. It therefore travels in a POST body (never in a URL, which proxies
+//! log), is never logged or echoed, and the answer carries only what is public about the
+//! transaction (REQ-VER-006).
+//!
+//! Load limits (receipt and payslip routes, which share them; `/v1/health` bypasses them):
 //! * at most `max_concurrency` receipts are worked on at once and `max_queue` wait; any more
 //!   are refused at once with 503 `overloaded` (load shedding);
 //! * the request timeout sits OUTSIDE the limiter, so time spent waiting counts too (504);
@@ -22,11 +28,13 @@ use axum::extract::{MatchedPath, Request, State};
 use axum::http::{HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use drop_core::{Network, PublicReceipt, Txid};
+use drop_verify::payslip::NOT_PROVEN;
 use drop_verify::{
-    verify_campaign, ChainSource, FetchedTx, SourceError, VerifyConfig, VerifyError, VerifyRequest,
+    check_payslip, verify_campaign, ChainSource, CheckError, FetchedTx, Payslip, PayslipError,
+    SourceError, VerifyConfig, VerifyError, VerifyRequest,
 };
 use serde_json::json;
 use tokio::sync::Semaphore;
@@ -159,18 +167,32 @@ where
     let settings = state.settings.clone();
     let logger = state.logger.clone();
 
-    // The limiter guards the receipt route only, so health checks are never queued.
+    // The limiter guards the receipt and payslip routes (one budget for both), so health checks
+    // are never queued.
     let limiter = Limiter::new(settings.max_concurrency, settings.max_queue);
-    let receipt_route =
-        get(receipt::<S>).layer(middleware::from_fn_with_state(limiter, limit_receipts));
-    // CORS applies to the receipt route only, and only when origins are configured.
-    let receipt_route = match cors_layer(&settings.cors_origins) {
+    let receipt_route = get(receipt::<S>).layer(middleware::from_fn_with_state(
+        limiter.clone(),
+        limit_receipts,
+    ));
+    let payslip_route =
+        post(payslip::<S>).layer(middleware::from_fn_with_state(limiter, limit_receipts));
+    // CORS applies to those two routes only, and only when origins are configured.
+    let receipt_route = match cors_layer(&settings.cors_origins, &[Method::GET], &[]) {
         Some(cors) => receipt_route.layer(cors),
         None => receipt_route,
     };
+    let payslip_route = match cors_layer(
+        &settings.cors_origins,
+        &[Method::POST],
+        &[axum::http::header::CONTENT_TYPE],
+    ) {
+        Some(cors) => payslip_route.layer(cors),
+        None => payslip_route,
+    };
     let router = Router::new()
         .route("/v1/health", get(health))
-        .route("/v1/receipt", receipt_route);
+        .route("/v1/receipt", receipt_route)
+        .route("/v1/payslip", payslip_route);
 
     let header = |name: &'static str, value: &'static str| {
         SetResponseHeaderLayer::overriding(
@@ -268,7 +290,7 @@ impl<S: ChainSource + Sync> ChainSource for Budgeted<'_, S> {
     }
 }
 
-fn cors_layer(origins: &[String]) -> Option<CorsLayer> {
+fn cors_layer(origins: &[String], methods: &[Method], headers: &[HeaderName]) -> Option<CorsLayer> {
     if origins.is_empty() {
         return None;
     }
@@ -280,7 +302,8 @@ fn cors_layer(origins: &[String]) -> Option<CorsLayer> {
     Some(
         CorsLayer::new()
             .allow_origin(allow)
-            .allow_methods([Method::GET])
+            .allow_methods(methods.to_vec())
+            .allow_headers(headers.to_vec())
             .max_age(std::time::Duration::from_secs(600)),
     )
 }
@@ -382,4 +405,133 @@ where
         )),
     }
     Ok(Json(result?))
+}
+
+/// The largest payslip body accepted: a payslip is about 300 bytes.
+const MAX_PAYSLIP_BODY: usize = 1024;
+
+/// The words for a payslip that does not verify: fixed codes, not the payslip's contents.
+fn invalid_reason(error: PayslipError) -> &'static str {
+    match error {
+        PayslipError::UnsupportedVersion => "unsupported_version",
+        PayslipError::TxUnparseable => "tx_unparseable",
+        PayslipError::TxidMismatch => "txid_mismatch",
+        PayslipError::NoIronwoodBundle => "no_ironwood_outputs",
+        PayslipError::ActionOutOfRange => "no_such_action",
+        PayslipError::MalformedNote => "malformed_note",
+        PayslipError::CommitmentMismatch => "does_not_match",
+    }
+}
+
+/// `POST /v1/payslip`: runs the key-less payslip check (REQ-PAY-001) against the chain and
+/// reports the verdict, the confirmations and what a verified payslip does not prove. The
+/// request body is never logged or echoed.
+async fn payslip<S>(
+    State(state): State<Arc<VerifierState<S>>>,
+    request: Request,
+) -> Result<Json<serde_json::Value>, ApiError>
+where
+    S: ChainSource + Send + Sync + 'static,
+{
+    let bytes = axum::body::to_bytes(request.into_body(), MAX_PAYSLIP_BODY)
+        .await
+        .map_err(|_| {
+            state
+                .logger
+                .warn(format_args!("payslip refused: body too large"));
+            ApiError::new(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "payload_too_large",
+                "a payslip is at most 1 KiB",
+            )
+        })?;
+    if query::looks_like_a_viewing_key(&String::from_utf8_lossy(&bytes)) {
+        state
+            .logger
+            .warn(format_args!("viewing-key-shaped input refused"));
+        return Err(QueryError::ViewingKey.into());
+    }
+    // serde's own words would quote the body; ours do not.
+    let payslip: Payslip = serde_json::from_slice(&bytes).map_err(|_| {
+        state
+            .logger
+            .warn(format_args!("payslip refused: not a payslip"));
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_payslip",
+            "the body is not a payslip this service reads",
+        )
+    })?;
+
+    let source = match payslip.network {
+        Network::Testnet => state.sources.testnet.as_ref(),
+        Network::Mainnet => state.sources.mainnet.as_ref(),
+    }
+    .ok_or_else(|| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "network_not_configured",
+            "this verifier is not configured for that network",
+        )
+    })?;
+
+    // One lookup: the payslip's own transaction.
+    let budgeted = Budgeted::new(source, 1);
+    let required_depth = state.settings.required_depth;
+    let (verdict, reason, confirmations, actions) =
+        match check_payslip(&budgeted, &payslip, required_depth).await {
+            Ok(check) => (
+                if check.is_final {
+                    "verified"
+                } else {
+                    "pending"
+                },
+                None,
+                Some(check.confirmations),
+                Some(check.proof.ironwood_actions),
+            ),
+            Err(CheckError::NotFound) => ("not_found", None, None, None),
+            Err(CheckError::Payslip(error)) => ("invalid", Some(invalid_reason(error)), None, None),
+            Err(CheckError::Source(SourceError::Unavailable)) => {
+                state.logger.warn(format_args!(
+                    "payslip failed network={} chain unavailable",
+                    payslip.network
+                ));
+                return Err(ApiError::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "chain_unavailable",
+                    "the chain data source is unavailable; try again shortly",
+                ));
+            }
+            Err(CheckError::Source(SourceError::Inconsistent)) => {
+                return Err(ApiError::new(
+                    StatusCode::BAD_GATEWAY,
+                    "chain_inconsistent",
+                    "the chain data source returned inconsistent data",
+                ));
+            }
+            Err(CheckError::ZeroDepth) => {
+                return Err(ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "the payslip could not be checked",
+                ));
+            }
+        };
+    // Network and verdict only: nothing of the payslip.
+    state.logger.info(format_args!(
+        "payslip network={} verdict={verdict}",
+        payslip.network
+    ));
+    Ok(Json(json!({
+        "network": payslip.network,
+        "txid": payslip.txid,
+        "action": payslip.action,
+        "verdict": verdict,
+        "reason": reason,
+        "confirmations": confirmations,
+        "required_depth": required_depth,
+        "ironwood_actions": actions,
+        "not_proven": NOT_PROVEN,
+    })))
 }
