@@ -1,7 +1,11 @@
 # ZECATHON — rules, submission checklist, open questions
 
 Source: rules text and submit-form screenshot supplied by the project owner (2026-10-07).
-The official site is behind a sign-in wall; nothing here was read from it directly.
+The official site, <https://thezecathon.com/>, keeps its rules, tracks and schedule behind a sign-in wall. Its public page
+(read 2026-10-16) confirms only this: a Zcash privacy hackathon, a 30-day build, a $100,000 prize pool, 5 tracks, one account
+per project, and submissions sealed until judging. It does **not** state the track names or prizes, the deadline, the
+submission requirements, the team rules or the judging criteria, so everything below about those is still from the owner's
+screenshot and **unverified**. Re-check the deadline and the rules inside the signed-in area before submitting.
 
 ## Rules (as supplied)
 
