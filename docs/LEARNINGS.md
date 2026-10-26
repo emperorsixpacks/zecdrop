@@ -2,6 +2,43 @@
 
 Pitfalls and measured facts. Format: symptom → cause → fix → prevention. Newest first.
 
+## 2026-10-24 — The inbox's review: our own advice could strand a payment, and a restart could invite a second one
+
+- **Found** by an independent review of the branch; each claim was checked against our code and against librustzcash
+  `eb38d7a`, which zcash-devtool is built on.
+  - **Small notes.** zcash-devtool's wallet never spends a note worth 5,000 zatoshi or less (`rn.value > MARGINAL_FEE`, in
+    both of its note selections). It also refuses change under 5,000. Our planner counted such notes, and its "send N more"
+    could ask for one: a shortfall under 5,000, or the dust top-up. It also forgot that the payment it asked for is one more
+    note, whose fee that payment must cover. Three notes making 130,000 toward a 135,000 move were asked for 5,000 more:
+    never enough, and never spendable.
+  - **The short screen's QR code** asked for the whole amount again.
+  - **After a restart**, the page had no word on any inbox until its first refresh, so it showed the public address alone.
+  - **A failed refresh** turned a live inbox into "unavailable… pay the public address instead".
+  - **The ask and its QR code** stayed on screen after the payment arrived. This, the restart and the failed refresh could
+    each lead a payer who had paid to pay again.
+  - **The send-back route did not check the wallet seed.** Account numbers start again for each seed in one store, so with
+    another seed, a send-back of one payout could spend another payout's inbox. The round was already safe: it errored out,
+    and logged a warning every 20 seconds.
+  - **Smaller:**
+    - a lost wallet directory was never set up again;
+    - the log named each send-back's transaction;
+    - a send-back cut short by the page going away could leave its PCZT files behind until the next build.
+- **Fix:**
+  - The planner counts only notes over 5,000. It asks for one payment that covers its own note's fee, is worth spending,
+    and leaves no change or at least 5,000. A property test checks that whatever it asks for, once paid, makes a move
+    possible. A note received in an unmined, expired transaction stops counting, by the library's own expiry rule.
+  - The short screen's QR code asks for what is missing.
+  - After a restart, views are rebuilt from the store, as "checking" when nothing more is known. Only a failed setup reads
+    "unavailable". The ask and its QR code show only while a payment is expected.
+  - The route and the engine check the wallet seed, and the round skips another seed's payouts quietly.
+  - A lost wallet is set up again from the seed and its birthday. The log no longer names the send-back. A guard deletes
+    the scratch files however a build ends, and a confirmed send-back runs to the end even if the page goes away.
+- **Prevention:**
+  - Model the wallet's own rules (what it will spend, what change it makes) in the planner, and test the advice as a
+    property, not by example.
+  - Ask the same question of every screen state, including the moments after a restart or an error: could this lead someone
+    who has paid to pay again?
+
 ## 2026-10-24 — The shielded deposit address on public testnet: two bugs only the real run showed, and a link we published
 
 - **Observed (live, `testnet.zec.rocks:443`):** the 8-person demo payout `c-6207fac6674f` was funded through its inbox with

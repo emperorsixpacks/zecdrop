@@ -54,7 +54,8 @@ and on the mock chain.
    `--inbox-poll-secs 20` and `--inbox-move-delay 60..600`, the defaults). It refuses a zcash-devtool without the patch.
 3. **Create the campaign** as in step 3. Within a minute *Is it funded?* shows the payout's own shielded address and asks for the
    funding plus the move's fee: 545,000 + 15,000 = 560,000 zat for the demo CSV.
-4. **Pay it from a shielded wallet** that can send Ironwood on current testnet, in one payment or several. Released wallets
+4. **Pay it from a shielded wallet** that can send Ironwood on current testnet, in one payment or several, each of more than
+   5,000 zat (zcash-devtool never spends a smaller note, so it could never be moved or sent back). Released wallets
    probably cannot sync testnet; we used a zcash-devtool wallet of our own (the same build), funded once from another testnet
    wallet, paying with `pczt create --ironwood-only …`, `prove`, `sign`, `combine` and `send`.
 5. **Wait.** The screen counts the payment's confirmations to 10, says when the move is due (a random 1 to 10 minutes later),
@@ -85,4 +86,6 @@ What ran:
   stored bytes; it never rebuilds the transaction.
 - The audit and key-export commands print no key. The store, the seed file and the registry are mode 0600.
 - The shielded deposit addresses' wallets live under `<state-dir>/inbox/` (0700 directories). Their databases hold the inboxes'
-  viewing keys, notes and amounts **unencrypted**: never paste or share them.
+  viewing keys, notes and amounts **unencrypted**: never paste or share them. A wallet directory that is lost is set up again
+  from the seed, scanning from the height it was first set up at; a damaged one must be removed by hand first (stop the
+  operator, delete that one directory, start it again).
