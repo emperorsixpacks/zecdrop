@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "near_rejected",
+    "message": "NEAR Intents refused the request (HTTP 400)"
+  }
+}

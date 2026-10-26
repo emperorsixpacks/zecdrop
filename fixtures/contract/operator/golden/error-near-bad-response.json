@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "near_bad_response",
+    "message": "NEAR Intents answered with something this operator cannot use"
+  }
+}

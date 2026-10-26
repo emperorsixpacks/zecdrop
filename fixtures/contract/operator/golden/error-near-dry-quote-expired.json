@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "dry_quote_expired",
+    "message": "the dry quote is too old; ask for a new one"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "campaign_funded": false,
+  "deposit_address": "docs-example-deposit-address.near",
+  "expired": false,
+  "message": "NEAR Intents reports the ZEC delivered. That is a claim, not funding: the campaign is funded only when the deposit shows on the Zcash chain at the required depth.",
+  "status": "success",
+  "step": "verify_on_chain",
+  "valid_until": "2026-10-08T06:00:00Z",
+  "zec_txids": [
+    "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+  ]
+}

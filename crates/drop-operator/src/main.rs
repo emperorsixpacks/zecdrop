@@ -25,6 +25,7 @@ use drop_operator::config::{
 use drop_operator::crypto::KdfParams;
 use drop_operator::logging::Logger;
 use drop_operator::mock::{MockBackend, MockChain};
+use drop_operator::near::{NearGateway, NearParts, SystemClock};
 use drop_operator::real::{LightwalletdConnector, ZcashBackend};
 use drop_operator::secret::SecretSeed;
 use drop_operator::seedfile::read_seed_file;
@@ -210,6 +211,18 @@ async fn audit(
     })
 }
 
+/// The NEAR Intents client. The API key comes from the environment only, and is taken out of it
+/// as soon as it is read.
+fn near_gateway(base_url: Option<&str>) -> Arc<dyn NearGateway> {
+    let jwt = drop_near::Jwt::from_env();
+    std::env::remove_var(drop_near::client::JWT_ENV_VAR);
+    let mut client = drop_near::OneClick::new(drop_near::UreqClient::default(), jwt);
+    if let Some(url) = base_url {
+        client = client.with_base_url(url);
+    }
+    Arc::new(client)
+}
+
 async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box<dyn Error>> {
     let config = Config::from_cli(cli, confirm)?;
     let store = Arc::new(open_store(&config.db, true)?);
@@ -261,6 +274,11 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
             poll_interval: config.poll_interval,
             crash_after_steps: config.crash_after_steps,
             ..Options::default()
+        },
+        near: NearParts {
+            gateway: near_gateway(config.near_base_url.as_deref()),
+            clock: Arc::new(SystemClock),
+            allow_mainnet: config.allow_mainnet,
         },
     });
 

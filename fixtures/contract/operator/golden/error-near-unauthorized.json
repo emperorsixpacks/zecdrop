@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "near_unauthorized",
+    "message": "NEAR Intents rejected the credentials; check the NEAR_INTENTS_JWT the operator was started with"
+  }
+}

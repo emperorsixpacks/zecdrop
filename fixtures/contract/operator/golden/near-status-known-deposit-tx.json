@@ -1,0 +1,10 @@
+{
+  "campaign_funded": false,
+  "deposit_address": "docs-example-deposit-address.near",
+  "expired": false,
+  "message": "The deposit is seen or the swap is running; waiting for it to finish.",
+  "status": "known_deposit_tx",
+  "step": "await_swap",
+  "valid_until": "2026-10-08T06:00:00Z",
+  "zec_txids": []
+}

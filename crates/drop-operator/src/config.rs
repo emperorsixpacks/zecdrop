@@ -82,6 +82,12 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub lightwalletd_url: Option<String>,
 
+    /// Base URL of the NEAR Intents 1Click API, for funding a campaign from other assets
+    /// (default `https://1click.chaindefuser.com`). The API key, if you have one, is read from
+    /// the environment variable `NEAR_INTENTS_JWT`, never from an argument. Mainnet only.
+    #[arg(long, global = true)]
+    pub near_base_url: Option<String>,
+
     /// Where the account registry is kept (default: `$ZECDROP_STATE_DIR`, else `~/.zecdrop`).
     /// It must outlive the store file: it is what stops a new store from giving a new campaign
     /// the account, funding address and viewing key of an old one.
@@ -248,6 +254,10 @@ pub struct Config {
     pub seed_file: Option<PathBuf>,
     /// The `--state-dir` flag, if given (see [`resolve_state_dir`]).
     pub state_dir: Option<PathBuf>,
+    /// The NEAR Intents API base URL, if not the default.
+    pub near_base_url: Option<String>,
+    /// Whether `--allow-mainnet` was given (a real NEAR swap is mainnet money).
+    pub allow_mainnet: bool,
     /// Pause between looks at unfunded campaigns' funding addresses.
     pub funding_poll_interval: Duration,
     /// Confirmation depth at which a batch is final.
@@ -366,6 +376,15 @@ impl Config {
             return Err(ConfigError::MockOnMainnet);
         }
         let chain = chain_mode(&cli, network)?;
+        let near_base_url = match &cli.near_base_url {
+            Some(url) => {
+                drop_chain::ChainConfig::new(url.clone(), Network::Testnet)
+                    .uri()
+                    .map_err(|_| ConfigError::BadNearUrl)?;
+                Some(url.clone())
+            }
+            None => None,
+        };
         if cli.funding_poll_secs == 0 {
             return Err(ConfigError::BadOption(
                 "--funding-poll-secs must be at least 1",
@@ -390,6 +409,8 @@ impl Config {
             chain,
             seed_file: cli.seed_file,
             state_dir: cli.state_dir,
+            near_base_url,
+            allow_mainnet: cli.allow_mainnet,
             funding_poll_interval: Duration::from_secs(cli.funding_poll_secs),
             required_depth: cli.required_depth,
             mock: MockConfig {

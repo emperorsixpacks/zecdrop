@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalid_refund_address",
+    "message": "the refund address must be an address on the origin chain: letters, digits and . - _ : + only"
+  }
+}

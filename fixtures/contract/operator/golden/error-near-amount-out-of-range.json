@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "amount_out_of_range",
+    "message": "amount_zat must be a whole number of zatoshi, above zero and no more than the total supply"
+  }
+}

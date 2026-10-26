@@ -50,7 +50,7 @@ live network yet except read-only calls.
 | Operator (`drop-operator`): local API, encrypted store, mock chain and real-chain mode | built; **ran the full 8-recipient demo on public testnet** (create, detect funding, prove, broadcast, 3 confirmations, settled in about 2 minutes; txid `6e2359182d1d…`) |
 | Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds; the page shows demo data until a real receipt exists |
 | Local audit command | built; reconciled the real 8-recipient campaign (8 of 8 outputs, total equals the public figure, salted commitment recomputed equals the receipt's) |
-| NEAR Intents funding | library only (dry quotes); not wired into the operator; mainnet-only |
+| NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |
 | Security review | one independent review done; fixes in progress ([`docs/SECURITY.md`](docs/SECURITY.md)) |
 
 Known limits: campaigns larger than one batch need a funding-split step that is not built; released wallets probably

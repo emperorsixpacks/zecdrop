@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "dry_quote_stale",
+    "message": "the campaign changed since the dry quote; ask for a new one"
+  }
+}
