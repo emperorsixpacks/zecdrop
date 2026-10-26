@@ -11,6 +11,7 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 | Campaign UFVK | Given to the auditor out of band | Never sent to a hosted service (REQ-VER-002); audit runs locally (REQ-AUD-001) |
 | NEAR 1Click JWT | Operator env var | Never committed, never sent to the browser |
 | Salt for the manifest commitment | Operator store | 32 bytes from OS randomness |
+| The launcher's folder (`./zecdrop up`, testnet) | `~/.zecdrop-app` (or `$ZECDROP_HOME`), 0700, on the payer's computer | Holds the encrypted store and the store's random passphrase in `env` (0600), which reaches Docker with `--env-file`, never on a command line; the container runs as the user, so the files stay theirs (REQ-RUN-001) |
 | Shielded deposit address wallets (testnet, `--zcash-devtool`) | One zcash-devtool wallet per payout under `<state-dir>/inbox/` | Its phrase and the identity it is encrypted to are derived from the operator's seed and reach zcash-devtool on stdin (the identity, for `init` alone, in a 0600 file deleted at once). Its wallet database (the inbox's viewing keys, notes and amounts) is **not encrypted**: each wallet directory is 0700, and the PCZT files a transaction is built from are deleted after use and at start-up (REQ-FUND-005, REQ-PRIV-004) |
 
 ## Actors and what they can do
@@ -40,11 +41,16 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 - **zcash-devtool changes or misbehaves:** built from a pinned upstream commit with ZecDrop's own patch, refused at start-up
   without the patch's flags, run with a timeout and bounded output, its output never put in a log or an error; its wallet
   database is only ever read, read-only.
+- **The operator reached from elsewhere when it runs in Docker:** inside the container it listens on the container's own network
+  only when told it runs there (`--container`), which it refuses outside testnet; `./zecdrop` publishes the port on the
+  computer's loopback address only (`-p 127.0.0.1:…`, checked by `crates/drop-operator/tests/launcher.rs`), and the Host-header
+  check and the per-run token are unchanged, so a page from another site still gets 421 and a request without the token 401
+  (REQ-OPS-002, REQ-RUN-001). The launcher never runs on mainnet.
 - **Secrets in git:** `.gitignore` blocks seeds and `.env`; pre-flip history scan (see `HACKATHON.md`).
 - **Hosted operator sandbox: NOT BUILT.** An earlier draft promised a hosted sandbox operator with a throwaway key and
   a spend cap. Neither exists. A hosted operator would also need a reverse proxy, which undoes the loopback-only and
   Host-header protections. The judged demo is the hosted key-less verifier plus a recorded local run; any hosted
-  operator needs its own design first.
+  operator needs its own design first. A payout is made on the payer's own computer instead: `./zecdrop up`.
 
 ## Open items
 

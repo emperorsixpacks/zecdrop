@@ -1,6 +1,6 @@
 # Submission description (draft)
 
-**Status: DRAFT, refreshed 2026-10-24.** The shielded deposit address ran on public testnet on 2026-10-24 (below). The first testnet run was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-24 on the branch that adds the shielded deposit address (`feat/shielded-inbox`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
+**Status: DRAFT, refreshed 2026-10-25.** One command, `./zecdrop up`, now runs the operator on your own computer, and a real payout ran through it on 2026-10-25; practice mode is gone. The shielded deposit address ran on public testnet on 2026-10-24 (below). The first testnet run was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-24 on the branch that adds the shielded deposit address (`feat/shielded-inbox`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
 
 ## One-line
 
@@ -13,8 +13,8 @@ ZecDrop pays many people in one shielded Zcash transaction, then gives each part
 the total, the fee and the count from chain data, with a verifier that holds no key, and can see whether the deposit came
 out of the shielded pool. Each person paid can prove their own payout with a payslip, and nobody else's. An auditor you
 choose gets that payout's viewing key and reconciles the whole list. A payer can fund it from a shielded wallet through the
-payout's own shielded address. Only the payer's own computer holds the keys. Built in Rust on librustzcash with a React
-interface; runs end to end on public testnet.
+payout's own shielded address. Only the payer's own computer holds the keys: one command, `./zecdrop up`, runs ZecDrop there.
+Built in Rust on librustzcash with a React interface; runs end to end on public testnet.
 
 ## Long
 
@@ -92,10 +92,10 @@ made for a phone first. A recipient who has never used Zcash opens the site's "g
 it names one wallet, says which address to copy, checks the shape of the address in the browser (the shape only) and offers to
 share it; it makes no request and stores nothing. The operator shows each deposit as a QR code holding the funding address and
 the exact amount, for a phone wallet to scan. A payslip can be sent as a link or a QR code; the payslip sits after the link's `#`,
-which a browser never sends to a server. Anyone can press "Try a personal payout" or "Try an organisation payout" on the site and run the operator's own screens
-against a simulation inside the page: nothing is sent anywhere, every screen says it is a simulation, and nothing in it is
-evidence about any chain. The menu is one capsule at the top of the screen, and it always shows the network: quiet on testnet,
-loud on mainnet, marked in practice mode. Checked in Chromium at phone width, down to 320 pixels, in light and dark; not yet tried
+which a browser never sends to a server. Anyone with Docker can make a real payout: `./zecdrop up` builds ZecDrop, starts it on
+testnet on their own computer (published on its loopback address only, with its data in a folder only they can read) and opens it
+in the browser, where the example list and the free testnet faucet are one press away; the site's *Make a payout* page gives the
+command. The menu is one capsule at the top of the screen, and it always shows the network: quiet on testnet, loud on mainnet. Checked in Chromium at phone width, down to 320 pixels, in light and dark; not yet tried
 with a physical phone's camera, a real share sheet, a real wallet or a screen reader.
 
 **Scale.** One batch carries up to 330 payouts. Creating the transaction for 330 payouts, including the zero-knowledge proof that
@@ -112,7 +112,7 @@ viewing keys, notes and amounts) is protected by file permissions, not encrypted
 verifier runs on a single teammate's server, so live receipt links and hosted payslip checks depend on that server and on the
 public testnet node it reads; the same verifier is in the repository and runs from one Docker command.
 
-**Links.** Repository: [url]. Demo: <https://zecdrop-site.vercel.app> (the public site: receipts, payslips, the get-paid page and practice mode; [this link](https://zecdrop-site.vercel.app/r/real-8?network=testnet&tx=6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955&commitment=698ec02d7e72ec60a11f5a6e176288bf4a27e86304dfe75330bfb82051b976f8&declared_total=500000) checks the
+**Links.** Repository: [url]. Demo: <https://zecdrop-site.vercel.app> (the public site: receipts, payslips, the get-paid page and the command that runs ZecDrop; [this link](https://zecdrop-site.vercel.app/r/real-8?network=testnet&tx=6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955&commitment=698ec02d7e72ec60a11f5a6e176288bf4a27e86304dfe75330bfb82051b976f8&declared_total=500000) checks the
 real 8-recipient run live). Video: [url].
 
 **Build window.** All code in this repository was written during the ZECATHON build window; third-party

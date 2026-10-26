@@ -18,6 +18,12 @@ highlighted behind text anywhere: a revealed address, amount or memo in the lens
 person revealed takes the neutral tint of a row, and the home page's three public figures are plain. The marker yellow stays where it
 is not on the writing: the action in the dark set, the focus ring, the capsule's *Mainnet* chip and current page.
 
+Owner feedback (2026-10-25): ZecDrop "feels more like just a demo than an actual product": nowhere could a person make a real
+payout, and the landing page's text was overwhelming ("we want it to be simple like ferry"). Answered by the openspec change
+`run-it-yourself`: practice mode and the tour are gone; the home page says what ZecDrop does in under 400 words (it had about
+1,260); and every "Make a payout" leads to `/start`, which gives the one command that runs the real operator on your own computer
+(below, "Home" and "Make a payout"). The identity is unchanged.
+
 Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
 default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
 operator screens inherit the tokens and get their own pass after. The structure, flow, copy rules and tests below are unchanged.
@@ -109,7 +115,7 @@ face, *Amount* with its unit, *Note they'll see*, *Remove* on the right) and *Ad
 split* and show each share in the row; one line under the total says what the split means (equal shares can be worked out from the
 total; random ones cannot), and *Lucky* has *Shuffle again*. A field's problem shows once it is left, every problem on Continue
 ("3 problems to fix.", which takes the focus), and the operator's own sentence for a line sits on the person of that line; an
-address that looks wrong for the network is a hint in ink, not a problem. Practice mode puts *Use the example list* above it. A
+address that looks wrong for the network is a hint in ink, not a problem. On testnet *Use the example list* is above it. A
 file is the organisation view's: the drop zone ("Drop a CSV here", choose a file, or paste it); an imported list shows as a ruled table (address short, amount, memo) with per-row problems inline ("Line 4: amount
 has too many decimals") and *Use a different list* goes back to the people. Errors never echo an address. Name field ("Name this
 payout run", optional default "Payout, 8 Oct"). A closed "Options" disclosure holds fee level and payouts per batch with good
@@ -124,7 +130,7 @@ same wallet link (REQ-FUND-003; see "QR codes") and a live "Waiting for funds" p
 moment the operator sees it. Under the amount, one ask with a "?": **Pay from your shielded balance**, and why (REQ-FUND-004).
 Once a deposit is seen, at any depth, one line says what it spent: a calm "From the shielded pool: the deposit names no address
 of yours. Its amount and time are public." or a warning box (never an error) that it came from transparent funds, with "You
-can still send". On the mock chain and in practice mode the pretend deposit has a *Paid from* choice (shielded by default) and
+can still send". On the mock chain the pretend deposit has a *Paid from* choice (shielded by default) and
 the line says "(pretend)". Then **Send 8 payouts**, which opens a confirm sheet ("This sends 8 payouts, 0.005 TAZ plus
 0.00045 fee. It cannot be undone."). After confirming, the sheet becomes a live timeline: Preparing, Proving, Sending,
 Confirming 1 / 2 / 3, Done, with elapsed time and a realistic estimate; failures say what happened and what to do. On
@@ -158,51 +164,44 @@ technology, no text) and the drop zone as the call to action. The same bars and 
 of the audit page; a payout with no batches says "No batches yet" and when they appear. Non-empty: ruled rows (name, people,
 total, status dot, time), whole row clickable, "New payout" the round action at the end of the header capsule.
 
-**Mock-chain line**: a slim hatched pill on a quiet line of its own directly under the header capsule ("Practice mode: nothing
+**Mock-chain line**: a slim hatched pill on a quiet line of its own directly under the header capsule ("Fake chain: nothing
 is sent to Zcash"), in the page's flow, not a full-width bar that can overlap content (it overlapped the stepper and the title
-in screenshots). It is a `role="status"`, as is "Chain mode unknown: practice controls hidden" beside it.
+in screenshots). It is a `role="status"`, as is "Chain mode unknown: fake-chain controls hidden" beside it.
 
 ## Public pages
 
-**Home** is the landing page (owner, 2026-10-20; restructured 2026-10-23 around one idea, *one payout, four views*: the same
-payout as everyone, one person paid, an auditor and the payer see it). In order:
+**Home** is the landing page (owner, 2026-10-20; restructured 2026-10-23 around *one payout, four views*; cut to under 400 words
+on 2026-10-25, as short as Ferry's, which has about 480). Six parts, each a short headline, a line or two and a button or a
+picture. In order:
 
 1. **The headline and the sheet**, side by side on a wide screen so the first look is seen without a scroll (stacked on a phone).
-   Left: "Pay many people. Keep who got what private. Prove the total." in the big grotesque pushed further (weight 800, width
-   72%, up to 92px); under it the three promises, one line each ("Anyone can check the total." / "Each person can prove their
-   own payout." / "Only the auditor you choose sees the list."); two buttons (*See a real receipt*, filled; *Try a practice
-   payout*, outline); two text links (*How privacy works*, *Being paid? Start here*); and the testnet status in one small muted
-   line, said once on the first screen but not as the lead. Right: the one white sheet, *One payout, four views*, with the real
-   transaction's short id, the count, total and fee in plain ink, and the lens on the real 8-payout sample list (Person 1..8)
-   with a four-way switch under the list: *Everyone*, *One person*, *Auditor*, *You*. The auditor and the payer both see every
-   row; the caption read out under the switch says how (this payout's viewing key; the payer's own computer). The switch is under
-   the list so the tab order runs down the page (`e2e/keyboard.spec.ts` holds it). Four do not fit in one row on a phone, so below
-   `sm` they sit two by two (a grid with a pill's corner, at most 22rem wide, not as wide as the caption), and the pill follows a
-   choice down to the second row (`e2e/responsive.spec.ts` holds both).
+   Left: "Pay many people. Keep it private. Prove the total." in the big grotesque pushed further (weight 800, width 72%, up to
+   84px); one sentence under it ("One Zcash transaction pays everyone on your list. The amounts stay private, and anyone can check
+   the total."); two buttons (*Make a payout*, filled; *See a real receipt*, outline); and one small muted line, "On Zcash
+   testnet. Your keys stay on your computer." Right: the one white sheet, *One payout, four views*, with the real transaction's
+   short id, the count, total and fee in plain ink, and the lens on the real 8-payout sample list (Person 1..8) with a four-way
+   switch under the list: *Everyone*, *One person*, *Auditor*, *You*. The caption read out under the switch says what each sees
+   and how. The switch is under the list so the tab order runs down the page (`e2e/keyboard.spec.ts` holds it). Four do not fit in
+   one row on a phone, so below `sm` they sit two by two, and the pill follows a choice down to the second row
+   (`e2e/responsive.spec.ts` holds both).
 2. **The first look** (Lively, once a visit): the sixteen bars wipe in row after row over cells that never held any text,
    while the total counts up; about a second, then still. In Calm, under reduced motion and on a return to the page it is not
-   played. It is the page's one unprompted motion; nothing else on the page moves by itself.
-3. **The band, *Who sees what***: the redaction bar itself across the whole screen (the header capsule's fill and ink), "One
-   transaction pays everyone. What each person sees depends on what they hold.", then the four views in very large type, each
-   with what it sees and, in the muted ink, how it is opened: *Everyone* (the receipt link, no key), *One person* (their
-   payslip), *An auditor* (this payout's viewing key, nothing from other payouts), *You* (your own computer, where the keys stay).
-4. **How it compares**: a public list (an airdrop on a public chain), a private wallet (paying from a shielded wallet) and
-   ZecDrop, answered question by question in plain words: anyone can check the total; who got what stays private; one person can
-   prove their own payout; an auditor can check the list; the payer's address stays off the chain (only if they pay from a
-   shielded balance, and said so). A table on a slip from `md` up, the
-   ZecDrop column set off by an ink rule and semibold; on a phone one slip per question with the three answers, so nothing is
-   wider than the screen.
+   played. It is the page's one unprompted motion.
+3. **Three points**, each a ruled line, a short title and one line: up to 330 people in one transaction; a receipt anyone can
+   check; your keys stay with you (no account, no wallet to connect).
+4. **How it works**: three numbered steps (it is a sequence): *Start ZecDrop* (one command, with `./zecdrop up` under it in
+   mono), *Add people and fund it*, *Send and share*; then *Make a payout*.
 5. **It ran on public testnet**: three short lines and *Open the receipt*, beside the real run printed as a till receipt (the
    torn sheet, mono, dotted leaders, tilted a degree on a wide screen): payouts, transaction, total, fee, block, time to settle;
    then the limits measured offline (330 in one transaction, 142 s to prove it, 0.52 s to check it); ending "No mainnet payout
    yet." Every figure is the real receipt's or is named in `src/features/home/run-facts.ts` with its source.
-6. **Who it's for**: two slips, *Personal* and *Organisation*, each with three uses as ruled lines, one line on how it works,
-   and its own button into practice mode in that view.
-7. **How to run a payout** (the four steps; the third says to pay from your shielded balance), then **For the people you pay**
-   (the get-paid page and payslips, one line each), then the tour, and last **Try it yourself** on a slip (the button beside
-   the text on a wide screen).
+6. **Being paid?** with two links (*Share your address*, *Check a payslip*), and last a slip: "Make your first private
+   payout." with *Make a payout* and *How privacy works*.
 
-No paragraph is longer than a short sentence (a test holds them to 16 words), and no part claims more than the status line.
+Cut on 2026-10-25, with the tests that pinned them: the band *Who sees what* (the sheet's switch says it), *How it compares*,
+the two doors (*Personal* and *Organisation* are the switch on the payout screen), the tour and *Try it yourself*. No paragraph
+is longer than two short sentences (a test holds them to 20 words), the page stays under 400 words (`HomePage.test.tsx` counts
+every word it draws), and no part claims more than the status line.
 
 **Receipt.** One white **sheet** with an ink rule on top and a torn bottom edge (`.receipt-sheet`, a mask). On the left a
 verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), then what the verifier found, then the funds flow as three
@@ -244,7 +243,7 @@ newer supports the shielded pool that payouts use"), has the one link out, and k
 have not been checked, and what happens in a wallet that cannot receive in the current pool) behind one closed row, *More about wallets*,
 as the copy rules below ask of a long explanation. Step 2 says where to find the u1 address and gives the other kinds a wallet may show as
 three short rows (how it starts, what to do about it: `utest1`, `t1 or t3`, `zs1`). Step 3 is the box: a line that says the check is of
-shape only, the result as a ruled note (the ink rule for a real-money address, the marker's rule for a practice, Sapling or unrecognised
+shape only, the result as a ruled note (the ink rule for a real-money address, the marker's rule for a testnet, Sapling or unrecognised
 one, the bad colour for the one that would publish every payment), Share and Copy, and the line that says when they turn on. Share is the
 main button where the phone has a share sheet, Copy where it has none. There is no picture, no third-party font and no link out but the
 wallet's.
@@ -260,42 +259,28 @@ up beside the address it belongs to, and below that behind a button, because a p
 is a whole number of pixels (five for the funding code, four for the longer payslip link); on a phone the code fills its box.
 Until the library is loaded a dashed square in its place says the code is being made, and a code that cannot be made says so.
 
-## Practice mode
+## Make a payout (`/start`)
 
-The operator's own screens against a simulation in the page, so that anyone can try a whole payout on a phone (REQ-DEMO-001). The
-design rule is that it can never be taken for a real payout, and that nothing about it is quiet:
+The public site cannot make a payout, because the keys stay on the payer's own computer, so it says where a payout is made and
+how, in under 120 words: *Make a payout*, one line on why it runs on your own computer, *You need Docker* (with the first start's
+build time), *Then run* (the three commands on a slip, mono, with *Copy the commands*), *ZecDrop opens in your browser* (three
+numbered steps: the people or the example list, the funding with the testnet faucet's link, send and share), and one quiet line,
+"Testnet only for now. Stop it with ./zecdrop down." The commands scroll sideways on a phone rather than wrap (a wrapped URL would
+read as two commands), so the box takes the focus and is named. It is linked from the hero, *How it works*, the closing slip, the
+menu (first) and the footer, and every operator page a public copy cannot serve says "Payouts are made on your own computer" with
+the same button. On the operator's own page, which is ZecDrop running on that computer, the same words lead to its payouts, and
+the link the operator prints opens on them.
 
-- **The banner**, at the very top of every screen, above the header, in the page's frame, so that no screen can be drawn without it.
-  A full-width band with the faint diagonal hatching that already means "not real" (the practice chain's pill), a hairline under it,
-  the sentence in one paragraph in the body size ("Practice mode: everything here is simulated in your browser. No real money,
-  nothing is sent anywhere, nothing is saved. Reloading starts over.") and one outline button, *Leave practice mode*, beside it on a wide screen and
-  under it on a phone. It is not dismissed, collapsed or shortened, and it is a labelled region of its own, so a screen reader finds
-  it. It is not sticky (the header capsule is, and it sits below the banner, which scrolls away while the capsule stays), and on a
-  phone it is three lines and a button.
-- **The header** names no network: a hatched outline chip, *Practice*, stands on the capsule where "testnet" or "Mainnet" would
-  be, on every screen and without opening anything; the open panel says "Practice, nothing is real" where it would say "Zcash
-  testnet". The operator's practice-chain line is not shown beside it: one statement is enough.
-- **Amounts** are TAZ, as on any testnet page, and no practice screen says ZEC.
-- **Ids.** A simulated id begins with the ASCII of "practice" in hex, and where a real id has an *Explorer* link a practice id says
-  "Practice id: on no chain, so no explorer". The receipt's heading line says "Practice id:" before the campaign's id, and a quiet note
-  (the information notice, a rule on the left) says in two sentences that this receipt was made in the page from the simulated payout
-  and that no explorer can find its ids. The funding address says a practice payout has none, instead of "unknown to the verifier".
-- **The example list** is the main button of the drop zone, before *Choose a file* and *or paste it*, on the payouts screen and on the
-  empty payouts list. The list is the repository's own public sample (the one the home page's lens shows).
-- **The operator's own sentences** that would be untrue of a pretended run say so, and only in practice mode: the timeline's
-  "Sending to the network." is "Pretending to send: nothing leaves your browser.", its "Waiting for the next block." is "(simulated)", the
-  activity log's "sent to the network" is "pretend-sent (practice)", and the send sheet's "It cannot be undone." is "In a real run this
-  cannot be undone." (above its own line, "Practice mode: nothing is sent anywhere. This only simulates it.", because the sheet covers
-  the banner on a phone that has scrolled). Off, they are the operator's words.
-- **Where it does not apply**, it says so: a payslip and a receipt link that practice mode did not make get a calm notice
-  (*Practice mode does not check payslips*, *Practice mode does not read the chain*), as a verifier that cannot be asked would give.
+On testnet the operator's screens help a first payout through: *Use the example list* is the main button of the drop zone and of
+the empty payouts list, with a line under it, "Eight testnet addresses of ZecDrop's own test wallet, ready to send."; the funding
+screen says "No test coins? The testnet faucet pays this address for free." Neither is on mainnet.
 
 ## No wallet to connect
 
 ZecDrop has no "connect wallet" button on purpose: the operator on the person's own computer holds the keys (ADR 0002), and the
 hosted site only views and checks receipts. Two things make that clear and easy, neither of which touches the key rules:
 
-- The home page has a four-step "How to run a payout" that says so in one sentence.
+- The home page's points say it in one line: "No account, no wallet to connect."
 - The funding step has **Open in wallet**: a `zcash:<address>?amount=<ZEC>` link (ZIP-321, `src/lib/payment-uri.ts`) that opens
   a wallet app with the address and amount filled in. It carries no memo and nothing about the payout, it is not shown if the
   address or amount fails its check, and the page says what to do when no wallet app handles the link (copy the address). Whether
@@ -362,7 +347,7 @@ one place, and everything around it stays quiet: a solid shape, no blur, no grad
   How privacy works; on the operator's side Payouts, New payout, Payout, Audit; the site's own name on a page that has none (said
   once), and on a hosted copy for an operator address, which shows a notice and not the page (`src/lib/page-name.ts`). The network is
   on the capsule at all times, so the thing that most needs to be known is never behind a press: quiet text *testnet*, a
-  marker-yellow chip *Mainnet*, a hatched chip *Practice*. Below 24rem the word ZecDrop gives way first and stays in the button's
+  marker-yellow chip *Mainnet*. Below 24rem the word ZecDrop gives way first and stays in the button's
   name; "How privacy works", the longest name, fits whole from 320px up. The chevron is the one addition to the brief's list: a black
   pill that does not look pressable is not found.
 - **Open** (a press, Enter or Space) it morphs in about 350ms (`cubic-bezier(0.32, 0.72, 0, 1)`) into a panel up to 34rem wide with a
@@ -378,14 +363,13 @@ one place, and everything around it stays quiet: a solid shape, no blur, no grad
   asks the browser's own accessibility tree). The skip link is still the first stop; the capsule is the second.
 - **The operator's side.** "New payout" must stay one press away, and a link cannot sit inside a button, so it is a round action at the
   end of the capsule (a pill with its words from 40rem up): filled with the capsule's ink on the payouts page, where starting one is
-  the point, a quiet outline elsewhere, and not drawn while paying. The two `role="status"` lines (practice chain, chain mode
+  the point, a quiet outline elsewhere, and not drawn while paying. The two `role="status"` lines (fake chain, chain mode
   unknown) are on a quiet line of their own directly under the capsule, in the page's flow.
-- **Where it sits.** `position: sticky` below the practice banner (which scrolls away; the capsule stays), half a rem under the
+- **Where it sits.** `position: sticky`, half a rem under the
   screen's bezel (14px on a phone, 16px from 40rem up; or the safe-area inset, should a page ever draw under a notch), so that it sits like
   a notch in the curved screen, opaque while the page scrolls under it, above the page's own raised parts and below dialogs, the popover and the
   toaster, and not printed. Its strip is as tall as the closed capsule and lets presses through around it. `html` has a
-  `scroll-padding-top` so that a heading the skip link scrolls to, or a control that is tabbed to, does not end up under it, and the
-  tour's sticky column sticks below it.
+  `scroll-padding-top` so that a heading the skip link scrolls to, or a control that is tabbed to, does not end up under it.
 - **Motion.** The only motion is the morph, and only while the visitor is opening or closing it: a width from the capsule's own to the
   panel's (measured in pixels, because a width of `fit-content` cannot be animated), the panel's row growing from nothing, the
   radius from 22px to 28px, the contents fading in a row after the other and out at once. The transitions are on only for a moment
@@ -414,10 +398,10 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   (`inset: var(--bezel-w); border-radius: var(--screen-r); box-shadow: 0 0 0 100vmax var(--bezel)`), 6px wide on a phone and 8px from 40rem up.
   The window keeps scrolling (it is not a scroll container), so the browser's own chrome, scroll restoration and anchors behave as before.
   The bezel is `--p-bezel`: ink (`#0b0b0b`) in the light set, pure black in the dark one, where a hairline of the ink (`--bezel-edge`) on the
-  curve keeps the shape from vanishing. It is above the page and the practice banner (`z-index` 30), below the capsule (40), the popovers
+  curve keeps the shape from vanishing. It is above the page (`z-index` 30), below the capsule (40), the popovers
   (50) and the toast (60), and the browser's top layer draws the dialogs above it. It is not printed and not drawn in forced colours.
 - **Nothing is clipped by the curves.** A box's corner is inside the screen only if it is at least `--frame-pad` (the bezel plus 0.3 of the
-  radius) from both edges, so the skip link, the practice banner and the page's own padding keep to it, and `e2e/screen.spec.ts` checks it with
+  radius) from both edges, so the skip link and the page's own padding keep to it, and `e2e/screen.spec.ts` checks it with
   real boxes: at 360, 390, 768 and 1280px, on every public page, the top corners at the top and the bottom corners at the end of the page,
   every focusable element and every line of text (a rounded box by the middle of its arc) is inside the rounded screen. The confirm sheet on
   a phone sits a bezel's width in from the edges and its bottom corners take the screen's radius.
@@ -447,17 +431,18 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   browser until the router has put the new page on the screen (`ViewTransitionGate`). Back and forward, and a redirect, change the page as
   they always did; so does a browser without the API, and nothing is asked of the API under "reduce motion".
 - **A page opened by a link starts at its top.** The declarative router does not reset the scroll, so a link at the foot of a page used to open
-  the next page at the same depth, with its heading far above the window (and, on the practice payout, under the capsule). `ScrollToTop` goes to
+  the next page at the same depth, with its heading far above the window (and, on a payout's stages, under the capsule). `ScrollToTop` goes to
   the top when the path changes by a push or a replace; going back or forward, and a change of the address that leaves the path alone (a choice
   in the query, a hash), move nothing. It runs in the commit that shows the new page, so the cross-fade's picture of it is taken at the top.
 - **Narrow screens.** Nothing is wider than the screen from 320px up (the width WCAG 2.2, 1.4.10 Reflow, names; it is also what a desktop window
-  is at 400% zoom). `e2e/responsive.spec.ts` asks it of every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px, and of every screen of
-  the practice payout, the operator's screens, at 320x568, in landscape at 667x375, and at 768x1024: no sideways scroll, no box wider than the
+  is at 400% zoom). `e2e/responsive.spec.ts` asks it of every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px, and
+  `e2e/operator/responsive.spec.ts` of every screen of a whole payout, the operator's screens, at 320x568, in landscape at 667x375, and at
+  768x1024: no sideways scroll, no box wider than the
   screen unless it sits inside one that scrolls or hides its own overflow, the capsule whole and inside the screen, the confirm sheet inside its
   window or scrolling, and its buttons within reach. The operator's own pages, against the real operator, are walked at 320px as well as at 360
   and 1280px by `e2e/operator/a11y.spec.ts` (every page and state it names, in both themes: overflow, console and axe). What it found: the home
-  page scrolled sideways below 357px, because the practice button's long label could not wrap; it wraps now and the button grows to fit it
-  (`PracticeStart.tsx`). What it does not cover: below 320px (at 300px
+  page scrolled sideways below 357px, because a button's long label could not wrap (the practice button, since removed); labels wrap now
+  and a button grows to fit. What it does not cover: below 320px (at 300px
   the home page is 7px too wide; at 280px, 27px, and the privacy table 9px), a browser whose default text size is not 16px (the root is fixed at
   16px, so the page does not follow it; zoom does), and any engine but Chromium.
 
@@ -480,15 +465,8 @@ top, and the skip link and the confirm sheet go to the window's edge.
 | Grain | 3.5% light, 3% dark | Visible if you look for it on a large screen, invisible in use |
 | Press | scale .98, 1px down, 90ms in, 200ms spring back | Answers inside 100ms and does not read as a bounce |
 
-### The tour's pictures
-
-The tour's pictures (`public/tour/`) are captures of the operator's screens and had been taken before the capsule (they showed the old
-full-width header). They were taken again for this change with `e2e/operator/tour-shots.spec.ts`, which now leaves the frame and the grain out
-of them (`--grain-opacity: 0`, and the frame not drawn): they are pictures of the operator's screens, and a frame inside the page's own frame
-would be no help. The same sizes, so the page holds the same space.
-
 ### Not done here (stage 2)
 
 The capsule's live activity (the progress of a running payout, on every page): the capsule is one button with a name made of its parts, so a
-fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. Richer practice-mode guidance is untouched. (The hero
+fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. (The hero
 moment on the home page was done on 2026-10-20: "Home", above.)

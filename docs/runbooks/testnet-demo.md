@@ -2,7 +2,8 @@
 
 **Status: executed end to end on 2026-10-08** (campaign `c-d8d4d52029a4`, txid
 `6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955`, mined at height 4,478,289), **and funded through the
-payout's own shielded deposit address on 2026-10-24** ("Funding through the shielded deposit address", below). The exact flags live in the
+payout's own shielded deposit address on 2026-10-24** ("Funding through the shielded deposit address", below), **and twice with one
+command, `./zecdrop up`, on 2026-10-25** ("With one command", below). The exact flags live in the
 operator's crate docs, "Running a campaign on testnet" (`crates/drop-operator/src/lib.rs`); `drop-operator --help` is
 authoritative. Testnet only; no real funds.
 
@@ -76,6 +77,32 @@ What ran:
 - A 2-person payout `c-8b18093b3e47`, paid 230,000 where 130,000 was asked: the move `1ddf0b37…2085` moved exactly 115,000 and
   left 100,000; the send-back `2131eae8…c4b8` (no transparent part, fee 10,000, mined at 4,537,203) gave the payer's shielded
   wallet exactly 90,000, and the screen then said nothing was left.
+
+## With one command (`./zecdrop up`)
+
+**Executed twice on 2026-10-25**, each from an empty folder (`ZECDROP_HOME` set to a new one), with Docker Desktop on a Mac. The
+launcher builds `deploy/operator.Dockerfile`, makes the wallet (`init-wallet`, in the folder, which is 0700, with the store's random
+passphrase in `env`, 0600), starts the operator on testnet with `--container` and publishes it on `127.0.0.1` only. The first
+build took about 3.5 minutes on that Mac; a rebuild after a change to the web app took 15 to 20 seconds.
+
+1. `./zecdrop up` prints the link and opens it: the page lands on *Payouts* ("No payouts yet"), and the token has left the address
+   bar.
+2. *Use the example list*, *Continue*, *Looks right, continue*: the funding screen shows the payout's transparent address, the
+   amount (545,000 zat for the example list) and "No test coins? The testnet faucet pays this address for free."
+3. Pay the address. Both runs were paid from our own zcash-devtool wallet (a shielded balance, so the deposit is *shielded*), not
+   from the faucet, to keep the faucet's one payment a day.
+4. The screen says *Funded* at 3 confirmations, *Send 8 payouts*, the confirm sheet, then the campaign page until "Complete: all
+   batches confirmed". *Share the receipt*, *Open public receipt*: the link names the public site (the image is built with
+   `VITE_PUBLIC_RECEIPT_BASE_URL`), whose verifier checks it.
+
+What ran:
+- `c-3a2968349276`, driven through the operator's API: the deposit `df7acb66…9804` (paid 12:35:55 UTC), funded 12:38:05, the
+  batch `6fd70964…b1c7` settled 12:40:28; the hosted verifier: settled, no findings. `./zecdrop down` then `up` kept the payout; a
+  request with another Host header got 421, one without the token 401.
+- `c-4a2fea16a3f2`, driven through its screens in a real browser (Chromium, headless, through Playwright): the deposit
+  `4458060a…d55c` (paid 13:22:01 UTC), funded 13:25:57, sent 13:25:58, the batch `e4250cb6…e534` settled 13:27:48. The public
+  receipt link opened on the public site: "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ", "Deposit out of the shielded pool";
+  the hosted verifier answers settled, `funding_source: shielded`, no findings. No console error or warning on any screen.
 
 ## Safety
 

@@ -148,17 +148,18 @@ asks only when the payer presses Show payslips, keeps the answer in its memory o
 minutes or when the page is left, and makes one person's link only when asked. The page runs on the payer's computer, which
 holds the list anyway, so no new party learns anything until a link is sent; each link is then a bearer document, as above. A
 link made there points at the public site when the operator's page was built with its address
-(`VITE_PUBLIC_RECEIPT_BASE_URL`), and otherwise at the payer's own computer, which nobody else can open; the page says so.
+(`VITE_PUBLIC_RECEIPT_BASE_URL`, which the image `./zecdrop up` builds sets to the public site), and otherwise at the payer's own
+computer, which nobody else can open; the page says so.
 
-## Practice mode: a simulation, not a payout
+## Run with one command (`./zecdrop up`)
 
-The site's "Try a practice payout" runs the operator's own screens against a simulation inside the page (REQ-DEMO-001). It reads no
-chain and makes no request to an operator, a verifier or a node; the one thing it fetches is its own code, a static file from the
-page's origin. Its state is in memory, so reloading starts over, and it leaves one flag in the tab's session storage that goes when
-the tab does. Every screen says it is a simulation, and every simulated transaction id and list fingerprint begins with the bytes
-of the word "practice", so none can be taken for a chain's and none gets an explorer link. Its totals and fees are the real
-arithmetic for the list, but nothing in it is evidence about any chain, and it is no part of what ZecDrop proves. Because it
-reads no chain it cannot check a payslip, or show a receipt it did not make.
+The launcher runs the same operator in Docker on the payer's own computer, on testnet only; it changes nothing above. The image is
+built there, from this repository. The wallet, the encrypted store and the store's passphrase are kept in a folder only the payer
+can read (`~/.zecdrop-app`), and the passphrase reaches Docker in a file, never on a command line. Inside the container the
+operator listens on the container's own network (`--container`, which it refuses outside testnet), and Docker publishes that port
+on the computer's loopback address only, so the page is no more reachable than when the operator runs without Docker; its check
+of the Host header and its per-run token are unchanged. Receipt links name the public site, so opening one asks the hosted
+verifier, which learns which receipt is viewed (limit 6 below).
 
 ## Public (anyone can see, and the verifier recomputes)
 
