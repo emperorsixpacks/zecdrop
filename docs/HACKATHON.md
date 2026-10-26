@@ -45,7 +45,7 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 - [x] README says all code was written in the build window.
 - [ ] `PROVENANCE.md` present for generated code (present in `web/` and `crates/drop-chain/`); no file copied from another project (the owner confirms this one).
 - [x] LICENSE-MIT and LICENSE-APACHE present.
-- [ ] README commands work from a clean clone.
+- [x] README commands work from a clean clone (2026-10-16, a fresh clone of `main` at `3f422b3`: fmt, clippy, 642 Rust tests, spec drift 29 of 29, web install, lint, typecheck, 1882 unit tests and build all passed; the Playwright e2e suite was not part of this run).
 
 ## Open questions
 
