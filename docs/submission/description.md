@@ -1,6 +1,6 @@
 # Submission description (draft)
 
-**Status: DRAFT, facts below verified on 2026-10-08.** Remaining [brackets] are links only; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
+**Status: DRAFT, refreshed 2026-10-15.** The testnet run below was done on 2026-10-08; the test counts and the live site were re-checked on 2026-10-15. Remaining [brackets] are links only; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
 
 ## One-line
 
@@ -32,7 +32,9 @@ singleton batches and the review step warns. The recipient count of a batch is p
 **How it is built.** Rust workspace on librustzcash: a chain-agnostic domain core with a resumable, crash-safe
 engine; a local operator service with an encrypted store; a transaction builder using the Ironwood pool; a key-less
 verifier whose dependency closure is checked by a test to contain no key-decoding or storage crate. Requirements
-carry IDs and are tied to tests by a drift check in CI. 28 of 29 requirements are implemented and tested; one stretch requirement (NEAR Intents funding) is a library only.
+carry IDs and are tied to tests by a drift check in CI: all 29 are implemented and covered by tests. The web app (React, Tailwind)
+has no wallet connection on purpose: the operator holds the keys on the user's own machine, and the public site only views
+and checks receipts. Funding from another coin through NEAR Intents is an optional stretch, wired into the operator.
 
 **Demonstrated.** A real 8-recipient campaign ran end to end on public Zcash testnet through the operator: funding detected from
 chain, proof (about 20 s), broadcast, three confirmations, settled in about two minutes. Transaction `6e2359182d1dc772…` (height
@@ -41,10 +43,15 @@ outputs, 0.00045 TAZ fee, one funding address) and rejects a wrong declared tota
 against the payout list and the salted commitment, and each recipient's key decrypted exactly its own payout. A mainnet run has
 not been done.
 
-**Honest limits.** Not audited. Testnet-first. [Multi-batch campaigns need a funding-split step that is not built.]
-[NEAR Intents funding: dry quotes only.] Released wallets may not yet sync current testnet.
+**Honest limits.** Not audited (one independent code review was done; see `docs/SECURITY.md`). Testnet-first; nothing has
+run on mainnet. Campaigns larger than one batch need a funding-split step that is not built. NEAR Intents funding shows a
+live price preview on testnet and creates nothing; its mainnet quote and status paths have only run against a fake service.
+Released wallets probably cannot sync current testnet, so the recipient side is shown with our own tool. The hosted
+verifier runs on a single teammate's server, so live receipt links depend on that server and on the public testnet node it
+reads; the same verifier is in the repository and runs from one Docker command.
 
-**Links.** Repository: [url]. Demo: [url]. Video: [url].
+**Links.** Repository: [url]. Demo: <https://zecdrop-site.vercel.app> (the public receipt viewer; [this link](https://zecdrop-site.vercel.app/r/real-8?network=testnet&tx=6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955&commitment=698ec02d7e72ec60a11f5a6e176288bf4a27e86304dfe75330bfb82051b976f8&declared_total=500000) checks the
+real 8-recipient run live). Video: [url].
 
 **Build window.** All code in this repository was written during the ZECATHON build window; third-party
 libraries are dependencies, and generated or fetched protocol files are recorded in PROVENANCE.md files.

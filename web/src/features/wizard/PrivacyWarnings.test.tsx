@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
@@ -26,18 +27,42 @@ const show = (warnings: readonly PrivacyWarning[]) =>
     </MemoryRouter>,
   );
 
+const chipOf = (warning: PrivacyWarning): string => {
+  switch (warning.code) {
+    case "singleton_campaign":
+      return "Only 1 person: the total is their amount";
+    case "small_campaign":
+      return `Only ${String(warning.recipients)} people: amounts are easy to guess`;
+    case "two_recipient_batch":
+      return `Batch ${String(warning.batchIndex)}: two people can guess each other's amount`;
+    case "uniform_batch":
+      return `Batch ${String(warning.batchIndex)}: equal amounts are easy to see`;
+  }
+};
+
 // covers: REQ-PRIV-003
 describe("PrivacyWarnings", () => {
-  it("shows each warning with a text title and the core's sentence", () => {
+  it("shows each warning as a short chip, and keeps the core's sentence for 'Why?', word for word", async () => {
+    const user = userEvent.setup();
     show(all);
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(3);
-    all.forEach((warning, i) => {
+    for (const [i, warning] of all.entries()) {
       const item = items[i];
       if (!item) throw new Error("missing list item");
-      expect(within(item).getByText(warningTitle(warning.code))).toBeInTheDocument();
-      expect(within(item).getByText(warningMessage(warning))).toBeInTheDocument();
-    });
+      expect(item).toHaveTextContent(chipOf(warning));
+      // A chip is short; the long sentence is not on the page until asked for.
+      expect(chipOf(warning).split(/\s+/u).length).toBeLessThanOrEqual(12);
+      expect(screen.queryByText(warningMessage(warning))).toBeNull();
+
+      await user.click(within(item).getByRole("button", { name: `Why: ${chipOf(warning)}` }));
+      expect(await screen.findByText(warningMessage(warning))).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+    }
+  });
+
+  it("still carries a text title for every code, for places that list warnings", () => {
+    for (const warning of all) expect(warningTitle(warning.code)).not.toBe("");
   });
 
   it("names the region and counts the warnings in its heading", () => {
@@ -67,20 +92,22 @@ describe("PrivacyWarnings", () => {
     expect(screen.getByRole("status")).toHaveTextContent("No privacy warnings.");
   });
 
-  it("with no warnings, says so without promising privacy, and links the boundary", () => {
+  it("with no warnings, says so in a chip, and 'Why?' says it does not promise privacy and links the boundary", async () => {
+    const user = userEvent.setup();
     show([]);
     expect(screen.getByRole("region", { name: "Privacy warnings" })).toBeInTheDocument();
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
-    expect(screen.getByText(/does not make the payout private/u)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "privacy boundary" })).toHaveAttribute(
-      "href",
-      "/privacy",
-    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("listitem")).toHaveTextContent("No privacy warnings");
+    expect(screen.queryByText(/does not make the payout private/u)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Why: no privacy warnings" }));
+    expect(await screen.findByText(/does not make the payout private/u)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "how privacy works" })).toHaveAttribute("href", "/privacy");
   });
 
-  it("does not rely on colour: every warning carries its own title text", () => {
+  it("does not rely on colour: every warning is a sentence of words", () => {
     show([{ code: "singleton_campaign" }]);
-    expect(screen.getByText("One recipient")).toBeInTheDocument();
+    expect(screen.getByText(/Only 1 person/u)).toBeInTheDocument();
   });
 });
 

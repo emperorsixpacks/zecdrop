@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "not_applicable",
+    "message": "NEAR Intents pays out mainnet ZEC only; this campaign runs on testnet, where there is no such thing to swap into. Fund it by sending testnet coins (TAZ) to its funding address. You can still ask what a campaign of some size would cost to fund on mainnet with POST /api/near/preview."
+  }
+}

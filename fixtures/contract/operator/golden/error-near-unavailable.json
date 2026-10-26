@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "near_unavailable",
+    "message": "could not reach NEAR Intents; try again shortly"
+  }
+}

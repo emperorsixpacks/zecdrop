@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "confirmation_required",
+    "message": "send the header `X-Zecdrop-Confirm-Near: I-UNDERSTAND` after showing the person the warning",
+    "warning": "This starts a real swap on NEAR Intents, on mainnet: it gives you a deposit address on the origin chain and starts a deadline. Send only the quoted amount of the quoted asset to that address, before the deadline. A deposit that is late or the wrong amount is refunded to the refund address, minus fees, or may be lost. The campaign is not funded until its deposit is seen on the Zcash chain at the required depth."
+  }
+}

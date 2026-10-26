@@ -12,18 +12,18 @@ const SAMPLES = [
     name: "the 8-output batch",
     path: "/r/demo?demo=real",
     txid: "6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955",
-    title: "Sample receipt: a real batch",
-    banner: ["Mined on public testnet at height 4,478,289", "captured at height 4,478,307"],
-    amounts: ["0.005 TAZ", "0.00045 TAZ"],
+    line: "Real batch on public testnet, captured at height 4,478,307",
+    details: ["Mined on public testnet at height 4,478,289", "captured at height 4,478,307"],
+    verdict: "Settled: 8 payouts, 0.005 TAZ, fee 0.00045 TAZ",
     outputs: "8",
   },
   {
     name: "the first, smaller batch",
     path: "/r/demo?demo=real-smoke",
     txid: "50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3",
-    title: "Sample receipt: the first real batch",
-    banner: ["Mined on public testnet at height 4,478,065", "captured at height 4,478,201"],
-    amounts: ["0.0006 TAZ", "0.0002 TAZ"],
+    line: "The first real batch on public testnet, captured at height 4,478,201",
+    details: ["Mined on public testnet at height 4,478,065", "captured at height 4,478,201"],
+    verdict: "Settled: 3 payouts, 0.0006 TAZ, fee 0.0002 TAZ",
     outputs: "3",
   },
 ] as const;
@@ -33,28 +33,28 @@ for (const sample of SAMPLES) {
     const problems = watchProblems(page);
     const requests = watchRequests(page);
     await page.goto(sample.path);
-    await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeAttached();
 
-    // It says what it is.
-    const banner = page.getByRole("status").filter({ hasText: sample.title });
-    for (const text of sample.banner) await expect(banner).toContainText(text);
-    await expect(banner).toContainText("confirmations are shown as of the capture, not live");
+    // It says what it is, in one line, and the rest of the provenance is one click away.
+    await expect(page.getByText(sample.line)).toBeVisible();
+    await page.getByRole("button", { name: "Details" }).click();
+    for (const text of sample.details) await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("confirmations are shown as of the capture, not live", { exact: false })).toBeVisible();
+
+    // The verdict comes first, in TAZ (never ZEC), and the page says the coins are worth nothing.
+    await expect(page.getByTestId("verdict")).toHaveText(sample.verdict);
+    await expect(page.getByText("Amounts are in TAZ, the testnet coin. It has no value.")).toBeVisible();
+    expect(await page.locator("main").innerText()).not.toMatch(/\d ZEC\b/u);
 
     // The explorer link is to the real transaction on the default testnet explorer.
+    await page.getByRole("button", { name: "Transaction", exact: true }).click();
     const explorer = page.locator(`a[href="https://testnet.zecblock.com/tx/${sample.txid}"]`).first();
     await expect(explorer).toBeVisible();
     await expect(explorer).toHaveAttribute("target", "_blank");
     await expect(explorer).toHaveAttribute("rel", /noopener/u);
 
-    // Testnet coins are TAZ, never ZEC, and the page says they are worth nothing.
-    for (const amount of sample.amounts) await expect(page.getByText(amount).first()).toBeVisible();
-    await expect(page.getByText("Amounts are in TAZ, the testnet coin. It has no value.")).toBeVisible();
-    expect(await page.locator("main").innerText()).not.toMatch(/\d ZEC\b/u);
-
-    // One batch, several shielded outputs: "Batches 1", one row in the table or one card.
-    const summary = page.locator("dt", { hasText: /^Batches$/u }).locator("xpath=ancestor::div[1]");
-    await expect(summary).toContainText("1");
-    await expect(summary).toContainText("One Zcash transaction each.");
+    // One batch, several shielded outputs: one row in the table or one card, and the verdict names no batches.
+    expect(await page.getByTestId("verdict").innerText()).not.toMatch(/batch/u);
     const table = page.getByRole("table", { name: "Payout batches" });
     if (await table.isVisible()) {
       await expect(table.getByRole("row")).toHaveCount(2); // header + the one batch
@@ -76,19 +76,26 @@ test("the top bar's sample receipt is the 8-output batch", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Sample receipt" }).click();
   await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
-  await expect(page.getByRole("status").filter({ hasText: "Sample receipt: a real batch" })).toBeVisible();
+  await expect(page.getByText("Real batch on public testnet, captured at height 4,478,307")).toBeVisible();
 });
 
 test("the home page says what was demonstrated and links to its receipt", async ({ page }) => {
   await page.goto("/");
-  const section = page.getByRole("heading", { level: 2, name: "It has run on public testnet" }).locator("xpath=ancestor::section[1]");
-  await expect(section).toContainText("A real 8-recipient batch ran on public testnet");
-  await expect(section).toContainText("this has not been tried on mainnet");
-  await section.getByRole("link", { name: "See the receipt of that batch" }).click();
+  await expect(page.getByText("A real 8-person payout ran on public testnet. Not tried on mainnet.")).toBeVisible();
+  await page.getByRole("link", { name: "See a real receipt" }).click();
   await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
 });
 
-// The funding address row, on the pages that show it, at phone and desktop width.
+test("the sample switcher goes between the five samples", async ({ page }) => {
+  await page.goto("/r/demo?demo=real");
+  await page.getByLabel("Sample").selectOption({ label: "With findings" });
+  await expect(page).toHaveURL(/\/r\/demo\?demo=findings$/u);
+  await expect(page.getByRole("heading", { level: 2, name: "What the verifier found" })).toBeVisible();
+  await page.getByLabel("Sample").selectOption({ label: "Real batch" });
+  await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
+});
+
+// The funding address, on the pages that show it, at phone and desktop width.
 for (const viewport of [
   { name: "phone 360px", width: 360, height: 740 },
   { name: "desktop 1280px", width: 1280, height: 800 },
@@ -102,7 +109,8 @@ for (const viewport of [
     }) => {
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
       await page.goto("/r/demo?demo=1");
-      const card = page.getByRole("heading", { level: 2, name: "Funding address" }).locator("xpath=ancestor::div[@data-slot='card'][1]");
+      await page.getByRole("button", { name: "Funding address" }).click();
+      const card = page.getByTestId("funding-section");
       await expect(card).toBeVisible();
 
       const shown = card.getByTestId("funding-address");
@@ -124,7 +132,8 @@ for (const viewport of [
 
     test("an address the verifier could not establish says Unknown, not nothing", async ({ page }) => {
       await page.goto("/r/demo?demo=findings");
-      const card = page.getByRole("heading", { level: 2, name: "Funding address" }).locator("xpath=ancestor::div[@data-slot='card'][1]");
+      await page.getByRole("button", { name: "Funding address" }).click();
+      const card = page.getByTestId("funding-section");
       await expect(card.getByText("Unknown")).toBeVisible();
       await expect(card).toContainText("could not establish one address that every batch spends from");
       await expect(card.getByRole("button")).toHaveCount(0);
@@ -134,7 +143,8 @@ for (const viewport of [
     test("the real testnet sample shows the real funding address, with a link to its explorer page", async ({ page, context }) => {
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
       await page.goto("/r/demo?demo=real");
-      const card = page.getByRole("heading", { level: 2, name: "Funding address" }).locator("xpath=ancestor::div[@data-slot='card'][1]");
+      await page.getByRole("button", { name: "Funding address" }).click();
+      const card = page.getByTestId("funding-section");
       await expect(card).toBeVisible();
       await expect(card.getByTestId("funding-address")).toHaveText("tmU6c1aX…B3nkZGkD");
       await expect(card.getByRole("link", { name: /Explorer/u })).toHaveAttribute(

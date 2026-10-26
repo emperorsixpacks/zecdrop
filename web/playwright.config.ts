@@ -29,6 +29,8 @@ const HOSTED_ENV = `VITE_API_URL=${STUB} VITE_ZEC_NETWORK=testnet VITE_PUBLIC_ON
 export default defineConfig({
   fullyParallel: true,
   reporter: "list",
+  // Counting numbers and wipes are motion; the checks look at the settled page.
+  use: { reducedMotion: "reduce" },
   globalSetup: "./e2e/operator/global-setup.ts",
   projects: [
     {

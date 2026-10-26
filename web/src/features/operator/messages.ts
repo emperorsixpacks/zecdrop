@@ -139,6 +139,76 @@ function explainApi(error: OperatorApiError, unit: CoinUnit): Explained {
         title: "The campaign's account could not be set up",
         detail: `${api.message}. The operator's terminal has more detail.`,
       };
+    // ---- funding from another coin (NEAR Intents). The price service's own words are never repeated. ----
+    case "near_unavailable":
+      return {
+        title: "The price service could not be reached",
+        detail: "The operator could not get an answer from NEAR Intents. Check that its computer is online and try again. Nothing was created.",
+      };
+    case "near_rejected":
+      return {
+        title: "The price service refused the request",
+        detail: "NEAR Intents would not give a price. Try again later. Nothing was created.",
+      };
+    case "near_unauthorized":
+      return {
+        title: "The price service rejected the operator's credentials",
+        detail: "The operator was started with credentials that NEAR Intents does not accept. Restart it with working ones. Nothing was created.",
+      };
+    case "near_quote_mismatch":
+      return {
+        title: "The price service quoted something else",
+        detail: "It quoted a different amount than was asked for, so nothing was kept. Try again.",
+      };
+    case "near_bad_response":
+      return {
+        title: "The price service answered with something unusable",
+        detail: "Nothing was kept. Try again, and look at the operator's terminal if it keeps happening.",
+      };
+    case "near_zec_not_listed":
+      return {
+        title: "The price service does not list ZEC right now",
+        detail: "It cannot price a payment into ZEC at the moment. Try again later.",
+      };
+    case "near_quote_not_saved":
+      return {
+        title: "The deposit address was made but could not be kept",
+        detail:
+          "depositAddress" in api
+            ? `Do not send to ${api.depositAddress} unless you copy it now: the operator will not track it.`
+            : "Do not send to it unless you copy it now: the operator will not track it.",
+      };
+    case "mainnet_not_enabled":
+      return {
+        title: "Real swaps are switched off",
+        detail: "A real swap is mainnet money. Start the operator with --allow-mainnet to allow it.",
+      };
+    case "amount_out_of_range":
+      return { title: "That amount can't be priced", detail: "Use a whole number of zatoshi above zero, and no more than the total supply." };
+    case "already_funded":
+      return { title: "This campaign is already funded", detail: "There is nothing more to fund." };
+    case "live_quote_exists":
+      return {
+        title: "A deposit address already exists",
+        detail: "Use it, or wait for its deadline. A second one is not made while the first is good.",
+      };
+    case "no_dry_quote":
+      return { title: "Get a price first", detail: "A deposit address is only made for a price that was checked." };
+    case "dry_quote_expired":
+      return { title: "That price has expired", detail: "Prices last ten minutes. Get a new one." };
+    case "dry_quote_stale":
+      return { title: "What the campaign needs has changed", detail: "The price no longer matches. Get a new one." };
+    case "no_live_quote":
+      return { title: "No deposit address yet", detail: "None was asked for for this campaign." };
+    case "unknown_origin_asset":
+      return { title: "That coin is not on the list", detail: "Choose one of the coins the price service offers." };
+    case "zec_origin_not_allowed":
+      return { title: "ZEC cannot pay for ZEC", detail: "Choose another coin to pay with." };
+    case "invalid_refund_address":
+      return {
+        title: "That refund address can't be used",
+        detail: "It must be plain text on the coin's own chain: letters, digits and . - : + only.",
+      };
     case "invalid_outpoint":
       return {
         title: "That output index is too large",

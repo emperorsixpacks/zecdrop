@@ -106,6 +106,8 @@ pub struct AppParts {
     pub logger: Logger,
     /// Run tunables.
     pub options: Options,
+    /// What the NEAR Intents funding routes need.
+    pub near: crate::near::NearParts,
 }
 
 struct Inner {
@@ -123,6 +125,7 @@ struct Inner {
     hubs: Mutex<HashMap<CampaignId, Arc<EventHub>>>,
     addresses: Mutex<HashMap<CampaignId, String>>,
     progress: Mutex<HashMap<CampaignId, FundingProgress>>,
+    near: crate::near::NearState,
 }
 
 /// The handle shared by every request handler and run.
@@ -195,7 +198,13 @@ impl AppState {
             hubs: Mutex::new(HashMap::new()),
             addresses: Mutex::new(HashMap::new()),
             progress: Mutex::new(HashMap::new()),
+            near: crate::near::NearState::new(parts.near),
         }))
+    }
+
+    /// The NEAR Intents funding state (token cache, pending dry quotes) and its parts.
+    pub fn near(&self) -> &crate::near::NearState {
+        &self.0.near
     }
 
     /// The network.
@@ -597,6 +606,10 @@ impl AppState {
                         StoreError::Database(e.to_string())
                     }
                 })?;
+        }
+        // The live NEAR quotes are read too: a deposit address that was edited is found now.
+        for id in self.0.store.near_quote_campaigns()? {
+            self.0.store.load_near_quote(&id)?;
         }
         Ok(headers.len())
     }

@@ -41,6 +41,31 @@ pub fn recipient_ua(i: u32) -> String {
         .unified_address()
 }
 
+/// A real unified address (Orchard receiver) for recipient `i` on `network`.
+pub fn recipient_ua_on(network: ZNetwork, i: u32) -> String {
+    CampaignKeys::derive(&RECIPIENT_SEED, network, 1000 + i)
+        .unwrap()
+        .unified_address()
+}
+
+/// A harness running the real Zcash backend over `node` on MAINNET, with TEST-ONLY wallet keys:
+/// campaigns, funding addresses and recipients are mainnet-shaped. Nothing is ever sent.
+pub fn mainnet_harness(node: &SharedNode, required_depth: u32, allow_mainnet: bool) -> Harness {
+    Builder {
+        seed: TEST_SEED,
+        network: drop_core::Network::Mainnet,
+        backend: Some(Arc::new(ZcashBackend::new(FakeConnector(node.clone())))),
+        codec: Some(Arc::new(ZcashAddressCodec::new(ZNetwork::MainNetwork))),
+        allow_mainnet,
+        options: Options {
+            required_depth,
+            ..Builder::default().options
+        },
+        ..Builder::default()
+    }
+    .build()
+}
+
 /// A height inside the Ironwood epoch.
 pub fn ironwood_height() -> BlockHeight {
     NETWORK.activation_height(NetworkUpgrade::Nu6_3).unwrap() + 1_000

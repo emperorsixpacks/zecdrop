@@ -19,25 +19,16 @@ import { parseCampaign, parseOperatorError, type ProgressEvent } from "@/api/ope
 import { clearSession } from "@/api/operator/session";
 import { describeEvent, describeRun, explainFailure } from "@/features/operator/messages";
 import { useWizardDraft } from "@/features/wizard/draft";
+import { lensRowsFrom } from "@/features/wizard/list";
+import { previewPayouts } from "@/lib/csv-preview";
 import { CAMPAIGN_PHASES, phaseLabel, phaseProgress, phaseSentence, type PhaseState } from "@/lib/phase";
 import { installFakeOperator, replyWith, replyWithStream, type RouteHandler } from "@/test/fake-operator";
-import { fixtureJson, INDEX } from "@/test/operator-fixtures";
+import { CSV, fixtureJson, INDEX } from "@/test/operator-fixtures";
+import { BANNED } from "@/test/banned-phrases";
+import { readEverything } from "@/test/read-everything";
 import { renderApp } from "@/test/render-app";
 
 import { AppRoutes } from "./routes";
-
-/** Each pattern is a claim this project must not make. */
-const BANNED: [label: string, pattern: RegExp][] = [
-  ["verified payouts", /verified\s+payouts?/iu],
-  ["everyone was paid", /everyone\s+(was|were|got|has\s+been|had\s+been)\s+paid/iu],
-  ["paid out exactly", /paid\s+out\s+exactly/iu],
-  ["paid exactly", /paid\s+exactly/iu],
-  ["all recipients were paid", /all\s+(recipients|payouts)\s+(were|was|have\s+been)\s+(paid|received|sent)/iu],
-  ["payouts confirmed/verified", /payouts?\s+(confirmed|verified|completed)/iu],
-  ["money reached the recipients", /(money|funds|value|payments?)\s+(has\s+|have\s+)?reached\s+(the\s+)?(recipients|everyone|all|each)/iu],
-  ["we verified the money", /verif(y|ies|ied)\s+(that\s+)?(the\s+)?(money|funds|payments?)\s+(reached|was|were|went)/iu],
-  ["guaranteed", /guarantee[sd]?\b/iu],
-];
 
 const PAGES: [name: string, path: string][] = [
   ["the home page", "/"],
@@ -50,7 +41,6 @@ const PAGES: [name: string, path: string][] = [
   ["an incomplete receipt link", "/r/x"],
   ["the audit page", "/audit"],
   ["the campaigns page", "/campaigns"],
-  ["the review step", "/new/review"],
   ["a page that does not exist", "/nope"],
 ];
 
@@ -73,7 +63,7 @@ function textOf(path: string): Promise<string> {
   return (isReceipt
     ? screen.findByRole("heading", { level: 2, name: "Status" })
     : screen.findByRole("heading", { level: 1 })
-  ).then(() => document.body.textContent ?? "");
+  ).then(() => readEverything());
 }
 
 describe.each(PAGES)("%s", (_name, path) => {
@@ -88,18 +78,17 @@ describe.each(PAGES)("%s", (_name, path) => {
 
 // The operator pages as a signed-in person sees them, with real captured responses.
 const OPERATOR_PAGES: [name: string, path: string, campaign: string, settle: () => Promise<unknown>][] = [
-  ["the campaigns list", "/campaigns", "campaign-settled.json", () => screen.findByRole("list", { name: "Campaigns" })],
-  ["the basics step", "/new/basics", "campaign-settled.json", () => screen.findByLabelText("Campaign name")],
-  ["the recipients step", "/new/recipients", "campaign-settled.json", () => screen.findByRole("heading", { name: "Finish the basics first" })],
-  ["the auditor step", "/new/auditor", "create-valid.json", () => screen.findByText("This cannot be undone")],
-  ["the review step", "/new/review", "create-valid.json", () => screen.findByTestId("manifest-commitment")],
-  ["the fund step", "/new/fund", "create-valid.json", () => screen.findByRole("button", { name: "Record mock deposit" })],
+  ["the payouts list", "/campaigns", "campaign-settled.json", () => screen.findByRole("list", { name: "Payouts" })],
+  ["stage 1: payouts", "/new", "campaign-settled.json", () => screen.findByText("Drop a CSV here")],
+  ["stage 2 without payouts", "/new/check", "campaign-settled.json", () => screen.findByRole("heading", { name: "Add the payouts first" })],
+  ["stage 2: check", "/new/check", "create-valid.json", () => screen.findByRole("heading", { name: "Check the payouts" })],
+  ["stage 3: send", "/new/send", "create-valid.json", () => screen.findByRole("button", { name: "Record mock deposit" })],
   ["a campaign awaiting funding", "/campaign/c-000000000001", "campaign-awaiting-funding.json", () => screen.findByRole("button", { name: "Record mock deposit" })],
-  ["a funded campaign", "/campaign/c-000000000001", "campaign-funded.json", () => screen.findByRole("button", { name: "Start sending" })],
-  ["a running campaign", "/campaign/c-000000000001", "campaign-running.json", () => screen.findByTestId("receipt-link")],
+  ["a funded campaign", "/campaign/c-000000000001", "campaign-funded.json", () => screen.findByRole("button", { name: "Send 5 payouts" })],
+  ["a running campaign", "/campaign/c-000000000001", "campaign-running.json", () => screen.findByRole("heading", { name: "Sending the payouts" })],
   ["a crashed campaign", "/campaign/c-000000000001", "campaign-crashed.json", () => screen.findByRole("button", { name: "Resume sending" })],
-  ["a settled campaign", "/campaign/c-000000000001", "campaign-settled.json", () => screen.findByTestId("receipt-link")],
-  ["the audit page", "/audit", "campaign-settled.json", () => screen.findByRole("heading", { name: "Running it" })],
+  ["a settled campaign", "/campaign/c-000000000001", "campaign-settled.json", () => screen.findByText("Sealed")],
+  ["the audit page", "/audit", "campaign-settled.json", () => screen.findByRole("button", { name: "What the audit checks" })],
 ];
 
 describe.each(OPERATOR_PAGES)("operator: %s", (_name, path, campaign, settle) => {
@@ -113,8 +102,9 @@ describe.each(OPERATOR_PAGES)("operator: %s", (_name, path, campaign, settle) =>
       "GET /api/campaigns/:id/receipt": () => replyWith(receipt),
     };
     installFakeOperator(routes);
-    if (path === "/new/auditor" || path === "/new/review" || path === "/new/fund") {
-      useWizardDraft.getState().campaignCreated(parseCampaign(fixtureJson("create-valid.json")));
+    if (_name === "stage 2: check" || _name === "stage 3: send") {
+      const preview = previewPayouts(CSV["valid.csv"] ?? "");
+      useWizardDraft.getState().campaignCreated(parseCampaign(fixtureJson("create-valid.json")), preview.kind === "rows" ? lensRowsFrom(preview.rows) : null);
     }
     renderApp(path, { signedIn: true });
     await settle();
@@ -122,7 +112,7 @@ describe.each(OPERATOR_PAGES)("operator: %s", (_name, path, campaign, settle) =>
       expect(screen.queryByText(/^Loading|Getting the receipt/u)).toBeNull();
     });
 
-    const text = document.body.textContent ?? "";
+    const text = await readEverything();
     expect(text.length).toBeGreaterThan(200);
     for (const [label, pattern] of BANNED) {
       expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);

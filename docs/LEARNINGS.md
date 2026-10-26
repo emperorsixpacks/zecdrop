@@ -15,6 +15,15 @@ Pitfalls and measured facts. Format: symptom → cause → fix → prevention. N
   on an explorer. Treat an offline spike as proof of **construction and decryption only**. Consensus validity is
   confirmed only by broadcasting on testnet; that broadcast is the gate between spike and build.
 
+## 2026-10-08 — NEAR preview works live on testnet; a fake credential makes even a dry quote fail
+
+- **Observed (live):** `POST /api/near/preview` returns a real dry quote through the operator: delivering 545,000 zat of ZEC
+  would cost 7.038518 USDC on the NEAR chain (about $7.04, 135 s estimate, 1% slippage), with no deposit address.
+  `GET /api/near/tokens` returned 199 origin assets, none of them ZEC.
+- **Gotcha:** setting `NEAR_INTENTS_JWT` to a fake value made the real service reject even the dry quote
+  (`near_unauthorized`). Leave the variable unset for previews unless you hold a real token.
+- **Not exercised:** the live quote and status calls (mainnet only) have only run against a fake service.
+
 ## 2026-10-08 — The full product path ran on public testnet: 8 recipients, create to settled in about 2 minutes
 
 - **Run:** real operator (`--lightwalletd-url https://testnet.zec.rocks:443`, dev seed, default state dir), campaign c-d8d4d52029a4

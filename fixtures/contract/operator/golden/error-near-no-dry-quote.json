@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "no_dry_quote",
+    "message": "ask for a dry quote first (POST dry-quote): a deposit address is only requested for a quote that was checked"
+  }
+}

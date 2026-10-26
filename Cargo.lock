@@ -704,6 +704,7 @@ dependencies = [
  "clap",
  "drop-chain",
  "drop-core",
+ "drop-near",
  "drop-verify",
  "drop-zcash",
  "getrandom 0.4.3",

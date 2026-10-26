@@ -1,8 +1,8 @@
 import { useId } from "react";
 import { Link } from "react-router";
 
-import { warningMessage, warningTitle, type PrivacyWarning } from "@/api/warnings";
-import { Badge } from "@/components/ui/badge";
+import { warningMessage, type PrivacyWarning } from "@/api/warnings";
+import { Why } from "@/components/Why";
 
 interface PrivacyWarningsProps {
   /** The core's warnings for the current plan, already validated by
@@ -17,18 +17,35 @@ function summary(count: number): string {
   return count === 1 ? "1 privacy warning." : `${String(count)} privacy warnings.`;
 }
 
-/** Privacy warnings for the review step.
+/** The short form of a warning, in plain words. The core's own sentence is the one
+ * behind "Why?", word for word. */
+function chipText(warning: PrivacyWarning): string {
+  switch (warning.code) {
+    case "singleton_campaign":
+      return "Only 1 person: the total is their amount";
+    case "small_campaign":
+      return `Only ${String(warning.recipients)} people: amounts are easy to guess`;
+    case "two_recipient_batch":
+      return `Batch ${String(warning.batchIndex)}: two people can guess each other's amount`;
+    case "uniform_batch":
+      return `Batch ${String(warning.batchIndex)}: equal amounts are easy to see`;
+  }
+}
+
+const chip = "inline-flex min-h-11 items-center gap-1 rounded-full border border-foreground pr-1 pl-4 text-base";
+
+/** Privacy warnings as short chips, each with a "Why?" that opens the full sentence.
  *
- * Accessibility: the heading names the region and the count; a visually
- * hidden status line announces changes when the plan is edited; each warning
- * has a text title and a full sentence, so nothing relies on colour. */
+ * Accessibility: the heading names the region and the count; a visually hidden
+ * status line announces changes when the plan is edited; every chip is text, so
+ * nothing relies on colour. */
 export function PrivacyWarnings({ warnings }: PrivacyWarningsProps) {
   const headingId = useId();
   const count = warnings.length;
 
   return (
     <section aria-labelledby={headingId} className="space-y-3">
-      <h2 id={headingId} className="text-lg font-semibold tracking-tight">
+      <h2 id={headingId} className="text-xl font-bold tracking-tight">
         Privacy warnings{count > 0 ? ` (${String(count)})` : ""}
       </h2>
       <p role="status" className="sr-only">
@@ -36,23 +53,29 @@ export function PrivacyWarnings({ warnings }: PrivacyWarningsProps) {
       </p>
 
       {count === 0 ? (
-        <p className="rounded-lg border p-4 text-sm">
-          No privacy warnings for this plan. That does not make the payout private: totals, fees
-          and batch sizes are always public. See the{" "}
-          <Link to="/privacy" className="font-medium text-link underline underline-offset-4">
-            privacy boundary
-          </Link>
-          .
-        </p>
+        <ul className="flex flex-wrap gap-2">
+          <li className={chip}>
+            No privacy warnings
+            <Why label="Why: no privacy warnings" text="Why?">
+              <p>
+                No privacy warnings for this plan. That does not make the payout private: totals, fees and batch sizes are always
+                public. See{" "}
+                <Link to="/privacy" className="font-medium underline underline-offset-4">
+                  how privacy works
+                </Link>
+                .
+              </p>
+            </Why>
+          </li>
+        </ul>
       ) : (
-        <ul className="space-y-2">
+        <ul className="flex flex-wrap gap-2">
           {warnings.map((warning, index) => (
-            <li
-              key={`${warning.code}-${String(index)}`}
-              className="space-y-1.5 rounded-lg border border-link/40 bg-primary/10 p-3 text-sm"
-            >
-              <Badge variant="outline">{warningTitle(warning.code)}</Badge>
-              <p>{warningMessage(warning)}</p>
+            <li key={`${warning.code}-${String(index)}`} className={chip}>
+              {chipText(warning)}
+              <Why label={`Why: ${chipText(warning)}`} text="Why?">
+                <p>{warningMessage(warning)}</p>
+              </Why>
             </li>
           ))}
         </ul>

@@ -146,6 +146,216 @@
       "note": "the mock chain has no real viewing keys",
       "path": "/api/campaigns/{id}/audit-ufvk-export",
       "status": 409
+    },
+    {
+      "file": "near-tokens.json",
+      "method": "GET",
+      "note": "CAPTURED SHAPE: the usable origin assets (no ZEC), sorted; the list is the real service's of 2026-10-07 (an excerpt), cached for 60 s",
+      "path": "/api/near/tokens",
+      "status": 200
+    },
+    {
+      "file": "near-preview.json",
+      "method": "POST",
+      "note": "CAPTURED SHAPE: a dry quote for 545,000 zat of native ZEC from USDC on NEAR, exactly the request the real service answered on 2026-10-07; works on testnet and mainnet operators; creates nothing",
+      "path": "/api/near/preview",
+      "status": 200
+    },
+    {
+      "file": "error-near-not-applicable.json",
+      "method": "POST",
+      "note": "a testnet campaign cannot be funded through NEAR Intents (mainnet ZEC only); the same answer for live-quote and status",
+      "path": "/api/campaigns/{id}/funding/near/dry-quote",
+      "status": 409
+    },
+    {
+      "file": "error-near-unknown-origin-asset.json",
+      "method": "POST",
+      "note": "the origin asset is not in the service's token list",
+      "path": "/api/near/preview",
+      "status": 422
+    },
+    {
+      "file": "error-near-zec-origin-not-allowed.json",
+      "method": "POST",
+      "note": "ZEC (native or bridged) is what the campaign receives, never what pays",
+      "path": "/api/near/preview",
+      "status": 422
+    },
+    {
+      "file": "error-near-amount-out-of-range.json",
+      "method": "POST",
+      "note": "amount_zat must be a whole number of zatoshi above zero and within the total supply",
+      "path": "/api/near/preview",
+      "status": 422
+    },
+    {
+      "file": "error-near-unavailable.json",
+      "method": "POST",
+      "note": "the service could not be reached",
+      "path": "/api/near/preview",
+      "status": 503
+    },
+    {
+      "file": "error-near-rejected.json",
+      "method": "POST",
+      "note": "the service refused the request; only the HTTP status is repeated, never its words",
+      "path": "/api/near/preview",
+      "status": 502
+    },
+    {
+      "file": "error-near-unauthorized.json",
+      "method": "POST",
+      "note": "the service rejected the credentials (NEAR_INTENTS_JWT)",
+      "path": "/api/near/preview",
+      "status": 502
+    },
+    {
+      "file": "error-near-quote-mismatch.json",
+      "method": "POST",
+      "note": "the service quoted a different output than asked for",
+      "path": "/api/near/preview",
+      "status": 502
+    },
+    {
+      "file": "error-near-bad-response.json",
+      "method": "POST",
+      "note": "the service answered with something unusable (here: a deposit address on a dry quote)",
+      "path": "/api/near/preview",
+      "status": 502
+    },
+    {
+      "file": "error-near-invalid-refund-address.json",
+      "method": "POST",
+      "note": "the refund address must be plain text on the origin chain",
+      "path": "/api/campaigns/{id}/funding/near/dry-quote",
+      "status": 422
+    },
+    {
+      "file": "error-near-no-dry-quote.json",
+      "method": "POST",
+      "note": "a deposit address is only asked for after a dry quote for this campaign",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 409
+    },
+    {
+      "file": "error-near-no-live-quote.json",
+      "method": "GET",
+      "note": "no deposit address was ever asked for this campaign",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 409
+    },
+    {
+      "file": "near-dry-quote.json",
+      "method": "POST",
+      "note": "SHAPE OF THE CAPTURED DRY QUOTE with this campaign's own amount and recipient substituted; mainnet campaigns only; creates nothing; good for 10 minutes",
+      "path": "/api/campaigns/{id}/funding/near/dry-quote",
+      "status": 200
+    },
+    {
+      "file": "error-near-confirmation-required.json",
+      "method": "POST",
+      "note": "the live quote needs the header X-Zecdrop-Confirm-Near: I-UNDERSTAND; the warning to show is in the error",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 400
+    },
+    {
+      "file": "near-live-quote.json",
+      "method": "POST",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: the deposit address, amount and deadline, plain instructions, and campaign_funded: false (it never says funded)",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 200
+    },
+    {
+      "file": "error-near-live-quote-exists.json",
+      "method": "POST",
+      "note": "the campaign already has a deposit address that is still valid",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 409
+    },
+    {
+      "file": "near-status-pending-deposit.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-known-deposit-tx.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-processing.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-success.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-incomplete-deposit.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-refunded.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-failed.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "near-status-mystery-state.json",
+      "method": "GET",
+      "note": "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service",
+      "path": "/api/campaigns/{id}/funding/near/status",
+      "status": 200
+    },
+    {
+      "file": "error-near-dry-quote-expired.json",
+      "method": "POST",
+      "note": "the dry quote is older than ten minutes",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 409
+    },
+    {
+      "file": "error-near-dry-quote-stale.json",
+      "method": "POST",
+      "note": "what the campaign needs changed since the dry quote",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 409
+    },
+    {
+      "file": "error-near-already-funded.json",
+      "method": "POST",
+      "note": "the campaign already has its deposit",
+      "path": "/api/campaigns/{id}/funding/near/dry-quote",
+      "status": 409
+    },
+    {
+      "file": "error-near-mainnet-not-enabled.json",
+      "method": "POST",
+      "note": "a real swap is mainnet money: the operator must be started with --allow-mainnet",
+      "path": "/api/campaigns/{id}/funding/near/live-quote",
+      "status": 403
     }
   ],
   "generated_by": "crates/drop-operator/tests/api_contract.rs"

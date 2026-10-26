@@ -127,6 +127,47 @@
 //! Orchard batch transactions built with test-only keys and an in-memory chain source; a live
 //! fixture (a real testnet batch transaction with its campaign key) does not exist yet.
 //!
+//! ## Funding from other assets (NEAR Intents)
+//!
+//! Manual funding always works; this is a convenience (REQ-FUND-001, ADR 0004, `drop-near`).
+//! NEAR Intents is **mainnet-only** (no testnet ZEC) and pays ZEC to transparent addresses only,
+//! so a campaign can be funded this way only on mainnet. The operator calls the service itself
+//! (the browser's Content-Security-Policy forbids it), from a blocking thread, at
+//! `--near-base-url` (default `https://1click.chaindefuser.com`). The API key, which a dry quote
+//! does not need, is read from `NEAR_INTENTS_JWT` only, removed from the environment, and never
+//! logged, returned or put in an error; the service's own error messages are never repeated.
+//!
+//! | Route | What it does |
+//! |---|---|
+//! | `GET /api/near/tokens` | the usable origin assets (never a ZEC one), sorted; cached for 60 s |
+//! | `POST /api/near/preview` `{origin_asset_id, amount_zat}` | a **dry** quote delivering that much native ZEC to a placeholder address, `preview: true`; creates nothing; works on testnet and mainnet operators, as a price preview |
+//! | `POST /api/campaigns/{id}/funding/near/dry-quote` `{origin_asset_id, refund_to}` | mainnet campaigns (testnet: 409 `not_applicable`): a dry `EXACT_OUTPUT` quote for the campaign's `funding_required` to its funding address; kept in memory for 10 minutes |
+//! | `POST /api/campaigns/{id}/funding/near/live-quote` | mainnet only; needs the header `X-Zecdrop-Confirm-Near: I-UNDERSTAND`, an operator started with `--allow-mainnet`, and a matching unexpired dry quote; asks for a deposit address through `drop-near`'s `confirm()`; keeps it sealed and authenticated in the store |
+//! | `GET /api/campaigns/{id}/funding/near/status` | mainnet only: the swap's status as one of eight fixed words and a next step |
+//!
+//! * **A dry quote is kept in memory, not in the store.** It is cheap to ask again and worth
+//!   nothing minutes later; a restart means "ask again". It is used at most once, so two requests
+//!   cannot both turn it into a deposit address. A **live** quote, whose deposit address someone
+//!   may already have paid, is persisted (sealed, row authenticated: an edited address is refused,
+//!   found at start-up too) so a restart does not lose it.
+//! * **Nothing marks a campaign funded.** `SUCCESS` is "verify on chain"; a status the
+//!   documentation does not list is "investigate". The campaign is funded only by the operator's
+//!   own on-chain deposit detection (REQ-FUND-002); `campaign_funded` in the status answer is what
+//!   the store says.
+//! * **New error codes:** `near_unavailable` (503), `near_rejected`, `near_unauthorized`,
+//!   `near_quote_mismatch`, `near_bad_response`, `near_zec_not_listed`, `near_quote_not_saved`
+//!   (502/500), `unknown_origin_asset`, `zec_origin_not_allowed`, `invalid_refund_address`,
+//!   `amount_out_of_range` (422), `mainnet_not_enabled` (403), `no_dry_quote`,
+//!   `dry_quote_expired`, `dry_quote_stale`, `live_quote_exists`, `no_live_quote`,
+//!   `already_funded` (409); `not_applicable` (409) and `confirmation_required` (400) are reused.
+//!
+//! **Exercised against the real service:** the token list and a dry quote (captured on
+//! 2026-10-07, which is the shape the tests replay). **Not exercised against the real service:**
+//! the live quote and the status calls. NEAR is mainnet-only and a non-dry quote creates a real
+//! deposit address, so no test or tool in this repository sends one; their shapes come from the
+//! 1Click documentation (`drop-near/testdata/*.from-docs.json`) and the code that reads them is
+//! written to refuse anything else.
+//!
 //! ## Hardening
 //!
 //! * **Account numbers are never reused for a wallet seed** ([`accounts`]). A store can only
@@ -164,6 +205,7 @@
 //! | REQ-AUD-001 | Local audit reconciles recovered outputs with the public totals | [`audit`] |
 //! | REQ-AUD-002 | One ZIP-32 account per campaign; a key recovers nothing from another campaign | [`store`], [`real`], [`audit`] |
 //! | REQ-AUD-003 | Manifest commitment recomputed from recovered outputs | [`audit`] |
+//! | REQ-FUND-001 | Optional funding through NEAR Intents: dry before live, mainnet only, never "funded" | [`near`], [`store`] |
 //! | REQ-PLAN-001 | A batch never exceeds what one transaction can pay | [`api`] |
 //!
 //! ## Where secrets are
@@ -181,6 +223,7 @@
 
 pub mod accounts;
 pub mod api;
+mod api_near;
 pub mod audit;
 pub mod auth;
 pub mod chain;
@@ -195,6 +238,7 @@ pub mod guard;
 pub mod http;
 pub mod logging;
 pub mod mock;
+pub mod near;
 pub mod real;
 pub mod secret;
 pub mod seedfile;

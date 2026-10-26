@@ -9,6 +9,11 @@ holding a viewing key) can see who got what, and only the auditor can confirm th
 > Built for **ZECATHON**, track **Shielded Payments**. **Status: under construction.** Nothing below is a
 > finished feature unless it is marked *works today*.
 
+**Live demo:** <https://zecdrop-site.vercel.app> is the public receipt viewer, with the real 8-recipient testnet
+receipt bundled as a sample. The operator, which holds the keys, runs on your own computer: there is no wallet to
+connect. To test it yourself, see [`docs/JUDGES.md`](docs/JUDGES.md): check the real payout with the key-less verifier,
+or run the whole flow on a fake chain. A real testnet run is in [`docs/runbooks/testnet-demo.md`](docs/runbooks/testnet-demo.md).
+
 ## How it works
 
 Each batch is **one Zcash transaction**: transparent funds in → N shielded outputs (with memos) out, in the Ironwood pool (new value can no longer enter Orchard since NU6.3).
@@ -40,17 +45,17 @@ Rust workspace on `librustzcash` (`drop-core`, `drop-zcash`, `drop-chain`, `drop
 
 ## Status
 
-Updated 2026-10-08. "Verified" means the lead ran the tests and probed the behaviour; nothing here has touched a
-live network yet except read-only calls.
+Updated 2026-10-15. "Verified" means the lead ran the tests and probed the behaviour. The public testnet runs are
+listed in the table below; nothing has touched mainnet.
 
 | Piece | State |
 |---|---|
 | Domain core (`drop-core`): money, CSV import, batch planner, fee policy, salted manifest commitment, resumable engine | built and tested |
 | Ironwood batch builder (`drop-zcash`): one transparent input to N shielded outputs, decryptable by the campaign key | built, tested, and **accepted by public testnet** (one 3-recipient batch, mined at height 4,478,065; [ADR 0001](docs/ADR/0001-single-tx-transparent-to-ironwood-batches.md)) |
 | Operator (`drop-operator`): local API, encrypted store, mock chain and real-chain mode | built; **ran the full 8-recipient demo on public testnet** (create, detect funding, prove, broadcast, 3 confirmations, settled in about 2 minutes; txid `6e2359182d1d…`) |
-| Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds; the page shows demo data until a real receipt exists |
+| Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds. The public site is live at <https://zecdrop-site.vercel.app> and shows the real 8-recipient receipt from a bundled capture. The hosted verifier runs on a teammate's VPS ([`deploy/vps/`](deploy/vps/README.md)); checked 2026-10-16, a live receipt link for the real batch loads on the site and shows it settled |
 | Local audit command | built; reconciled the real 8-recipient campaign (8 of 8 outputs, total equals the public figure, salted commitment recomputed equals the receipt's) |
-| NEAR Intents funding | library only (dry quotes); not wired into the operator; mainnet-only |
+| NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |
 | Security review | one independent review done; fixes in progress ([`docs/SECURITY.md`](docs/SECURITY.md)) |
 
 Known limits: campaigns larger than one batch need a funding-split step that is not built; released wallets probably

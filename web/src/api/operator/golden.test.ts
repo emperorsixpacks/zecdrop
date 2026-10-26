@@ -11,12 +11,14 @@ import { ZodError } from "zod";
 
 import { parsePublicReceipt } from "@/api/types";
 import { DISCLOSURE_WARNING } from "@/features/audit/disclosure";
+import { describeNearStatus } from "@/features/funding/near/status";
 import { explainFailure } from "@/features/operator/messages";
 import { between } from "@/test/rust-source";
 import { fixtureJson, GOLDEN, GOLDEN_INDEX, goldenJson } from "@/test/operator-fixtures";
 import apiSource from "../../../../crates/drop-operator/src/api.rs?raw";
 
 import { OperatorApiError } from "./client";
+import { parseNearDryQuote, parseNearLiveQuote, parseNearPreview, parseNearStatus, parseNearTokens } from "./near-schemas";
 import { parseCampaign, parseHealth, parseOperatorError, parseViewingKeyExport } from "./schemas";
 
 const names = GOLDEN_INDEX.map((e) => e.file);
@@ -42,8 +44,86 @@ describe("golden/ is complete", () => {
   });
 });
 
-describe("every golden response parses with the strict schemas", () => {
-  for (const entry of GOLDEN_INDEX) {
+/** The NEAR Intents routes (funding from another coin). The token list, the preview and the dry
+ * quote are captured shapes; the live quote and the statuses were written by the operator's own
+ * test from its documentation (they say so in near-schemas.ts). Each is parsed with the strict
+ * schemas the panel uses. */
+const NEAR = GOLDEN_INDEX.filter((e) => e.path.includes("/near/") || e.path.endsWith("/near"));
+
+describe("the NEAR goldens", () => {
+  it("are all there: the token list, a preview, quotes, the eight statuses and the refusals", () => {
+    expect(NEAR.length).toBeGreaterThanOrEqual(25);
+    for (const file of ["near-tokens.json", "near-preview.json", "near-dry-quote.json", "near-live-quote.json"]) {
+      expect(NEAR.map((e) => e.file)).toContain(file);
+    }
+    expect(NEAR.filter((e) => e.file.startsWith("near-status-")).length).toBe(8);
+  });
+
+  for (const entry of NEAR) {
+    it(`${entry.file}: ${entry.method} ${entry.path} -> ${String(entry.status)}`, () => {
+      const body = goldenJson(entry.file);
+      if (entry.status >= 400) {
+        const error = parseOperatorError(body);
+        expect(error.message.length).toBeGreaterThan(0);
+        // The page has a sentence of its own for each refusal, never the generic one.
+        const explained = explainFailure(new OperatorApiError("api", entry.status, error));
+        expect(explained.title).not.toBe("The operator refused this");
+        expect(explained.title).not.toBe("Something went wrong");
+        return;
+      }
+      if (entry.path.endsWith("/near/tokens")) {
+        const tokens = parseNearTokens(body);
+        expect(tokens.length).toBeGreaterThan(0);
+        expect(tokens.some((t) => t.symbol === "ZEC")).toBe(false); // never a ZEC asset
+      } else if (entry.path.endsWith("/near/preview")) {
+        const view = parseNearPreview(body);
+        expect(view.amountOut).toBe("545000");
+        expect(view.token.symbol).toBe("USDC");
+      } else if (entry.path.endsWith("/dry-quote")) {
+        expect(parseNearDryQuote(body).validForSeconds).toBe(600);
+      } else if (entry.path.endsWith("/live-quote")) {
+        const live = parseNearLiveQuote(body);
+        expect(live.depositAddress.length).toBeGreaterThan(0);
+        expect(live.refundTo.length).toBeGreaterThan(0);
+      } else {
+        const status = parseNearStatus(body);
+        // The file name says which word it carries ("mystery-state" is the operator's word "unknown").
+        const word = entry.file.replace(/^near-status-/u, "").replace(/\.json$/u, "").replaceAll("-", "_");
+        expect(status.status).toBe(word === "mystery_state" ? "unknown" : word);
+      }
+    });
+  }
+
+  it("not one status, success included, says the campaign is funded", () => {
+    for (const entry of NEAR.filter((e) => e.file.startsWith("near-status-"))) {
+      const status = parseNearStatus(goldenJson(entry.file));
+      expect(status.campaignFunded, entry.file).toBe(false);
+      // The page's sentence for the word never says so either.
+      const d = describeNearStatus(status.status);
+      const said = `${d.title} ${d.detail}`.replace(/\bnot (yet )?(been )?funded\b/giu, "").replace(/\bcount as funded\b/giu, "");
+      expect(said, entry.file).not.toMatch(/\bfunded\b/iu);
+    }
+  });
+
+  it("the live quote's own instructions say the same", () => {
+    const raw = goldenJson("near-live-quote.json") as { instructions: string[] };
+    expect(raw.instructions.join(" ")).toMatch(/counts as funded only when its deposit is seen on the Zcash chain/u);
+  });
+
+  it("a field the page does not know is an error, not quietly dropped", () => {
+    expect(() => parseNearPreview({ ...(goldenJson("near-preview.json") as object), surprise: 1 })).toThrow();
+    expect(() => parseNearStatus({ ...(goldenJson("near-status-success.json") as object), surprise: 1 })).toThrow();
+    expect(() => parseNearLiveQuote({ ...(goldenJson("near-live-quote.json") as object), surprise: 1 })).toThrow();
+  });
+
+  it("a status word outside the closed set is an error", () => {
+    expect(() => parseNearStatus({ ...(goldenJson("near-status-success.json") as object), status: "SUCCESS" })).toThrow();
+    expect(() => parseNearStatus({ ...(goldenJson("near-status-success.json") as object), status: "funded" })).toThrow();
+  });
+});
+
+describe("every other golden response parses with the strict schemas", () => {
+  for (const entry of GOLDEN_INDEX.filter((e) => !NEAR.includes(e))) {
     it(`${entry.file}: ${entry.method} ${entry.path} -> ${String(entry.status)}`, () => {
       const body = goldenJson(entry.file);
       if (entry.status >= 400) {

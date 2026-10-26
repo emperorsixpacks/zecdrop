@@ -1,0 +1,24 @@
+{
+  "amount_in": "7679013",
+  "amount_in_formatted": "7.679013",
+  "campaign_funded": false,
+  "campaign_funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "deadline": "2026-10-08T06:00:00Z",
+  "deposit_address": "docs-example-deposit-address.near",
+  "deposit_memo": null,
+  "instructions": [
+    "Send exactly 7.679013 USDC (smallest units: 7679013) to docs-example-deposit-address.near on the USDC network.",
+    "Do it before 2026-10-08T06:00:00Z. After that the address is no longer good and a late deposit is refunded to refund-account.near.",
+    "The campaign counts as funded only when its deposit is seen on the Zcash chain at the required depth. The status route says where the swap stands; it never says the campaign is funded."
+  ],
+  "live": true,
+  "origin_asset": {
+    "asset_id": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "blockchain": "near",
+    "decimals": 6,
+    "symbol": "USDC"
+  },
+  "refund_to": "refund-account.near",
+  "valid_until": "2026-10-08T06:00:00Z",
+  "zec_out_zat": "225015000"
+}

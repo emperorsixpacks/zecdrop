@@ -55,6 +55,21 @@ export function findSentinels(text: string, s: Sentinels): string[] {
   return found;
 }
 
+// ---- what is on the page ----------------------------------------------------------------
+
+/** The page's text without the list the person is working on: the preview rows and
+ * the text boxes. While the list is being prepared it may be on screen there and
+ * nowhere else; once the campaign exists it may be nowhere. */
+export async function textOutsideTheList(page: Page): Promise<string> {
+  return await page.evaluate(() => {
+    const copy = document.body.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll("textarea, input, [data-recipient-preview]").forEach((el) => {
+      el.remove();
+    });
+    return copy.textContent ?? "";
+  });
+}
+
 // ---- everything the browser holds -------------------------------------------------------
 
 /** Every place the page can keep data, as one string: localStorage,
@@ -191,4 +206,10 @@ export async function observe(page: Page): Promise<Observed> {
     requests: () => requests,
     responses: () => responses,
   };
+}
+
+/** The real demo payout list (examples/demo-recipients.testnet.csv): public testnet addresses
+ * from the sample batch, for screenshots and the checks that need a believable list. */
+export function loadDemoCsv(): string {
+  return readFileSync(resolve(process.cwd(), "../examples/demo-recipients.testnet.csv"), "utf8");
 }

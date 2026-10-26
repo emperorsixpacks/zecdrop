@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fixtureJson } from "@/test/operator-fixtures";
-import { FIXTURE_CAMPAIGN_ID, installFakeOperator, replyWith } from "@/test/fake-operator";
+import { FIXTURE_CAMPAIGN_ID, installFakeOperator, replyWith, replyWithGolden } from "@/test/fake-operator";
 
 import {
   checkFunding,
@@ -13,8 +13,15 @@ import {
   getCampaign,
   getCampaignReceipt,
   getHealth,
+  getNearStatus,
+  getNearTokens,
   listCampaigns,
+  NEAR_CONFIRM_ACKNOWLEDGEMENT,
+  NEAR_CONFIRM_HEADER,
   OperatorApiError,
+  postNearDryQuote,
+  postNearLiveQuote,
+  postNearPreview,
   recordFunding,
   startCampaign,
 } from "./client";
@@ -276,5 +283,72 @@ describe("the viewing key", () => {
     installFakeOperator({ "GET /api/campaigns/:id/audit-ufvk-export": () => ({ status: 500, body: { error: { code: "internal_error", message: "the operator hit an internal error" } } }) });
     const error = await failureOf(exportViewingKey(FIXTURE_CAMPAIGN_ID));
     expect(JSON.stringify({ message: error.message, api: error.api })).not.toContain("uview");
+  });
+});
+
+describe("the NEAR calls", () => {
+  const routes = () =>
+    installFakeOperator({
+      "GET /api/near/tokens": () => replyWithGolden("near-tokens.json"),
+      "POST /api/near/preview": () => replyWithGolden("near-preview.json"),
+      "POST /api/campaigns/:id/funding/near/dry-quote": () => replyWithGolden("near-dry-quote.json"),
+      "POST /api/campaigns/:id/funding/near/live-quote": () => replyWithGolden("near-live-quote.json"),
+      "GET /api/campaigns/:id/funding/near/status": () => replyWithGolden("near-status-pending-deposit.json"),
+    });
+
+  it("ask the operator, carrying the token, with the bodies the operator expects", async () => {
+    const fake = routes();
+    const tokens = await getNearTokens();
+    expect(tokens.length).toBeGreaterThan(0);
+    const preview = await postNearPreview({ originAssetId: tokens[0]?.id ?? "", amountZat: "545000" });
+    expect(preview.amountOut).toBe("545000");
+    const dry = await postNearDryQuote(FIXTURE_CAMPAIGN_ID, { originAssetId: "nep141:usdc.near", refundTo: "refund-account.near" });
+    expect(dry.validForSeconds).toBe(600);
+    const status = await getNearStatus(FIXTURE_CAMPAIGN_ID);
+    expect(status.status).toBe("pending_deposit");
+    expect(status.campaignFunded).toBe(false);
+
+    expect(fake.to("POST", "/api/near/preview")[0]?.body).toEqual({ origin_asset_id: tokens[0]?.id, amount_zat: "545000" });
+    expect(fake.to("POST", /dry-quote$/u)[0]?.body).toEqual({ origin_asset_id: "nep141:usdc.near", refund_to: "refund-account.near" });
+    for (const call of fake.calls) expect(call.headers.get("authorization"), call.path).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("send the acknowledgement header on the deposit-address call and on no other", async () => {
+    const fake = routes();
+    await getNearTokens();
+    await postNearPreview({ originAssetId: "a", amountZat: "1" });
+    await postNearDryQuote(FIXTURE_CAMPAIGN_ID, { originAssetId: "a", refundTo: "b" });
+    await getNearStatus(FIXTURE_CAMPAIGN_ID);
+    expect(fake.calls.every((c) => c.headers.get(NEAR_CONFIRM_HEADER) === null)).toBe(true);
+
+    const live = await postNearLiveQuote(FIXTURE_CAMPAIGN_ID);
+    expect(live.depositAddress.length).toBeGreaterThan(0);
+    const call = fake.to("POST", /live-quote$/u)[0];
+    expect(call?.headers.get(NEAR_CONFIRM_HEADER)).toBe(NEAR_CONFIRM_ACKNOWLEDGEMENT);
+    expect(call?.body).toBeUndefined();
+  });
+
+  it("refuse an id that is not a campaign id, before anything is sent", async () => {
+    const fake = routes();
+    const error = await failureOf(getNearStatus("../x"));
+    expect(error.status).toBe(404);
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it("report the operator's refusal with its code", async () => {
+    installFakeOperator({
+      "POST /api/campaigns/:id/funding/near/live-quote": () => ({ status: 400, body: { error: { code: "confirmation_required", message: "x", warning: "w" } } }),
+    });
+    const error = await failureOf(postNearLiveQuote(FIXTURE_CAMPAIGN_ID));
+    expect(error.kind).toBe("api");
+    expect(error.api?.code).toBe("confirmation_required");
+  });
+
+  it("report an answer that is not in the shape the page accepts as invalid, never as data", async () => {
+    installFakeOperator({
+      "GET /api/campaigns/:id/funding/near/status": () => ({ body: { status: "funded", step: "await_deposit" } }),
+    });
+    const error = await failureOf(getNearStatus(FIXTURE_CAMPAIGN_ID));
+    expect(error.kind).toBe("invalid_response");
   });
 });

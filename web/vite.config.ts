@@ -13,6 +13,7 @@ const fsAllow = [
   here("../fixtures/contract"), // golden receipt: demo page + contract test
   here("../fixtures/testnet-ironwood-batch"), // the first real testnet batch: the "real-smoke" sample
   here("../fixtures/testnet-ironwood-batch-8"), // the 8-output real testnet batch: the "real" sample receipt
+  here("../examples"), // the public 8-payout sample list the home page's lens shows
   // The Rust sources whose user-facing strings the tests compare against.
   // Only while testing; the dev server has no reason to serve them.
   ...(process.env["VITEST"] ? [here("../crates/drop-core/src"), here("../crates/drop-operator/src"), here("../crates/drop-zcash/src"), here("../docs")] : []),

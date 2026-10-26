@@ -11,6 +11,7 @@ import apiSource from "../../../../crates/drop-operator/src/api.rs?raw";
 import httpSource from "../../../../crates/drop-operator/src/http.rs?raw";
 import guardSource from "../../../../crates/drop-operator/src/guard.rs?raw";
 import stateSource from "../../../../crates/drop-operator/src/state.rs?raw";
+import nearApiSource from "../../../../crates/drop-operator/src/api_near.rs?raw";
 
 const GENERIC = "The operator refused this";
 
@@ -112,7 +113,7 @@ describe("explainFailure", () => {
   it("has a specific sentence for every error code the operator source can raise", () => {
     // A drift alarm: if the core adds an error code, this fails until the web
     // says something useful about it instead of the generic refusal.
-    const sources = [apiSource, httpSource, stateSource, guardSource].join("\n");
+    const sources = [apiSource, httpSource, stateSource, guardSource, nearApiSource].join("\n");
     const codes = new Set<string>();
     for (const m of sources.matchAll(/ApiError::(?:conflict|bad_request|unprocessable|forbidden)\(\s*"([a-z_]+)"/gu)) codes.add(m[1] ?? "");
     for (const m of sources.matchAll(/ApiError::new\(\s*[^,"]+(?:::[A-Z_]+)?,\s*"([a-z_]+)"/gu)) codes.add(m[1] ?? "");

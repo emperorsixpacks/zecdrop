@@ -46,6 +46,9 @@ pub enum ConfigError {
     /// A numeric option is out of range.
     #[error("option out of range: {0}")]
     BadOption(&'static str),
+    /// `--near-base-url` is not a usable http or https URL.
+    #[error("--near-base-url must be an http or https URL with a host and no credentials")]
+    BadNearUrl,
     /// There is nowhere to keep the account registry.
     #[error("cannot tell where to keep the account registry; pass --state-dir <dir> or set ZECDROP_STATE_DIR")]
     NoStateDir,

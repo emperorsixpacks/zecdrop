@@ -71,7 +71,14 @@ function BatchCard({ batch, campaign }: { batch: OperatorBatch; campaign: Campai
  * Only counts, totals and txids appear; the operator's API has nothing else. */
 export function OperatorBatchList({ campaign }: { campaign: Campaign }) {
   if (campaign.batches.length === 0) {
-    return <p className="text-sm text-muted-foreground">This campaign has no batches.</p>;
+    return (
+      <div data-testid="batches-empty" className="space-y-1">
+        <p className="text-base font-semibold">No batches yet</p>
+        <p className="max-w-[64ch] text-base text-muted-foreground">
+          Each batch of payouts shows up here, with its transaction and fee, once the payout is sent.
+        </p>
+      </div>
+    );
   }
   return (
     <>

@@ -1,20 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  applyTheme,
-  currentTheme,
-  readStoredTheme,
-  resolveInitialTheme,
-  storeTheme,
-  THEME_STORAGE_KEY,
-} from "./theme";
+import { applyTheme, currentTheme, readStoredTheme, resolveInitialTheme, storeTheme, THEME_STORAGE_KEY } from "./theme";
 
-function stubMatchMedia(lightPreferred: boolean) {
+function stubMatchMedia(darkPreferred: boolean) {
   vi.stubGlobal(
     "matchMedia",
     vi.fn((query: string) => ({
-      matches: lightPreferred && query.includes("light"),
+      matches: darkPreferred && query.includes("dark"),
       media: query,
     })),
   );
@@ -31,25 +24,28 @@ afterEach(() => {
 });
 
 describe("theme", () => {
-  it("defaults to dark when nothing is stored and the OS has no preference", () => {
+  it("is light, the look, when nothing is stored and the system does not say dark", () => {
     stubMatchMedia(false);
+    expect(resolveInitialTheme()).toBe("light");
+  });
+
+  it("is dark when the system says dark and nothing is stored", () => {
+    stubMatchMedia(true);
     expect(resolveInitialTheme()).toBe("dark");
   });
 
-  it("follows an OS light preference when nothing is stored", () => {
+  it("a stored choice beats the system setting", () => {
+    stubMatchMedia(false);
+    storeTheme("dark");
+    expect(resolveInitialTheme()).toBe("dark");
+    storeTheme("light");
     stubMatchMedia(true);
     expect(resolveInitialTheme()).toBe("light");
   });
 
-  it("a stored choice beats the OS preference", () => {
-    stubMatchMedia(true);
-    storeTheme("dark");
-    expect(resolveInitialTheme()).toBe("dark");
-  });
-
   it("works when matchMedia does not exist", () => {
     vi.stubGlobal("matchMedia", undefined);
-    expect(resolveInitialTheme()).toBe("dark");
+    expect(resolveInitialTheme()).toBe("light");
   });
 
   it("ignores garbage in storage", () => {
@@ -57,11 +53,11 @@ describe("theme", () => {
     expect(readStoredTheme()).toBeNull();
   });
 
-  it("applyTheme sets data-theme and currentTheme reads it back", () => {
-    expect(currentTheme()).toBe("dark");
-    applyTheme("light");
-    expect(document.documentElement.dataset["theme"]).toBe("light");
+  it("applyTheme sets data-theme and currentTheme reads it back; with none set it is light", () => {
     expect(currentTheme()).toBe("light");
+    applyTheme("dark");
+    expect(document.documentElement.dataset["theme"]).toBe("dark");
+    expect(currentTheme()).toBe("dark");
   });
 
   it("survives storage that throws", () => {
@@ -73,7 +69,7 @@ describe("theme", () => {
     });
     expect(readStoredTheme()).toBeNull();
     expect(() => {
-      storeTheme("light");
+      storeTheme("dark");
     }).not.toThrow();
   });
 });

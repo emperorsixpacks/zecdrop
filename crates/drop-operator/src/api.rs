@@ -15,6 +15,11 @@
 //! | `POST /api/campaigns/{id}/fund-observed` | record the funding deposit (mock chain only) |
 //! | `POST /api/campaigns/{id}/start` | run the engine in the background |
 //! | `GET /api/campaigns/{id}/events` | Server-Sent Events of engine progress |
+//! | `GET /api/near/tokens` | assets a funder could pay with through NEAR Intents (never ZEC) |
+//! | `POST /api/near/preview` | a dry price quote for delivering some ZEC; creates nothing |
+//! | `POST /api/campaigns/{id}/funding/near/dry-quote` | mainnet campaigns: a dry quote for what the campaign needs |
+//! | `POST /api/campaigns/{id}/funding/near/live-quote` | mainnet only, acknowledged: asks for a deposit address |
+//! | `GET /api/campaigns/{id}/funding/near/status` | mainnet only: where the swap stands (never "funded") |
 //!
 //! Logs hold the method, route template and status only.
 //!
@@ -45,6 +50,7 @@ use serde_json::json;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 
+use crate::api_near;
 use crate::auth::require_token;
 use crate::chain::FundingLayout;
 use crate::commands::{campaign_ufvk, DISCLOSURE_WARNING};
@@ -85,6 +91,23 @@ pub fn build_router(state: AppState, web_dir: Option<PathBuf>, bound: SocketAddr
         .route("/campaigns/{id}/fund-observed", post(fund_observed))
         .route("/campaigns/{id}/check-funding", post(check_funding))
         .route("/campaigns/{id}/audit-ufvk-export", get(export_ufvk))
+        .route("/near/tokens", get(api_near::near_tokens))
+        .route(
+            "/near/preview",
+            post(api_near::near_preview).layer(DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/campaigns/{id}/funding/near/dry-quote",
+            post(api_near::near_dry_quote).layer(DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/campaigns/{id}/funding/near/live-quote",
+            post(api_near::near_live_quote),
+        )
+        .route(
+            "/campaigns/{id}/funding/near/status",
+            get(api_near::near_status),
+        )
         .route("/campaigns/{id}/start", post(start_campaign))
         .route("/campaigns/{id}/events", get(campaign_events))
         .fallback(api_not_found)
@@ -243,7 +266,7 @@ fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
-fn load(state: &AppState, id: &str) -> Result<CampaignRecord, ApiError> {
+pub(crate) fn load(state: &AppState, id: &str) -> Result<CampaignRecord, ApiError> {
     let id = CampaignId::new(id).map_err(|_| ApiError::not_found("campaign"))?;
     state
         .store()

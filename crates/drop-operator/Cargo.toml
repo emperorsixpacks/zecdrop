@@ -12,6 +12,7 @@ chacha20poly1305 = "0.11.0"
 clap = { version = "4.6.7", features = ["derive"] }
 drop-chain = { version = "0.1.0", path = "../drop-chain" }
 drop-core = { version = "0.1.0", path = "../drop-core" }
+drop-near = { version = "0.1.0", path = "../drop-near" }
 drop-verify = { version = "0.1.0", path = "../drop-verify" }
 drop-zcash = { version = "0.1.0", path = "../drop-zcash" }
 getrandom = "0.4.3"

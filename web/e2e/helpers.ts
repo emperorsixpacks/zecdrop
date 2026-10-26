@@ -11,11 +11,11 @@ export interface PageUnderTest {
 }
 
 export const PAGES: readonly PageUnderTest[] = [
-  { name: "home", path: "/", h1: "Private amounts. Public accountability." },
+  { name: "home", path: "/", h1: "Pay many people. Keep who got what private. Prove the total." },
   { name: "real testnet sample receipt", path: "/r/demo?demo=real", h1: "Payout receipt", ready: "Status" },
   { name: "first real testnet batch", path: "/r/demo?demo=real-smoke", h1: "Payout receipt", ready: "Status" },
   { name: "sample receipt", path: "/r/demo?demo=1", h1: "Payout receipt", ready: "Status" },
-  { name: "privacy boundary", path: "/privacy", h1: "What is public, what is private" },
+  { name: "how privacy works", path: "/privacy", h1: "How privacy works" },
   { name: "incomplete receipt link", path: "/r/not-a-real-link", h1: "Payout receipt", ready: "This receipt link is incomplete" },
   { name: "sample receipt with findings", path: "/r/demo?demo=findings", h1: "Payout receipt", ready: "What the verifier found" },
   { name: "sample receipt with a declared-total mismatch", path: "/r/demo?demo=mismatch", h1: "Payout receipt", ready: "What the verifier found" },
@@ -104,5 +104,10 @@ export async function axeViolations(page: Page) {
     impact: v.impact,
     help: v.help,
     targets: v.nodes.slice(0, 3).map((n) => n.target.join(" ")),
+    // For colour contrast: the colours axe measured, so a failure says what it saw.
+    seen: v.nodes.slice(0, 3).map((n) => {
+      const data = n.any[0]?.data as { fgColor?: string; bgColor?: string; contrastRatio?: number } | undefined;
+      return data?.fgColor === undefined ? "" : `${data.fgColor} on ${data.bgColor ?? "?"} = ${String(data.contrastRatio)}`;
+    }),
   }));
 }

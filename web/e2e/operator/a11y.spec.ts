@@ -10,7 +10,7 @@ import { loadSentinels } from "./privacy.js";
 // The operator pages, signed in, against the real operator: both themes, phone
 // and desktop width. Each page is checked for console problems, sideways
 // scrolling and WCAG 2.2 A/AA violations (colour contrast and target size
-// included). The mock-chain banner must be present on every one of them.
+// included). The practice-mode pill must be present on every one of them.
 
 interface Watched {
   problems: () => string[];
@@ -29,6 +29,19 @@ const GOLDEN_DIR = resolve(process.cwd(), "../fixtures/contract/operator/golden"
 /** A real-chain response written by the operator's own Rust test. */
 function golden(name: string): unknown {
   return JSON.parse(readFileSync(join(GOLDEN_DIR, name), "utf8"));
+}
+
+const CAPTURED_DIR = resolve(process.cwd(), "../fixtures/contract/operator");
+
+/** A response the real operator binary wrote (fixtures/contract/operator). */
+function captured(name: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(join(CAPTURED_DIR, name), "utf8")) as Record<string, unknown>;
+}
+
+/** Open every section behind a click, so what is inside is checked too. */
+async function openEverything(page: Page): Promise<void> {
+  const closed = page.locator("main button[aria-expanded='false']:not([data-slot='why-trigger']):not([aria-haspopup])");
+  for (let i = 0; i < 20 && (await closed.count()) > 0; i++) await closed.first().click();
 }
 
 function watch(page: Page): Watched {
@@ -52,8 +65,11 @@ function watch(page: Page): Watched {
   };
 }
 
-async function check(page: Page, label: string, watched: Watched): Promise<void> {
-  await expect(page.getByRole("status").filter({ hasText: "Mock chain: nothing is sent to Zcash" }), `${label}: banner`).toBeVisible();
+async function check(page: Page, label: string, watched: Watched, options: { sheet?: boolean } = {}): Promise<void> {
+  // While a sheet is open the page behind it is hidden from assistive technology, the pill with it.
+  if (options.sheet !== true) {
+    await expect(page.getByRole("status").filter({ hasText: "Practice mode: nothing is sent to Zcash" }), `${label}: practice pill`).toBeVisible();
+  }
   expect(watched.problems(), `${label}: console`).toEqual([]);
   const overflow = await overflowReport(page);
   expect(overflow.wide, `${label}: elements wider than the viewport`).toEqual([]);
@@ -72,7 +88,7 @@ for (const viewport of VIEWPORTS) {
         await page.goto(operatorUrl("/campaigns"));
         await expect(page.getByRole("heading", { level: 1, name: "Open the operator link" })).toBeVisible();
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-        // No banner on the explainer when the operator is on the mock chain? It is shown: health needs no token.
+        // The pill is on the explainer too: health needs no token.
         await check(page, "explainer", watched);
       });
 
@@ -92,22 +108,33 @@ for (const viewport of VIEWPORTS) {
         await page.goto(operatorUrl("/campaigns", { token: true }));
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 
-        await expect(page.getByRole("list", { name: "Campaigns" })).toBeVisible();
-        await check(page, "campaigns list", watched);
+        await expect(page.getByRole("list", { name: "Payouts" })).toBeVisible();
+        await check(page, "payouts list", watched);
 
         await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Audit" }).click();
         await expect(page.getByRole("heading", { level: 1, name: "Audit" })).toBeVisible();
         await check(page, "audit", watched);
+        await openEverything(page);
+        await check(page, "audit, everything open", watched);
 
         for (const [label, id, ready] of [
-          ["campaign awaiting funding", awaiting, page.getByRole("heading", { name: "Mock chain: record a pretend deposit" })],
-          ["funded campaign", funded, page.getByRole("button", { name: "Start sending" })],
-          ["settled campaign", settled, page.getByTestId("receipt-link")],
+          ["campaign awaiting funding", awaiting, page.getByRole("heading", { name: "Practice mode: record a pretend deposit" })],
+          ["funded campaign", funded, page.getByRole("button", { name: "Send 5 payouts" })],
+          ["settled campaign", settled, page.getByText("Sealed")],
         ] as const) {
           await page.goto(operatorUrl(`/campaign/${id}`, { token: true }));
           await expect(ready, label).toBeVisible();
           await check(page, label, watched);
+          await openEverything(page);
+          await check(page, `${label}, everything open`, watched);
         }
+
+        // The sheet that asks before sending: a state of its own.
+        await page.goto(operatorUrl(`/campaign/${funded}`, { token: true }));
+        await page.getByRole("button", { name: "Send 5 payouts" }).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await check(page, "the send sheet", watched, { sheet: true });
+        await page.keyboard.press("Escape");
 
         // A campaign that does not exist.
         await page.goto(operatorUrl("/campaign/c-ffffffffffff", { token: true }));
@@ -116,55 +143,115 @@ for (const viewport of VIEWPORTS) {
         await check(page, "campaign not found", watched);
       });
 
-      test("every wizard step, and the CSV problems list", async ({ page }) => {
+      test("a run in progress, one that stopped, and one that failed", async ({ page }) => {
+        await useTheme(page, theme);
+        const watched = watch(page);
+        const id = "c-000000000001";
+        let current = captured("campaign-running.json");
+        await page.route(new RegExp(`/api/campaigns/${id}$`, "u"), (route) => route.fulfill({ json: current }));
+        await page.route(new RegExp(`/api/campaigns/${id}/events$`, "u"), (route) =>
+          route.fulfill({ contentType: "text/event-stream", body: readFileSync(join(CAPTURED_DIR, "events-running.sse.txt"), "utf8") }),
+        );
+        // The captured campaign names itself with its own id, and that is the one its receipt is asked for under.
+        await page.route(/\/api\/campaigns\/[^/]+\/receipt$/u, (route) => route.fulfill({ json: captured("receipt-running.json") }));
+        const open = async (label: string, ready: string | RegExp) => {
+          await page.goto("about:blank");
+          await page.goto(operatorUrl(`/campaign/${id}`, { token: true }));
+          await expect(page.getByRole("heading", { name: "Sending the payouts" }), label).toBeVisible();
+          await expect(page.getByText(ready).first(), label).toBeVisible();
+          await check(page, label, watched);
+          await openEverything(page);
+          await check(page, `${label}, everything open`, watched);
+        };
+
+        await open("sending", "Confirming 1");
+        current = captured("campaign-crashed.json");
+        await open("stopped unexpectedly", /never built a second time/u);
+        const running = captured("campaign-running.json") as { batches: Record<string, unknown>[] };
+        current = {
+          ...running,
+          run: { state: "halted" },
+          batches: running.batches.map((b, i) => (i === 0 ? { ...b, state: "failed", reason: "rejected by the node" } : b)),
+        };
+        await open("halted", /rejected by the node/u);
+      });
+
+      test("the three stages, and the list with problems", async ({ page }) => {
         await useTheme(page, theme);
         const watched = watch(page);
         const sentinels = loadSentinels();
-        await page.goto(operatorUrl("/new/basics", { token: true }));
+        const bad = loadSentinels("row-errors.csv");
+        const paste = async (csv: string) => {
+          await page.getByRole("button", { name: "or paste it" }).click();
+          await page.getByLabel("Paste your list").fill(csv);
+          await page.getByRole("button", { name: "Use this list" }).click();
+        };
+        await page.goto(operatorUrl("/new", { token: true }));
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 
-        await expect(page.getByRole("heading", { level: 1, name: "Basics" })).toBeVisible();
-        await check(page, "basics", watched);
+        await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
+        await check(page, "payouts, empty", watched);
 
-        // Validation message on Basics.
-        await page.getByRole("button", { name: "Next: Recipients" }).click();
-        await expect(page.getByText("Give the campaign a name.")).toBeVisible();
-        await check(page, "basics with a problem", watched);
+        // Pasting opens the box for it.
+        await page.getByRole("button", { name: "or paste it" }).click();
+        await expect(page.getByLabel("Paste your list")).toBeVisible();
+        await check(page, "payouts, paste box", watched);
+        await page.getByLabel("Paste your list").fill(bad.csv);
+        await page.getByRole("button", { name: "Use this list" }).click();
+        await expect(page.getByTestId("payout-table")).toBeVisible();
+        await check(page, "payouts, list", watched);
 
-        await page.getByLabel("Campaign name").fill(`A11y ${theme} ${String(viewport.width)}`);
-        await page.getByLabel("Payouts per batch").fill("3");
-        await page.getByRole("button", { name: "Next: Recipients" }).click();
-        await expect(page.getByRole("heading", { level: 1, name: "Recipients" })).toBeVisible();
-        await check(page, "recipients", watched);
-
-        // The problems list, from a CSV with every kind of row error.
-        const bad = loadSentinels("row-errors.csv");
-        await page.getByLabel("Recipients (CSV)").fill(bad.csv);
-        await page.getByRole("button", { name: "Check and create campaign" }).click();
-        await expect(page.getByRole("heading", { name: /problems? in the CSV/u })).toBeVisible();
+        // The operator's problems, in the rows they are about.
+        await page.getByRole("button", { name: "Continue" }).click();
+        await expect(page.getByText(/problems? to fix\./u)).toBeVisible();
         expect(watched.take(/status of 422/u), "the refused CSV").toBe(1);
-        await check(page, "recipients with CSV problems", watched);
+        await check(page, "payouts, with problems", watched);
 
-        // Fix it and go on.
-        await page.getByLabel("Recipients (CSV)").fill(sentinels.csv);
-        await page.getByRole("button", { name: "Check and create campaign" }).click();
-        await expect(page.getByRole("heading", { level: 1, name: "Auditor" })).toBeVisible();
-        await check(page, "auditor", watched);
+        // Use a different list, with the options open, and go on.
+        await page.getByRole("button", { name: "Use a different list" }).click();
+        await paste(sentinels.csv);
+        await page.getByLabel("Name this payout run").fill(`A11y ${theme} ${String(viewport.width)}`);
+        await page.getByRole("button", { name: "Options" }).click();
+        await page.getByLabel("Payouts per batch").fill("3");
+        await expect(page.getByLabel("Payouts per batch")).toHaveValue("3");
+        await check(page, "payouts, options open", watched);
 
-        await page.getByRole("link", { name: /^Next: Review/u }).click();
-        await expect(page.getByRole("heading", { level: 1, name: "Review" })).toBeVisible();
+        await page.getByRole("button", { name: "Continue" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Check the payouts" })).toBeVisible();
+        await expect(page.getByTestId("payout-summary")).toBeVisible();
+        await check(page, "check, public view", watched);
+
+        // The lens, in each view, and a "Why?" open.
+        await page.getByRole("radio", { name: "One person" }).click();
+        await expect(page.getByLabel("Who?")).toBeVisible();
+        await check(page, "check, one person", watched);
+        await page.getByRole("radio", { name: "Auditor" }).click();
+        await check(page, "check, auditor view", watched);
+        await page.getByRole("button", { name: /^Why: / }).first().click();
+        await expect(page.locator("[data-slot='popover-content']")).toBeVisible();
+        await check(page, "check, a Why open", watched);
+        await page.keyboard.press("Escape");
+        await openEverything(page);
         await expect(page.getByTestId("manifest-commitment")).toBeVisible();
-        await check(page, "review", watched);
+        await check(page, "check, everything open", watched);
 
-        await page.getByRole("link", { name: /^Next: Fund/u }).click();
-        await expect(page.getByRole("heading", { level: 1, name: "Fund & Send" })).toBeVisible();
-        await expect(page.getByRole("heading", { name: "Mock chain: record a pretend deposit" })).toBeVisible();
-        await check(page, "fund", watched);
+        await page.getByRole("link", { name: "Looks right, continue" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Fund and send" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Practice mode: record a pretend deposit" })).toBeVisible();
+        await check(page, "send, not yet funded", watched);
 
-        // Back to a locked step.
-        await page.getByRole("navigation", { name: "Wizard progress" }).getByRole("link", { name: /Basics/u }).click();
-        await expect(page.getByRole("heading", { name: "Basics (locked)" })).toBeVisible();
-        await check(page, "basics locked", watched);
+        await page.getByRole("button", { name: "Record mock deposit" }).click();
+        await expect(page.getByText("Funded.")).toBeVisible();
+        await check(page, "send, funded", watched);
+        await page.getByRole("button", { name: "Send 5 payouts" }).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await check(page, "send, the sheet", watched, { sheet: true });
+        await page.keyboard.press("Escape");
+
+        // And back one stage.
+        await page.getByRole("link", { name: "Back to check" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Check the payouts" })).toBeVisible();
+        await check(page, "check again", watched);
       });
 
       test("a real chain's funding states and the viewing key, from the operator's golden responses", async ({ page }) => {
@@ -189,8 +276,9 @@ for (const viewport of VIEWPORTS) {
           await page.goto(operatorUrl(`/campaign/${funded}`, { token: true }));
         };
         const checkReal = async (label: string) => {
-          // Not the mock chain: no banner on these pages.
-          await expect(page.getByText("Mock chain:"), `${label}: no mock banner`).toHaveCount(0);
+          // Not the mock chain: no practice pill and no pretend deposit on these pages.
+          await expect(page.getByText("Practice mode"), `${label}: no practice pill`).toHaveCount(0);
+          await expect(page.getByText("Practice mode: record"), `${label}: no pretend deposit`).toHaveCount(0);
           expect(watched.problems(), `${label}: console`).toEqual([]);
           const overflow = await overflowReport(page);
           expect(overflow.wide, `${label}: elements wider than the viewport`).toEqual([]);
@@ -216,12 +304,11 @@ for (const viewport of VIEWPORTS) {
         await checkReal("wrong wallet");
 
         await open("campaign-real-funded.json");
-        await expect(page.getByRole("button", { name: "Start sending" })).toBeVisible();
+        await expect(page.getByRole("button", { name: /^Send \d+ payouts?$/u })).toBeEnabled();
         await checkReal("funded");
 
         // The viewing key: not offered until the person agrees, hidden again on request.
-        const card = page.getByRole("heading", { name: "Give an auditor the viewing key" });
-        await card.scrollIntoViewIfNeeded();
+        await page.getByRole("button", { name: "Auditor access" }).click();
         const reveal = page.getByRole("button", { name: "Show the viewing key" });
         await expect(reveal).toBeDisabled();
         await page.getByRole("checkbox", { name: /I understand that whoever receives this key/u }).check();

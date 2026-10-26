@@ -2,6 +2,7 @@
 //! the real router driven in-process.
 #![allow(dead_code)]
 
+pub mod near;
 pub mod zcash;
 
 use std::path::PathBuf;
@@ -21,6 +22,7 @@ use drop_operator::codec::LooseAddressCodec;
 use drop_operator::crypto::KdfParams;
 use drop_operator::logging::{CaptureSink, Logger};
 use drop_operator::mock::{MockBackend, MockChain, MockConfig};
+use drop_operator::near::{Clock, NearParts};
 use drop_operator::secret::SecretSeed;
 use drop_operator::state::{AppParts, AppState, Options};
 use drop_operator::store::Store;
@@ -104,6 +106,48 @@ pub struct Builder {
     pub codec: Option<Arc<dyn AddressCodec + Send + Sync>>,
     /// An account numbering to use instead of a registry in the harness's own directory.
     pub accounts: Option<Arc<dyn AccountAllocator>>,
+    /// The network the operator runs on.
+    pub network: Network,
+    /// The stand-in for the NEAR Intents service.
+    pub near: near::FakeNear,
+    /// The API key the NEAR client carries, if a test wants one.
+    pub jwt: Option<drop_near::Jwt>,
+    /// The clock the NEAR routes read, set by hand.
+    pub clock: ManualClock,
+    /// Whether the operator counts as started with `--allow-mainnet`.
+    pub allow_mainnet: bool,
+}
+
+/// A clock that moves only when told to. Starts at 2026-10-08 00:00:00 UTC.
+#[derive(Clone)]
+pub struct ManualClock(Arc<std::sync::atomic::AtomicU64>);
+
+impl ManualClock {
+    pub const START: u64 = 1_791_417_600;
+
+    pub fn new() -> ManualClock {
+        ManualClock(Arc::new(std::sync::atomic::AtomicU64::new(Self::START)))
+    }
+
+    pub fn advance(&self, secs: u64) {
+        self.0.fetch_add(secs, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn now(&self) -> u64 {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl Default for ManualClock {
+    fn default() -> Self {
+        ManualClock::new()
+    }
+}
+
+impl Clock for ManualClock {
+    fn now_secs(&self) -> u64 {
+        self.now()
+    }
 }
 
 impl Default for Builder {
@@ -122,6 +166,11 @@ impl Default for Builder {
             backend: None,
             codec: None,
             accounts: None,
+            network: Network::Testnet,
+            near: near::FakeNear::new(),
+            jwt: None,
+            clock: ManualClock::new(),
+            allow_mainnet: false,
         }
     }
 }
@@ -148,6 +197,10 @@ pub struct Harness {
     pub backend: Arc<dyn ChainBackend>,
     pub codec: Arc<dyn AddressCodec + Send + Sync>,
     pub accounts: Arc<dyn AccountAllocator>,
+    pub network: Network,
+    pub near: near::FakeNear,
+    pub clock: ManualClock,
+    pub allow_mainnet: bool,
 }
 
 impl Harness {
@@ -183,8 +236,14 @@ impl Harness {
         let accounts: Arc<dyn AccountAllocator> = spec
             .accounts
             .unwrap_or_else(|| Arc::new(FileAccounts::new(dir.path().join("state"))));
+        let near_parts = NearParts {
+            gateway: Arc::new(drop_near::OneClick::new(spec.near.clone(), spec.jwt)),
+            clock: Arc::new(spec.clock.clone()),
+            allow_mainnet: spec.allow_mainnet,
+        };
         let state = AppState::new(AppParts {
-            network: Network::Testnet,
+            network: spec.network,
+            near: near_parts,
             pool: Pool::Ironwood,
             store,
             codec: Arc::clone(&codec),
@@ -209,6 +268,10 @@ impl Harness {
             backend,
             codec,
             accounts,
+            network: spec.network,
+            near: spec.near,
+            clock: spec.clock,
+            allow_mainnet: spec.allow_mainnet,
         }
     }
 
@@ -232,6 +295,10 @@ impl Harness {
             backend,
             codec,
             accounts,
+            network,
+            near,
+            clock,
+            allow_mainnet,
             logs: _,
         } = self;
         drop(router);
@@ -244,6 +311,10 @@ impl Harness {
             backend: Some(backend),
             codec: Some(codec),
             accounts: Some(accounts),
+            network,
+            near,
+            clock,
+            allow_mainnet,
             ..Builder::default()
         };
         Harness::start(dir, db, store, chain, spec)

@@ -28,19 +28,19 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 | Registered | done | |
 | Project name (≤ 64 chars) | decided | `ZecDrop` (confirmed by the owner) |
 | Track | open | Shielded Payments |
-| Description | open | draft after the first testnet e2e |
-| Code repository | open | private until the public flip |
-| A working demo | open | hosted key-less verifier with a real testnet receipt (a hosted operator sandbox is not built; see ADR 0002) |
-| A two-minute demo video | open | shows the local-operator flow and the public receipt |
+| Description | draft | `docs/submission/description.md`, refreshed 2026-10-15; the repository and video links are still blank |
+| Code repository | open | `JemIIahh/zecdrop`, private until the public flip; `main` is still the initial import, the work is on `near-funding-and-redesign` |
+| A working demo | partly | site live at <https://zecdrop-site.vercel.app> and checked on 2026-10-16: a shareable link (in `docs/JUDGES.md`) asks the hosted key-less verifier, which a teammate runs on a VPS (`deploy/vps/`), and shows the real 8-payout receipt live. The VPS must stay up through judging. A hosted operator sandbox is not built, see ADR 0002 |
+| A two-minute demo video | script ready | `docs/submission/video-script.md`; not recorded |
 | Repo public by Oct 28 | open | tick the box; run the pre-flip checklist below |
 | Project submitted | open | |
 
 ## Pre-flip checklist (before making the repo public)
 
-- [ ] No seeds, mnemonics, UFVKs, JWTs or `.env` in any commit (scan full history).
-- [ ] README says all code was written in the build window.
-- [ ] `PROVENANCE.md` present for generated code; no file copied from another project.
-- [ ] LICENSE-MIT and LICENSE-APACHE present.
+- [x] No seeds, mnemonics, UFVKs, JWTs or `.env` in any commit (full history scanned 2026-10-15: only placeholder test keys and "TEST ONLY" test seeds; the only tracked dotfile is `web/.env.example`). Re-scan after any new commit.
+- [x] README says all code was written in the build window.
+- [ ] `PROVENANCE.md` present for generated code (present in `web/` and `crates/drop-chain/`); no file copied from another project (the owner confirms this one).
+- [x] LICENSE-MIT and LICENSE-APACHE present.
 - [ ] README commands work from a clean clone.
 
 ## Open questions
