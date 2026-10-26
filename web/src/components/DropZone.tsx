@@ -12,6 +12,8 @@ interface DropZoneProps {
   disabled?: boolean;
   /** Not the highlighted button of the screen: another one on it is. */
   quiet?: boolean;
+  /** Offered in practice mode: use the example list instead of a file of one's own. It becomes the main button. */
+  onExample?: () => void;
 }
 
 /** "Drop a CSV here, or paste it." The one big, obvious place to start.
@@ -19,7 +21,7 @@ interface DropZoneProps {
  * It reads the file in the browser and hands the text to the caller. Nothing is
  * uploaded, saved or logged here. A file over the size the operator accepts is
  * refused before it is read. */
-export function DropZone({ onList, disabled = false, quiet = false }: DropZoneProps) {
+export function DropZone({ onList, disabled = false, quiet = false, onExample }: DropZoneProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [pasting, setPasting] = useState(false);
@@ -83,10 +85,15 @@ export function DropZone({ onList, disabled = false, quiet = false }: DropZonePr
               void take(file);
             }}
           />
+          {onExample !== undefined && (
+            <Button type="button" size="lg" disabled={disabled} onClick={onExample}>
+              Use the example list
+            </Button>
+          )}
           <Button
             type="button"
             size="lg"
-            variant={quiet ? "outline" : "default"}
+            variant={quiet || onExample !== undefined ? "outline" : "default"}
             disabled={disabled}
             onClick={() => {
               fileInput.current?.click();

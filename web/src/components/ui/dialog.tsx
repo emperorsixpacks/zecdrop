@@ -54,8 +54,10 @@ function Sheet({ open, onOpenChange, title, description, children, className }: 
         event.preventDefault()
         onOpenChange(false)
       }}
-      onClose={() => {
-        onOpenChange(false)
+      // A `close` event arrives some milliseconds after the sheet closed. If the sheet was opened again in between (Escape,
+      // then Enter on the button that opens it), the late event is about the closing before and must not close this opening.
+      onClose={(event) => {
+        if (!event.currentTarget.open) onOpenChange(false)
       }}
       // A click on the dim area is a click on the <dialog> itself: the sheet's own box fills the rest.
       onClick={(event) => {

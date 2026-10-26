@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -57,6 +57,28 @@ describe("Sheet", () => {
       await close();
       expect(screen.queryByRole("dialog")).toBeNull();
     }
+  });
+
+  it("is not closed by a late `close` event about an earlier closing, when it was opened again before the event came", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    // The browser tells of the first closing some milliseconds late, when the sheet is open again.
+    act(() => {
+      dialog.dispatchEvent(new Event("close"));
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // A `close` that is true to what the dialog is now still closes the sheet's state, as it always did.
+    act(() => {
+      dialog.removeAttribute("open");
+      dialog.dispatchEvent(new Event("close"));
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("is the browser's own dialog, so it adds no <style> element for a Content-Security-Policy to refuse", async () => {

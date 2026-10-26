@@ -4,6 +4,7 @@ import { Outlet, useLocation, useMatch } from "react-router";
 import { demoCase } from "@/api/demo";
 import { parseReceiptLink } from "@/api/receipt-query";
 import { Footer } from "@/components/Footer";
+import { PracticeBanner } from "@/components/PracticeBanner";
 import { Toaster } from "@/components/Toaster";
 import { TopBar } from "@/components/TopBar";
 import type { ZecNetwork } from "@/lib/config";
@@ -29,6 +30,7 @@ export function Shell({ showOperatorNav, network, mock, modeUnknown, children }:
       >
         Skip to content
       </a>
+      <PracticeBanner />
       <TopBar
         showOperatorNav={showOperatorNav}
         {...(network ? { network } : {})}

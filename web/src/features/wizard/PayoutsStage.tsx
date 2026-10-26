@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useCreateCampaign, useHealth } from "@/features/operator/hooks";
 import { previewPayouts } from "@/lib/csv-preview";
+import { usePractice } from "@/lib/practice-mode";
 import {
   DEFAULT_BATCH_SIZE,
   describeDuration,
@@ -36,6 +37,9 @@ function defaultRunName(now = new Date()): string {
   return `Payout, ${String(now.getDate())} ${now.toLocaleString("en-GB", { month: "short" })}`;
 }
 
+/** What the example list is called where a file's name would be. */
+const EXAMPLE_LIST_NAME = "demo-recipients.testnet.csv";
+
 const POLICY_LABEL: Record<FeePolicyName, string> = {
   zip317_text: "Standard",
   zebra_main: "Lower",
@@ -57,6 +61,7 @@ export default function PayoutsStage() {
   const csvFileName = useWizardDraft((s) => s.csvFileName);
   const { setName, setFeePolicy, setMaxOutputsPerBatch, setCsv, campaignCreated, reset } = useWizardDraft.getState();
 
+  const exampleList = usePractice((s) => s.exampleList);
   const { state, create, clearError } = useCreateCampaign();
   const creating = state.status === "creating";
   const [sizeText, setSizeText] = useState(String(size));
@@ -184,7 +189,17 @@ export default function PayoutsStage() {
 
         <section aria-label="Payout list" className="space-y-5">
           {preview.kind === "empty" ? (
-            <DropZone onList={edit} disabled={creating} />
+            <DropZone
+              onList={edit}
+              disabled={creating}
+              {...(exampleList === null
+                ? {}
+                : {
+                    onExample: () => {
+                      edit(exampleList, EXAMPLE_LIST_NAME);
+                    },
+                  })}
+            />
           ) : (
             <>
               {preview.kind === "rows" ? (

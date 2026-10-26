@@ -81,6 +81,10 @@ export const FAILURE_TEXT: Record<PayslipFailureKind, (network: ZecNetwork) => {
     title: "The verifier's answer wasn't in the expected format",
     text: "For your safety this page only shows answers in the published format. This one was not, so there is no result. Try again later.",
   }),
+  practice: () => ({
+    title: "Practice mode does not check payslips",
+    text: "Practice mode reads no chain and asks no verifier, so nothing was sent and there is no result. Leave practice mode to check a payslip.",
+  }),
 };
 
 // ---- A payslip as a link or a QR code (openspec REQ-PAY-004) ----

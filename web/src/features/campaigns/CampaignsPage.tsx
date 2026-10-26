@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useCampaigns } from "@/features/operator/hooks";
 import { useWizardDraft } from "@/features/wizard/draft";
+import { usePractice } from "@/lib/practice-mode";
 
 import { sortCampaigns } from "./sort";
 
@@ -43,6 +44,7 @@ export default function CampaignsPage() {
   const query = useCampaigns();
   const navigate = useNavigate();
   const setCsv = useWizardDraft((s) => s.setCsv);
+  const exampleList = usePractice((s) => s.exampleList);
 
   return (
     <>
@@ -69,6 +71,14 @@ export default function CampaignsPage() {
               setCsv(text, fileName);
               void navigate("/new");
             }}
+            {...(exampleList === null
+              ? {}
+              : {
+                  onExample: () => {
+                    setCsv(exampleList, "demo-recipients.testnet.csv");
+                    void navigate("/new");
+                  },
+                })}
           />
         </div>
       ) : (

@@ -35,6 +35,9 @@ const ROLES = [
   "marker",
   "marker-ink",
   "bar",
+  "island",
+  "island-ink",
+  "island-muted",
   "good",
   "bad",
   "qr-ink",
@@ -91,6 +94,13 @@ describe("Redacted paper is complete, in both modes", () => {
     expect(block(":root {\n  color-scheme: light;")).toEqual(colours("light"));
   });
 
+  it("the header capsule is the redaction bar, in both sets", () => {
+    for (const m of MODES) expect(colours(m)?.island, m).toBe(colours(m)?.bar);
+    // Light text on the black bar; in the dark set the bar is light grey, so dark text.
+    expect(colours("light")?.["island-ink"]).toBe("#f2f2ee");
+    expect(colours("dark")?.["island-ink"]).toBe("#141414");
+  });
+
   it("is the look the owner chose on 2026-10-15: white sheet, black bars, a marker-yellow highlighter", () => {
     const light = colours("light");
     expect(light?.surface).toBe("#ffffff");
@@ -125,6 +135,8 @@ describe("every pair of roles that meet in the app is readable", () => {
       if (c === null) return;
       const secondary = mix(c.ink, c.bg, 0.07);
       const muted = mix(c.ink, c.bg, 0.05);
+      // The capsule's rows answer the pointer with a tint of their own ink (14% in index.css).
+      const hoveredIsland = mix(c["island-ink"], c.island, 0.14);
       const pairs: [name: string, fg: string, bg: string, min: number][] = [
         ["text on the page", c.ink, c.bg, 4.5],
         ["text on a surface", c.ink, c.surface, 4.5],
@@ -145,6 +157,12 @@ describe("every pair of roles that meet in the app is readable", () => {
         ["text on the marker (revealed text, highlighted rows)", c["marker-ink"], c.marker, 4.5],
         ["the focus ring on the page", c.ink, c.bg, 3],
         ["the redaction bar is seen against the page", c.bar, c.bg, 1.4],
+        ["the header capsule is seen against the page", c.island, c.bg, 3],
+        ["text on the header capsule", c["island-ink"], c.island, 4.5],
+        ["quiet text on the header capsule", c["island-muted"], c.island, 4.5],
+        ["text on a hovered row of the header capsule", c["island-ink"], hoveredIsland, 4.5],
+        ["quiet text on a hovered row of the header capsule", c["island-muted"], hoveredIsland, 4.5],
+        ["the focus ring on the header capsule", c["island-ink"], c.island, 3],
         // A scanner needs more than a reader does: a dark code on a light ground, as sharp as it can be.
         ["a QR code's dark on its light", c["qr-ink"], c["qr-paper"], 18],
       ];

@@ -1,5 +1,5 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 export interface PageUnderTest {
   name: string;
@@ -97,10 +97,10 @@ export async function overflowReport(page: Page): Promise<{ page: number; wide: 
 
 /** WCAG 2.2 A and AA violations on the page as it is now, including colour
  * contrast and target size. Empty means none. */
-export async function axeViolations(page: Page) {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
+export async function axeViolations(page: Page, scope?: string) {
+  const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+  // `scope`: a selector, to check one part of the page (its colours are still measured against what is behind it).
+  const results = await (scope === undefined ? builder : builder.include(scope)).analyze();
   return results.violations.map((v) => ({
     rule: v.id,
     impact: v.impact,
@@ -112,4 +112,58 @@ export async function axeViolations(page: Page) {
       return data?.fgColor === undefined ? "" : `${data.fgColor} on ${data.bgColor ?? "?"} = ${String(data.contrastRatio)}`;
     }),
   }));
+}
+
+/** The header capsule: the one button that is all of the closed header ("ZecDrop Home testnet"). */
+export function island(page: Page): Locator {
+  return page.locator('[data-slot="island"]');
+}
+
+/** The panel the capsule opens: the links and the settings. It is in the page whether it is open or not. */
+export function islandPanel(page: Page): Locator {
+  return page.locator('[data-slot="island-panel"]');
+}
+
+/** Open the header capsule, unless it is open already, and give back its navigation, so a spec reaches a link as a visitor
+ * must: `(await openIsland(page)).getByRole("link", { name: "Get paid" })`. The links of a closed capsule are out of the
+ * tab order and the accessibility tree, so a spec that does not open it cannot find them. */
+export async function openIsland(page: Page): Promise<Locator> {
+  const button = island(page);
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await nav.waitFor();
+  return nav;
+}
+
+/** Choose a link of the header: open the capsule, press the link. It closes on the way. */
+export async function chooseFromIsland(page: Page, name: string, options: { exact?: boolean } = {}): Promise<void> {
+  const nav = await openIsland(page);
+  await nav.getByRole("link", { name, exact: options.exact ?? true }).click();
+}
+
+/** Record every text the page shows, from the first moment of every page it loads, so that a spec can say afterwards what was
+ * on the screen and what never was. Call it before navigating; call what it gives back after.
+ *
+ * A wording that is on the screen for a step of a run only cannot be waited for: a spec that looks for it looks away for as long
+ * as a slow machine takes between two looks (an accessibility check in between takes seconds), and it comes and goes unseen. The
+ * page itself looks at its own DOM after every change to it. What it records is, for each element that holds some text of its
+ * own, that element's whole text on one line. */
+export async function recordTexts(page: Page): Promise<() => Promise<string[]>> {
+  await page.addInitScript(() => {
+    const seen = new Set<string>();
+    (window as unknown as { __said: Set<string> }).__said = seen;
+    const look = () => {
+      const root = document.body;
+      for (const element of [root, ...root.querySelectorAll("*")]) {
+        if (!Array.from(element.childNodes).some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "")) continue;
+        const text = (element.textContent ?? "").replace(/\s+/gu, " ").trim();
+        if (text !== "") seen.add(text);
+      }
+    };
+    // Watching the document itself: the page's own scripts have not made a body yet.
+    new MutationObserver(() => {
+      if (document.body) look();
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
+  return async () => await page.evaluate(() => [...((window as unknown as { __said?: Set<string> }).__said ?? [])]);
 }

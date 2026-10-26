@@ -64,6 +64,16 @@ syncs its history may keep what was sent or opened. The page's own history entry
 visit is outside the page's control and may keep the full link. The page says all this where a link is made and where one is
 opened. Send a link only to the person the payment is to be proved to.
 
+## Practice mode: a simulation, not a payout
+
+The site's "Try a practice payout" runs the operator's own screens against a simulation inside the page (REQ-DEMO-001). It reads no
+chain and makes no request to an operator, a verifier or a node; the one thing it fetches is its own code, a static file from the
+page's origin. Its state is in memory, so reloading starts over, and it leaves one flag in the tab's session storage that goes when
+the tab does. Every screen says it is a simulation, and every simulated transaction id and list fingerprint begins with the bytes
+of the word "practice", so none can be taken for a chain's and none gets an explorer link. Its totals and fees are the real
+arithmetic for the list, but nothing in it is evidence about any chain, and it is no part of what ZecDrop proves. Because it
+reads no chain it cannot check a payslip, or show a receipt it did not make.
+
 ## Public (anyone can see, and the verifier recomputes)
 
 | Item | Why it is public |

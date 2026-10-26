@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { test, type Page } from "@playwright/test";
 
-import { useTheme, VIEWPORTS, type Theme } from "./helpers.js";
+import { openIsland, useTheme, VIEWPORTS, type Theme } from "./helpers.js";
 
 // Screenshots of the public pages for design review. Not part of the normal run:
 // it does nothing unless UI_SHOTS_DIR names a folder.
@@ -62,16 +62,14 @@ for (const viewport of VIEWPORTS) {
         await shoot(page, "home-person", w, name);
         await page.getByRole("radio", { name: "Auditor" }).click();
         await shoot(page, "home-auditor", w, name);
+        await openIsland(page);
+        await shoot(page, "home-island", w, name, false);
         await page.getByRole("button", { name: "Appearance" }).click();
         await page.getByRole("dialog").waitFor();
         await shoot(page, "home-appearance", w, name, false);
+        // The panel takes the first Escape, the capsule the second.
         await page.keyboard.press("Escape");
-        if (viewport.width < 1024) {
-          await page.getByRole("button", { name: "Menu" }).click();
-          await page.getByRole("navigation", { name: "Menu" }).waitFor();
-          await shoot(page, "home-menu", w, name, false);
-          await page.keyboard.press("Escape");
-        }
+        await page.keyboard.press("Escape");
 
         await page.goto("/r/demo?demo=real");
         await page.getByRole("heading", { level: 2, name: "Status" }).waitFor({ state: "attached" });

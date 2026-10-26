@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import demoCsv from "../../../../examples/demo-recipients.testnet.csv?raw";
 import "@/test/dom";
+import { openIsland } from "@/test/island";
 import { renderApp } from "@/test/render-app";
 
 import shapeSource from "../../lib/address-shape.ts?raw";
@@ -626,9 +627,9 @@ describe("what the page does with an address", () => {
     const user = userEvent.setup();
     show();
     paste(MAINNET);
-    await user.click(within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", { name: "How privacy works" }));
+    await user.click(within(await openIsland(user)).getByRole("link", { name: "How privacy works" }));
     expect(await screen.findByRole("heading", { level: 1, name: "How privacy works" })).toBeInTheDocument();
-    await user.click(within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", { name: "Get paid" }));
+    await user.click(within(await openIsland(user)).getByRole("link", { name: "Get paid" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Get paid in ZEC" })).toBeInTheDocument();
     expect(field()).toHaveValue("");
   });

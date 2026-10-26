@@ -1,6 +1,6 @@
 # Runbook — a small real mainnet run
 
-**Status: written, not run yet (2026-10-18).** This is **real money**. The code is not audited, so the operator caps a mainnet
+**Status: written; the start-up has been rehearsed without money, the funded run has not been done (2026-10-19).** On 2026-10-19 a debug build of the operator, started on mainnet with a throwaway store and passphrase and nothing funded, printed `connected to the mainnet chain (tip 3523256, branch 37a5165b)` and `store checked: 0 campaign(s)` against the real node `zec.rocks:443`; the store was deleted afterwards. This is **real money**. The code is not audited, so the operator caps a mainnet
 campaign at 0.1 ZEC of funding by default (`--mainnet-max-funding-zat`). The decision behind it and the checks that guard
 it are in the OpenSpec change `mainnet-run` and in `docs/LEARNINGS.md`.
 

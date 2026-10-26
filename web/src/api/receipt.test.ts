@@ -190,6 +190,35 @@ describe("a 400 from the verifier", () => {
   });
 });
 
+// covers: REQ-DEMO-001
+describe("a 409 from practice mode", () => {
+  const refusal = (code: unknown) => ({ error: { code, message: "words the page must not keep" } });
+
+  it("is 'practice' when its code says practice mode reads no chain", async () => {
+    respond(409, refusal("practice_mode"));
+    const error = await failureOf(fetchReceipt(query));
+    expect(error.kind).toBe("practice");
+    expect(error.status).toBe(409);
+    expect(`${error.message} ${JSON.stringify(error)}`).not.toContain("words the page must not keep");
+  });
+
+  it("only that code on that status says so: any other 409 is sorted by the status alone", async () => {
+    for (const body of [refusal("conflict"), refusal(7), {}, ""]) {
+      respond(409, body);
+      expect((await failureOf(fetchReceipt(query))).kind).toBe("unreachable");
+    }
+    // The same code on another status is not practice mode speaking.
+    for (const [status, kind] of [
+      [400, "rejected"],
+      [404, "not_found"],
+      [503, "unreachable"],
+    ] as const) {
+      respond(status, refusal("practice_mode"));
+      expect((await failureOf(fetchReceipt(query))).kind, String(status)).toBe(kind);
+    }
+  });
+});
+
 describe("timeout and cancellation", () => {
   /** A fetch that never answers but honours its abort signal. */
   const hang = () =>

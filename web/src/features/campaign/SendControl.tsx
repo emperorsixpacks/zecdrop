@@ -7,6 +7,7 @@ import { Sheet } from "@/components/ui/dialog";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useHealth, useStartCampaign } from "@/features/operator/hooks";
 import { describeRun } from "@/features/operator/messages";
+import { usePractice } from "@/lib/practice-mode";
 
 import { markStarted } from "./run-clock";
 
@@ -24,6 +25,7 @@ interface SendControlProps {
 export function SendControl({ campaign, onStarted }: SendControlProps) {
   const start = useStartCampaign(campaign.id);
   const health = useHealth();
+  const practice = usePractice((state) => state.on);
   const run = describeRun(campaign.run);
   const [open, setOpen] = useState(false);
   const [understood, setUnderstood] = useState(false);
@@ -94,10 +96,15 @@ export function SendControl({ campaign, onStarted }: SendControlProps) {
         title={`${label}?`}
         description={
           <>
-            This sends {payouts}, <Zec zatoshi={campaign.declaredTotal} /> plus <Zec zatoshi={campaign.feeTotal} /> fee. It cannot be undone.
+            This sends {payouts}, <Zec zatoshi={campaign.declaredTotal} /> plus <Zec zatoshi={campaign.feeTotal} /> fee.{" "}
+            {practice ? "In a real run this cannot be undone." : "It cannot be undone."}
           </>
         }
       >
+        {practice && (
+          // The sheet covers the page, and the banner with it on a phone that has scrolled: the sheet says it too.
+          <p className="text-base font-medium">Practice mode: nothing is sent anywhere. This only simulates it.</p>
+        )}
         {realMoney && (
           <label htmlFor={understoodId} className="flex min-h-11 cursor-pointer items-start gap-3 text-base">
             <input

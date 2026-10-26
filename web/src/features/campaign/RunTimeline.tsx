@@ -5,6 +5,7 @@ import { Timeline } from "@/components/Timeline";
 import { Progress } from "@/components/ui/progress";
 import { useHealth } from "@/features/operator/hooks";
 import { describeRun } from "@/features/operator/messages";
+import { usePractice } from "@/lib/practice-mode";
 
 import { startedHere } from "./run-clock";
 import { elapsedText, expectation, requiredDepthFrom, timelineSteps } from "./timeline";
@@ -33,8 +34,9 @@ function useElapsed(id: string, active: boolean): { label: string; text: string 
 export function RunTimeline({ campaign, log }: { campaign: OperatorCampaign; log: readonly ProgressEvent[] }) {
   const headingId = useId();
   const health = useHealth();
+  const practice = usePractice((state) => state.on);
   const elapsed = useElapsed(campaign.id, campaign.run.state === "running");
-  const steps = timelineSteps(campaign, log);
+  const steps = timelineSteps(campaign, log, practice);
   // How far along the line it is, for the bar and for assistive technology.
   const active = steps.findIndex((step) => step.state === "active" || step.state === "failed");
   const percent = steps.every((step) => step.state === "done") ? 100 : Math.round(((active < 0 ? 0 : active) / (steps.length - 1)) * 100);

@@ -46,7 +46,8 @@ export function Tour() {
       <ol className="divide-y divide-border border-y border-border">
         {TOUR_STEPS.map((step, index) => (
           <li key={step.id} className="grid gap-x-12 gap-y-6 py-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)]">
-            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            {/* Sticks below the header capsule (which is 56px from the top of the screen, with room to breathe). */}
+            <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
               <span aria-hidden className="mono flex size-8 items-center justify-center rounded-[4px] bg-primary text-base font-medium text-primary-foreground">
                 {index + 1}
               </span>

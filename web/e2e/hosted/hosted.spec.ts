@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { expect, test, type Page, type Response } from "@playwright/test";
 
 import { TOUR_LOOKS, TOUR_SHOTS, TOUR_WIDTH, tourImageSrc } from "../../src/features/home/tour-steps.js";
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
+import { axeViolations, island, openIsland, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 import { dumpBrowserState } from "../operator/privacy.js";
 import { decodeScreenshot } from "../qr.js";
 
@@ -69,9 +69,6 @@ async function watch(page: Page) {
 
 const stubCalls = async (page: Page): Promise<{ method: string; path: string; search: string; origin: string | null }[]> =>
   (await (await page.request.get(`${STUB}/__calls`)).json()) as never;
-
-/** The top bar: the header around the primary navigation (a receipt page has a header of its own). */
-const topBar = (page: Page) => page.getByRole("navigation", { name: "Primary" }).locator("xpath=ancestor::header");
 
 test("the page is served with the security headers and the policy names the stub verifier", async ({ request }) => {
   const response = await request.get("/");
@@ -138,7 +135,8 @@ test.describe("the policy breaks nothing", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
       if (path.startsWith("/r/")) await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
-      // Exercise what a page does with scripts and styles: theme switch, copy button.
+      // Exercise what a page does with scripts and styles: the header capsule opening, the theme switch in it.
+      await openIsland(page);
       await page.getByRole("button", { name: /^Switch to (dark|light) theme$/u }).click();
       expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
       expect(seen.problems()).toEqual([]);
@@ -151,9 +149,12 @@ test.describe("the policy breaks nothing", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
     await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
     await expect(page.getByRole("heading", { name: "What the verifier found" })).toHaveCount(0);
-    // A testnet receipt keeps the quiet testnet label.
-    await expect(topBar(page).getByText("Zcash testnet", { exact: true }).filter({ visible: true })).toHaveCount(1);
-    await expect(topBar(page).getByText("Zcash mainnet")).toHaveCount(0);
+    // A testnet receipt keeps the quiet testnet label on the capsule, and says it in full in the open panel.
+    await expect(island(page).getByText("testnet", { exact: true })).toBeVisible();
+    await expect(island(page).getByText("Mainnet")).toHaveCount(0);
+    await openIsland(page);
+    await expect(page.getByText("Zcash testnet", { exact: true })).toBeVisible();
+    await expect(page.getByText("Zcash mainnet")).toHaveCount(0);
     await page.getByRole("button", { name: "Funding address" }).click();
     await expect(page.getByTestId("funding-address")).toHaveText("tmU6c1aX…B3nkZGkD");
 
@@ -175,9 +176,12 @@ test.describe("the policy breaks nothing", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
     await expect(page.getByText("Complete: all batches confirmed")).toBeVisible();
 
-    // The header says mainnet, though this copy was built for testnet.
-    await expect(topBar(page).getByText("Zcash mainnet", { exact: true }).filter({ visible: true })).toHaveCount(1);
-    await expect(topBar(page).getByText("Zcash testnet")).toHaveCount(0);
+    // The header says mainnet, though this copy was built for testnet: on the capsule, without opening anything, and in full in the panel.
+    await expect(island(page).getByText("Mainnet", { exact: true })).toBeVisible();
+    await expect(island(page).getByText("testnet")).toHaveCount(0);
+    await openIsland(page);
+    await expect(page.getByText("Zcash mainnet", { exact: true })).toBeVisible();
+    await expect(page.getByText("Zcash testnet")).toHaveCount(0);
 
     // Amounts are in ZEC, and nothing explains a testnet coin.
     await expect(page.getByTestId("verdict")).toHaveText("Settled: 8 payouts, 0.005 ZEC, fee 0.00045 ZEC");
@@ -497,9 +501,11 @@ test.describe("the operator pages on a public copy", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeVisible();
       await expect(page.getByText("Nothing on this hosted page can create, fund or send a payout.")).toBeVisible();
-      // No operator screens, no menu of them, no call to any API.
+      // No operator screens, no menu of them, no call to any API. The capsule does not call the notice "Payouts" either.
       await expect(page.getByRole("heading", { name: "Open the operator link" })).toHaveCount(0);
-      const nav = page.getByRole("navigation", { name: "Primary" });
+      await expect(island(page)).toHaveAccessibleName("ZecDrop testnet");
+      const nav = await openIsland(page);
+      await expect(nav.getByRole("link", { name: "How privacy works" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Payouts" })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "New payout" })).toHaveCount(0);
       expect(requested.filter((u) => u.includes("/api/") || u.startsWith(STUB))).toEqual([]);
@@ -513,6 +519,95 @@ test.describe("the operator pages on a public copy", () => {
     await page.getByRole("link", { name: "See a sample receipt" }).click();
     await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
     await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeVisible();
+  });
+});
+
+// Practice mode on a public copy (openspec REQ-DEMO-001): the operator's screens against a simulation inside the page. It makes
+// no request, so it needs no allowance: the policy a public copy is served with is the one it always had, and a whole practice
+// payout runs under it with no violation, with nothing asked of the stub verifier or of anyone, and with only the app's own
+// static files fetched (the simulation's own chunk is one of them, fetched when practice mode is asked for).
+test.describe("practice mode on a public copy", () => {
+  /** The policy as `scripts/hosted-config.mjs` writes it for this build, word for word: if practice mode ever needed it loosened,
+   * this is where that would be seen. */
+  const POLICY = `default-src 'self'; connect-src 'self' ${STUB}; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'`;
+  const FLAG = "zecdrop.practice";
+  const staticFile = (href: string): boolean => {
+    const url = new URL(href);
+    return url.origin === SITE && (url.pathname === "/" || /^\/(assets|tour)\//u.test(url.pathname) || /^\/favicon\./u.test(url.pathname));
+  };
+
+  test("a whole practice payout runs under the unchanged policy: no violation, and nothing asked of the verifier or of anyone", async ({ page }) => {
+    test.setTimeout(90_000);
+    const seen = await watch(page);
+    const requested: string[] = [];
+    page.on("request", (r) => requested.push(r.url()));
+
+    const response = await page.goto("/");
+    expect(response?.headers()["content-security-policy"]).toBe(POLICY);
+    await expect(page.getByRole("heading", { level: 1, name: /Pay many people/u })).toBeVisible();
+    // Before it is asked for, practice mode is not fetched.
+    expect(requested.some((url) => /\/assets\/simulation-/u.test(url))).toBe(false);
+
+    await page.getByRole("button", { name: "Try a practice payout" }).click();
+    // On a public copy the operator's screens open, instead of the explanation they show without practice mode.
+    await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run the operator on your own machine" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Practice mode", exact: true })).toBeVisible();
+    expect(requested.some((url) => /\/assets\/simulation-/u.test(url))).toBe(true);
+
+    await page.getByRole("button", { name: "Use the example list" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Check the payouts" })).toBeVisible();
+    await page.getByRole("link", { name: "Looks right, continue" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Fund and send" })).toBeVisible();
+    await page.getByRole("button", { name: "Record mock deposit" }).click();
+    await expect(page.getByText("Funded.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Send 8 payouts" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Send 8 payouts" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "All 1 batch is confirmed" })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("link", { name: "Open public receipt" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Payout receipt" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Status" })).toBeAttached();
+    await expect(page.getByText("A practice receipt")).toBeVisible();
+
+    // The policy was never broken, nothing was reported, and the stub verifier was not called, nor was anything else but
+    // the app's own files.
+    expect(await seen.violations()).toEqual([]);
+    expect(seen.problems()).toEqual([]);
+    expect(requested.filter((url) => url.startsWith(STUB))).toEqual([]);
+    expect(requested.filter((url) => !staticFile(url))).toEqual([]);
+    expect((await page.evaluate(() => Object.keys(sessionStorage)))).toEqual([FLAG]);
+  });
+
+  test("a tab that was in practice mode opens the operator pages, and a tab that was not still gets the explanation", async ({ page, browser }) => {
+    await page.addInitScript((flag) => {
+      sessionStorage.setItem(flag, "1");
+    }, FLAG);
+    await page.goto("/campaigns");
+    await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
+    await expect(page.getByTestId("payouts-empty")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run the operator on your own machine" })).toHaveCount(0);
+
+    // A tab of its own has no flag: the same address is the explanation.
+    const other = await browser.newPage();
+    try {
+      await other.goto(`${SITE}/campaigns`);
+      await expect(other.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeVisible();
+    } finally {
+      await other.close();
+    }
+  });
+
+  test("leaving it puts the explanation back", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Try it yourself in practice mode" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
+    await page.getByRole("region", { name: "Practice mode", exact: true }).getByRole("button", { name: "Leave practice mode" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: /Pay many people/u })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Practice mode", exact: true })).toHaveCount(0);
+    await page.getByRole("link", { name: "Running a payout? Open the operator app" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeVisible();
+    expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
   });
 });
 

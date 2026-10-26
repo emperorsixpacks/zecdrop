@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
+import { axeViolations, chooseFromIsland, overflowReport, THEMES, useTheme, VIEWPORTS, watchProblems } from "./helpers.js";
 import { dumpBrowserState } from "./operator/privacy.js";
 
 // The page that tells someone how to be paid, in a real browser: every kind of address that can be pasted, at phone
@@ -216,8 +216,7 @@ test.describe("what the page does with an address", () => {
     expect(requests.join(" ")).not.toContain(MAINNET);
     expect(messages.filter((line) => line.includes(MAINNET) || line.includes(TESTNET))).toEqual([]);
     // And going to another page and back finds an empty box.
-    await page.getByRole("button", { name: "Menu" }).click();
-    await page.getByRole("navigation", { name: "Menu" }).getByRole("link", { name: "How privacy works" }).click();
+    await chooseFromIsland(page, "How privacy works");
     await expect(page.getByRole("heading", { level: 1, name: "How privacy works" })).toBeVisible();
     await page.goBack();
     await expect(page.getByLabel("Your address")).toHaveValue("");

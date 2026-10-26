@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useCoinUnit } from "@/lib/units";
 import { formatZec } from "@/lib/zec";
 
+import { PracticeStart } from "./PracticeStart";
 import { samplePayoutRows } from "./sample";
 import { Tour } from "./Tour";
 
@@ -85,11 +86,14 @@ export default function HomePage() {
                 <Link to="/privacy">How privacy works</Link>
               </Button>
             </div>
-            <p className="text-base">
-              <Link to="/get-paid" className="inline-flex min-h-11 items-center font-medium text-link underline underline-offset-4">
+            {/* Beside the other way in that is not the main one: on a wide screen the two sit on one line, so the order of the
+                column does not change and the focus never has to go back up it. */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <PracticeStart label="Try a practice payout" size="default" />
+              <Link to="/get-paid" className="inline-flex min-h-11 items-center text-base font-medium text-link underline underline-offset-4">
                 Being paid? Start here
               </Link>
-            </p>
+            </div>
           </div>
 
           {/* The one sheet: a payout list as a document, seen through whichever lens is chosen. */}
@@ -133,6 +137,19 @@ export default function HomePage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section aria-labelledby="practice-heading" className="space-y-4 border-t border-border pt-10">
+          <h2 id="practice-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
+            Try it yourself
+          </h2>
+          <div className="max-w-[48ch] space-y-1 text-lg">
+            <p>Run a whole payout in this page, with no install, no wallet and no money.</p>
+            <p>It is a simulation in your browser, and every screen says so.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <PracticeStart label="Try it yourself in practice mode" />
+          </div>
         </section>
 
         <Tour />

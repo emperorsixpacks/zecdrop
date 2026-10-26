@@ -251,4 +251,46 @@ describe("describeEvent over a real run", () => {
   it("never claims money reached anyone", () => {
     for (const event of events) expect(describeEvent(event)).not.toMatch(/paid|received|delivered|reached/iu);
   });
+
+  // covers: REQ-DEMO-001
+  describe("in practice mode", () => {
+    it("says the send is pretended, the wait is simulated and the confirmations are simulated: no network, no block", () => {
+      const txid = "a".repeat(64);
+      expect(describeEvent({ event: "broadcast", batchIndex: 1, txid }, true)).toBe("Batch 1: pretend-sent (practice).");
+      expect(describeEvent({ event: "waiting", batchIndex: 1, observedDepth: 0, requiredDepth: 3 }, true)).toBe(
+        "Batch 1: waiting (simulated), 0 of 3 confirmations.",
+      );
+      expect(describeEvent({ event: "confirmed", batchIndex: 0, txid, depth: 2, requiredDepth: 3 }, true)).toBe(
+        "Batch 0: 2 of 3 confirmations (simulated).",
+      );
+    });
+
+    it("is the operator's own wording when practice is false or not said, byte for byte", () => {
+      const txid = "a".repeat(64);
+      for (const practice of [undefined, false] as const) {
+        expect(describeEvent({ event: "broadcast", batchIndex: 1, txid }, practice)).toBe("Batch 1: sent to the network.");
+        expect(describeEvent({ event: "waiting", batchIndex: 1, observedDepth: 0, requiredDepth: 3 }, practice)).toBe(
+          "Batch 1: waiting for the next block (0 of 3 confirmations).",
+        );
+        expect(describeEvent({ event: "confirmed", batchIndex: 0, txid, depth: 2, requiredDepth: 3 }, practice)).toBe("Batch 0: 2 of 3 confirmations.");
+      }
+    });
+
+    it("changes only those three lines: every other event reads the same as it does for the operator", () => {
+      const changed = events.filter((event) => describeEvent(event, true) !== describeEvent(event));
+      expect(new Set(changed.map((event) => event.event))).toEqual(new Set(["broadcast", "waiting", "confirmed"]));
+      for (const event of events) {
+        if (event.event === "built" || event.event === "settled") expect(describeEvent(event, true)).toBe(describeEvent(event));
+      }
+      const others: ReturnType<typeof parseProgressEvent>[] = [
+        { event: "failed", batchIndex: 2, reason: "rejected by the node" },
+        { event: "halted", failedBatches: [1, 3] },
+      ];
+      for (const event of others) expect(describeEvent(event, true)).toBe(describeEvent(event));
+    });
+
+    it("says nothing of the network or of a block, over a whole real run", () => {
+      for (const event of events) expect(describeEvent(event, true)).not.toMatch(/to the network|next block/iu);
+    });
+  });
 });

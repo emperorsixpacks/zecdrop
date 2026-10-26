@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { watchProblems, watchRequests } from "./helpers.js";
+import { chooseFromIsland, watchProblems, watchRequests } from "./helpers.js";
 
 // The default sample receipt is a REAL 8-output batch from the full operator path
 // on public testnet, bundled with the page; ?demo=real-smoke is the first, smaller
@@ -72,9 +72,9 @@ for (const sample of SAMPLES) {
   });
 }
 
-test("the top bar's sample receipt is the 8-output batch", async ({ page }) => {
+test("the header's sample receipt is the 8-output batch", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Sample receipt" }).click();
+  await chooseFromIsland(page, "Sample receipt");
   await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
   await expect(page.getByText("Real batch on public testnet, captured at height 4,478,307")).toBeVisible();
 });

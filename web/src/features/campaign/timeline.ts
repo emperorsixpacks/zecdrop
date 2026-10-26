@@ -51,7 +51,9 @@ function rank(batch: OperatorBatch, depth: number): number {
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-export function timelineSteps(campaign: TimelineCampaign, log: readonly ProgressEvent[]): TimelineStep[] {
+/** `practice`: the run is a simulation in the page (src/practice), so the steps that speak of the network and of blocks say it is
+ * pretended. The sentences are the operator's own when it is not. */
+export function timelineSteps(campaign: TimelineCampaign, log: readonly ProgressEvent[], practice = false): TimelineStep[] {
   const depth = requiredDepthFrom(log);
   const collapsed = depth > MAX_CONFIRM_STEPS;
   const settled = campaign.run.state === "settled" || campaign.phase.phase === "settled";
@@ -91,8 +93,9 @@ export function timelineSteps(campaign: TimelineCampaign, log: readonly Progress
         ? `${String(built)} of ${String(campaign.batches.length)} batches built.`
         : `${sentence(describeDuration(estimateProvingSeconds(campaign.recipientCount)))}.`;
     }
-    if (index === 2) return "Sending to the network.";
-    return `${String(Number.isFinite(confirmations) ? confirmations : 0)} of ${String(depth)} confirmations. Waiting for the next block.`;
+    if (index === 2) return practice ? "Pretending to send: nothing leaves your browser." : "Sending to the network.";
+    const seen = `${String(Number.isFinite(confirmations) ? confirmations : 0)} of ${String(depth)} confirmations`;
+    return practice ? `${seen} (simulated).` : `${seen}. Waiting for the next block.`;
   }
 
   const failureText = (): string => {
