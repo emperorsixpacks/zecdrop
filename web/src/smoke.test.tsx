@@ -16,11 +16,13 @@ import { renderApp } from "@/test/render-app";
 import { AppRoutes } from "./routes";
 
 const PAGES: [name: string, path: string, h1: string][] = [
-  ["the home page", "/", "Private amounts. Public accountability."],
+  ["the home page", "/", "Pay many people. Keep who got what private. Prove the total."],
   ["the real testnet sample receipt", "/r/demo?demo=real", "Payout receipt"],
   ["the first real testnet batch", "/r/demo?demo=real-smoke", "Payout receipt"],
   ["the sample receipt", "/r/demo?demo=1", "Payout receipt"],
-  ["the privacy page", "/privacy", "What is public, what is private"],
+  ["the get-paid page", "/get-paid", "Get paid in ZEC"],
+  ["the payslip page", "/payslip", "Check a payslip"],
+  ["the privacy page", "/privacy", "How privacy works"],
 ];
 
 let consoleCalls: string[];
@@ -77,12 +79,10 @@ describe.each(PAGES)("%s", (_name, path, h1) => {
 
 // The operator pages, signed in, against the captured responses.
 const OPERATOR_PAGES: [name: string, path: string, h1: string][] = [
-  ["the campaigns list", "/campaigns", "Campaigns"],
-  ["the wizard: basics", "/new/basics", "Basics"],
-  ["the wizard: recipients", "/new/recipients", "Finish the basics first"],
-  ["the wizard: auditor", "/new/auditor", "Auditor"],
-  ["the wizard: review", "/new/review", "Review"],
-  ["the wizard: fund", "/new/fund", "Fund & Send"],
+  ["the payouts list", "/campaigns", "Payouts"],
+  ["stage 1: payouts", "/new", "Add the payouts"],
+  ["stage 2 without payouts", "/new/check", "Add the payouts first"],
+  ["stage 3 without payouts", "/new/send", "Add the payouts first"],
   ["a funded campaign", "/campaign/c-000000000001", "Sentinel campaign"],
   ["the audit page", "/audit", "Audit"],
 ];
@@ -98,14 +98,8 @@ describe.each(OPERATOR_PAGES)("operator: %s", (_name, path, heading) => {
     });
     const { unmount } = renderApp(path, { signedIn: true });
 
-    // Recipients without basics shows a heading at level 2; every other page has this h1.
-    if (heading === "Finish the basics first") {
-      expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 1, name: "Recipients" })).toBeInTheDocument();
-    } else {
-      expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
-    }
-    if (path.startsWith("/campaign/")) await screen.findByTestId("receipt-link");
+    expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
+    if (path.startsWith("/campaign/")) await screen.findByRole("button", { name: "Share the receipt" });
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("main")).toBeInTheDocument();
     await waitFor(() => {

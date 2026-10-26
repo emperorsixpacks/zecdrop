@@ -11,6 +11,7 @@ import apiSource from "../../../../crates/drop-operator/src/api.rs?raw";
 import httpSource from "../../../../crates/drop-operator/src/http.rs?raw";
 import guardSource from "../../../../crates/drop-operator/src/guard.rs?raw";
 import stateSource from "../../../../crates/drop-operator/src/state.rs?raw";
+import nearApiSource from "../../../../crates/drop-operator/src/api_near.rs?raw";
 
 const GENERIC = "The operator refused this";
 
@@ -59,6 +60,39 @@ describe("explainFailure", () => {
     expect(explainFailure(error)).toEqual({
       title: "The campaign's account could not be set up",
       detail: "the account registry is full; no campaign was created. The operator's terminal has more detail.",
+    });
+  });
+
+  describe("a mainnet campaign over the operator's cap", () => {
+    const over = (message: string) => new OperatorApiError("api", 422, { code: "mainnet_cap_exceeded", message });
+    // As the operator words it (crates/drop-operator/src/api.rs): the cap, what this campaign needs, and how to raise the cap.
+    const SAID =
+      "this operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC; raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to";
+    const FIRST =
+      "This operator caps a mainnet campaign at 0.1 ZEC of funding and this one needs 0.5 ZEC; raise the cap with --mainnet-max-funding-zat (in zatoshi) only if you mean to.";
+    const OTHER_WAY = "To get under the cap, shorten the list or lower the amounts.";
+
+    it("says the operator's own figures as the first sentence, then the other way out", () => {
+      expect(explainFailure(over(SAID), "ZEC")).toEqual({
+        title: "That campaign is over the mainnet limit",
+        detail: `${FIRST} ${OTHER_WAY}`,
+      });
+    });
+
+    it("has a sentence of its own whatever status it comes with, and never shows the code", () => {
+      for (const status of [400, 409, 418, 422]) {
+        const explained = explainFailure(new OperatorApiError("api", status, { code: "mainnet_cap_exceeded", message: SAID }), "ZEC");
+        expect(explained.title, String(status)).toBe("That campaign is over the mainnet limit");
+        expect(JSON.stringify(explained), String(status)).not.toContain("mainnet_cap_exceeded");
+      }
+    });
+
+    it("makes one clean sentence of the operator's words, whether or not they end in a full stop", () => {
+      expect(explainFailure(over(`${SAID}.`), "ZEC").detail).toBe(`${FIRST} ${OTHER_WAY}`);
+    });
+
+    it("still says something useful when the operator gave no words", () => {
+      expect(explainFailure(over(""), "ZEC").detail).toBe(`This operator caps how much one mainnet campaign may hold. ${OTHER_WAY}`);
     });
   });
 
@@ -112,7 +146,7 @@ describe("explainFailure", () => {
   it("has a specific sentence for every error code the operator source can raise", () => {
     // A drift alarm: if the core adds an error code, this fails until the web
     // says something useful about it instead of the generic refusal.
-    const sources = [apiSource, httpSource, stateSource, guardSource].join("\n");
+    const sources = [apiSource, httpSource, stateSource, guardSource, nearApiSource].join("\n");
     const codes = new Set<string>();
     for (const m of sources.matchAll(/ApiError::(?:conflict|bad_request|unprocessable|forbidden)\(\s*"([a-z_]+)"/gu)) codes.add(m[1] ?? "");
     for (const m of sources.matchAll(/ApiError::new\(\s*[^,"]+(?:::[A-Z_]+)?,\s*"([a-z_]+)"/gu)) codes.add(m[1] ?? "");
@@ -216,5 +250,47 @@ describe("describeEvent over a real run", () => {
 
   it("never claims money reached anyone", () => {
     for (const event of events) expect(describeEvent(event)).not.toMatch(/paid|received|delivered|reached/iu);
+  });
+
+  // covers: REQ-DEMO-001
+  describe("in practice mode", () => {
+    it("says the send is pretended, the wait is simulated and the confirmations are simulated: no network, no block", () => {
+      const txid = "a".repeat(64);
+      expect(describeEvent({ event: "broadcast", batchIndex: 1, txid }, true)).toBe("Batch 1: pretend-sent (practice).");
+      expect(describeEvent({ event: "waiting", batchIndex: 1, observedDepth: 0, requiredDepth: 3 }, true)).toBe(
+        "Batch 1: waiting (simulated), 0 of 3 confirmations.",
+      );
+      expect(describeEvent({ event: "confirmed", batchIndex: 0, txid, depth: 2, requiredDepth: 3 }, true)).toBe(
+        "Batch 0: 2 of 3 confirmations (simulated).",
+      );
+    });
+
+    it("is the operator's own wording when practice is false or not said, byte for byte", () => {
+      const txid = "a".repeat(64);
+      for (const practice of [undefined, false] as const) {
+        expect(describeEvent({ event: "broadcast", batchIndex: 1, txid }, practice)).toBe("Batch 1: sent to the network.");
+        expect(describeEvent({ event: "waiting", batchIndex: 1, observedDepth: 0, requiredDepth: 3 }, practice)).toBe(
+          "Batch 1: waiting for the next block (0 of 3 confirmations).",
+        );
+        expect(describeEvent({ event: "confirmed", batchIndex: 0, txid, depth: 2, requiredDepth: 3 }, practice)).toBe("Batch 0: 2 of 3 confirmations.");
+      }
+    });
+
+    it("changes only those three lines: every other event reads the same as it does for the operator", () => {
+      const changed = events.filter((event) => describeEvent(event, true) !== describeEvent(event));
+      expect(new Set(changed.map((event) => event.event))).toEqual(new Set(["broadcast", "waiting", "confirmed"]));
+      for (const event of events) {
+        if (event.event === "built" || event.event === "settled") expect(describeEvent(event, true)).toBe(describeEvent(event));
+      }
+      const others: ReturnType<typeof parseProgressEvent>[] = [
+        { event: "failed", batchIndex: 2, reason: "rejected by the node" },
+        { event: "halted", failedBatches: [1, 3] },
+      ];
+      for (const event of others) expect(describeEvent(event, true)).toBe(describeEvent(event));
+    });
+
+    it("says nothing of the network or of a block, over a whole real run", () => {
+      for (const event of events) expect(describeEvent(event, true)).not.toMatch(/to the network|next block/iu);
+    });
   });
 });

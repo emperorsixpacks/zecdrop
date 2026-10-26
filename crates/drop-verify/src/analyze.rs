@@ -144,6 +144,11 @@ impl ParsedTx {
         self.txid
     }
 
+    /// The parsed transaction, for modules of this crate that read more than the totals.
+    pub(crate) fn transaction(&self) -> &Transaction {
+        &self.tx
+    }
+
     /// The previous outputs this transaction's transparent inputs spend, in order.
     pub fn prevouts(&self) -> Vec<Prevout> {
         self.tx

@@ -299,7 +299,13 @@ impl Store {
                  row_tag BLOB,
                  PRIMARY KEY (campaign_id, batch_index)
              );
-             CREATE TABLE secrets (name TEXT PRIMARY KEY, value_enc BLOB NOT NULL);",
+             CREATE TABLE secrets (name TEXT PRIMARY KEY, value_enc BLOB NOT NULL);
+             CREATE TABLE near_quotes (
+                 campaign_id TEXT PRIMARY KEY,
+                 created_at INTEGER NOT NULL,
+                 record_enc BLOB NOT NULL,
+                 row_tag BLOB
+             );",
         )?;
 
         let mut salt = [0u8; SALT_LEN];
@@ -368,6 +374,15 @@ impl Store {
             _ => return Err(StoreError::WrongPassphrase),
         };
         conn.execute_batch("PRAGMA secure_delete = ON; PRAGMA synchronous = FULL;")?;
+        // Stores from before NEAR funding gain its table; one that has it is left alone.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS near_quotes (
+                 campaign_id TEXT PRIMARY KEY,
+                 created_at INTEGER NOT NULL,
+                 record_enc BLOB NOT NULL,
+                 row_tag BLOB
+             );",
+        )?;
         // A store written by an earlier build may be readable by others: close that now.
         restrict_to_owner(path)?;
         let store = Store {
@@ -549,6 +564,83 @@ impl Store {
         columns.map(|columns| self.record_from(columns)).transpose()
     }
 
+    /// Keeps the live NEAR quote made for a campaign, so a restart does not lose its deposit
+    /// address. The record is sealed (bound to the campaign) and its row is authenticated, so an
+    /// edit made outside the operator, a different deposit address above all, is refused when it
+    /// is read. A newer quote replaces an older one.
+    pub fn save_near_quote(
+        &self,
+        campaign: &CampaignId,
+        record: &crate::near::NearQuoteRecord,
+    ) -> Result<(), StoreError> {
+        let json = Zeroizing::new(serde_json::to_vec(record).map_err(|_| StoreError::Corrupt)?);
+        let record_enc = self.seal("near_quote", campaign.as_str(), 0, &json)?;
+        let created = i64::try_from(record.created_at).unwrap_or(i64::MAX);
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Only for a campaign that exists, and whose own row is sound.
+        if self.read_campaign(&tx, campaign.as_str())?.is_none() {
+            return Err(StoreError::NotFound);
+        }
+        let tag = self.tag(
+            TABLE_NEAR,
+            &near_fields(campaign.as_str(), created, &record_enc),
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO near_quotes (campaign_id, created_at, record_enc, row_tag)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![campaign.as_str(), created, record_enc, tag],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The live NEAR quote kept for a campaign, if any.
+    pub fn load_near_quote(
+        &self,
+        campaign: &CampaignId,
+    ) -> Result<Option<crate::near::NearQuoteRecord>, StoreError> {
+        let row: Option<(i64, Vec<u8>, Option<Vec<u8>>)> = self
+            .conn()
+            .query_row(
+                "SELECT created_at, record_enc, row_tag FROM near_quotes WHERE campaign_id = ?1",
+                params![campaign.as_str()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+        let Some((created, record_enc, tag)) = row else {
+            return Ok(None);
+        };
+        self.verify(
+            TABLE_NEAR,
+            &near_fields(campaign.as_str(), created, &record_enc),
+            tag.as_deref(),
+        )?;
+        let json = self.unseal("near_quote", campaign.as_str(), 0, &record_enc)?;
+        let record: crate::near::NearQuoteRecord =
+            serde_json::from_slice(&json).map_err(|_| StoreError::Corrupt)?;
+        if i64::try_from(record.created_at).ok() != Some(created) {
+            return Err(StoreError::Corrupt);
+        }
+        Ok(Some(record))
+    }
+
+    /// The campaigns that have a live NEAR quote on file.
+    pub fn near_quote_campaigns(&self) -> Result<Vec<CampaignId>, StoreError> {
+        let ids: Vec<String> = {
+            let conn = self.conn();
+            let mut statement =
+                conn.prepare("SELECT campaign_id FROM near_quotes ORDER BY campaign_id")?;
+            let ids = statement
+                .query_map([], |r| r.get(0))?
+                .collect::<Result<_, _>>()?;
+            ids
+        };
+        ids.into_iter()
+            .map(|id| CampaignId::new(&id).map_err(|_| StoreError::Corrupt))
+            .collect()
+    }
+
     /// Records the funding deposit. The first observation wins; repeating it is a
     /// no-op; a different one is reported, not applied.
     pub fn record_funding(
@@ -692,6 +784,14 @@ impl Store {
 /// The table names that appear in row tags.
 const TABLE_CAMPAIGNS: &str = "campaigns";
 const TABLE_BATCHES: &str = "batches";
+const TABLE_NEAR: &str = "near_quotes";
+
+/// What a `near_quotes` row's tag covers: its place, its time, and its sealed record. (Each of
+/// these is also caught a second way: the sealed record is bound to its campaign, and its own
+/// time is compared with the column. The tag is the belt every other row has as well.)
+fn near_fields(campaign: &str, created_at: i64, record_enc: &[u8]) -> Vec<Option<Vec<u8>>> {
+    vec![text(campaign), number(created_at), Some(digest(record_enc))]
+}
 
 fn digest(bytes: &[u8]) -> Vec<u8> {
     use sha2::{Digest, Sha256};
@@ -2240,6 +2340,141 @@ mod tests {
             "manifest of another campaign",
             store.load_campaign(&id("camp-a")),
         );
+    }
+
+    fn near_record(created: u64) -> crate::near::NearQuoteRecord {
+        crate::near::NearQuoteRecord {
+            deposit_address: "SENTINELdepositADDRESS000111222".into(),
+            deposit_memo: Some("memo-7".into()),
+            origin_asset: "nep141:usdc".into(),
+            origin_symbol: "USDC".into(),
+            amount_in: "7679013".into(),
+            amount_in_formatted: Some("7.679013".into()),
+            zec_out_zat: "545000".into(),
+            funding_address: "t1SENTINELfundingADDRESS0000000000".into(),
+            refund_to: "SENTINELrefundADDRESS".into(),
+            deadline: Some("2026-10-08T01:00:00Z".into()),
+            created_at: created,
+            valid_until: created + 21_600,
+        }
+    }
+
+    // covers: REQ-FUND-001, REQ-SEC-002
+    #[test]
+    fn a_live_near_quote_is_kept_sealed_survives_a_restart_and_a_newer_one_replaces_it() {
+        let (dir, store) = two_campaigns();
+        let a = id("camp-a");
+        assert_eq!(store.load_near_quote(&a).unwrap(), None);
+        store.save_near_quote(&a, &near_record(1_000)).unwrap();
+        assert_eq!(store.load_near_quote(&a).unwrap(), Some(near_record(1_000)));
+        assert_eq!(store.near_quote_campaigns().unwrap(), vec![a.clone()]);
+        assert_eq!(store.load_near_quote(&id("camp-b")).unwrap(), None);
+
+        // None of it is readable in the file.
+        let bytes = all_file_bytes(store.path());
+        let hay = String::from_utf8_lossy(&bytes);
+        for needle in [
+            "SENTINELdeposit",
+            "SENTINELrefund",
+            "SENTINELfunding",
+            "memo-7",
+            "7679013",
+        ] {
+            assert!(!hay.contains(needle), "{needle} is in the store file");
+        }
+
+        // A newer quote replaces the older one, and a restart reads it back.
+        store.save_near_quote(&a, &near_record(2_000)).unwrap();
+        let path = store.path().to_owned();
+        drop(store);
+        let again = Store::open(&path, PASS).unwrap();
+        assert_eq!(again.load_near_quote(&a).unwrap(), Some(near_record(2_000)));
+        assert_eq!(again.near_quote_campaigns().unwrap().len(), 1);
+        drop(dir);
+    }
+
+    // covers: REQ-FUND-001
+    #[test]
+    fn a_near_quote_is_kept_only_for_a_campaign_that_exists() {
+        let (_dir, store) = two_campaigns();
+        assert!(matches!(
+            store.save_near_quote(&id("camp-nope"), &near_record(1)),
+            Err(StoreError::NotFound)
+        ));
+        assert!(store.near_quote_campaigns().unwrap().is_empty());
+    }
+
+    // covers: REQ-FUND-001, REQ-SEC-002
+    #[test]
+    fn an_edited_near_quote_is_refused_the_deposit_address_above_all() {
+        let edits = [
+            ("created_at", "UPDATE near_quotes SET created_at = created_at + 1"),
+            ("record swapped for another's", "UPDATE near_quotes SET record_enc = (SELECT record_enc FROM near_quotes WHERE campaign_id = 'camp-b') WHERE campaign_id = 'camp-a'"),
+            ("record damaged", "UPDATE near_quotes SET record_enc = randomblob(300) WHERE campaign_id = 'camp-a'"),
+            ("tag removed", "UPDATE near_quotes SET row_tag = NULL WHERE campaign_id = 'camp-a'"),
+            ("tag of another row", "UPDATE near_quotes SET row_tag = (SELECT row_tag FROM near_quotes WHERE campaign_id = 'camp-b') WHERE campaign_id = 'camp-a'"),
+            ("tag damaged", "UPDATE near_quotes SET row_tag = zeroblob(80) WHERE campaign_id = 'camp-a'"),
+        ];
+        for (what, sql) in edits {
+            let (_dir, store) = two_campaigns();
+            store
+                .save_near_quote(&id("camp-a"), &near_record(1_000))
+                .unwrap();
+            store
+                .save_near_quote(&id("camp-b"), &near_record(2_000))
+                .unwrap();
+            store.conn().execute(sql, []).unwrap();
+            assert_corrupt(what, store.load_near_quote(&id("camp-a")));
+        }
+
+        // A quote moved to the other campaign is not that campaign's quote.
+        let (_dir, store) = two_campaigns();
+        store
+            .save_near_quote(&id("camp-a"), &near_record(1_000))
+            .unwrap();
+        store
+            .conn()
+            .execute("UPDATE near_quotes SET campaign_id = 'camp-b'", [])
+            .unwrap();
+        assert_corrupt("moved", store.load_near_quote(&id("camp-b")));
+        assert_eq!(store.load_near_quote(&id("camp-a")).unwrap(), None);
+
+        // A record whose own time disagrees with the authenticated column is refused too.
+        let (_dir, store) = two_campaigns();
+        let a = id("camp-a");
+        store.save_near_quote(&a, &near_record(1_000)).unwrap();
+        let record = near_record(5_000);
+        let json = serde_json::to_vec(&record).unwrap();
+        let sealed = store.seal("near_quote", "camp-a", 0, &json).unwrap();
+        let tag = store
+            .tag(TABLE_NEAR, &near_fields("camp-a", 1_000, &sealed))
+            .unwrap();
+        store
+            .conn()
+            .execute(
+                "UPDATE near_quotes SET record_enc = ?1, row_tag = ?2 WHERE campaign_id = 'camp-a'",
+                params![sealed, tag],
+            )
+            .unwrap();
+        assert_corrupt("record time", store.load_near_quote(&a));
+    }
+
+    // covers: REQ-FUND-001
+    #[test]
+    fn a_store_from_before_near_funding_gains_its_table_when_opened() {
+        let (_dir, store) = two_campaigns();
+        store
+            .conn()
+            .execute_batch("DROP TABLE near_quotes;")
+            .unwrap();
+        let path = store.path().to_owned();
+        drop(store);
+        let again = Store::open(&path, PASS).unwrap();
+        assert_eq!(again.load_near_quote(&id("camp-a")).unwrap(), None);
+        again
+            .save_near_quote(&id("camp-a"), &near_record(9))
+            .unwrap();
+        assert_eq!(again.near_quote_campaigns().unwrap().len(), 1);
     }
 
     // covers: REQ-SEC-002

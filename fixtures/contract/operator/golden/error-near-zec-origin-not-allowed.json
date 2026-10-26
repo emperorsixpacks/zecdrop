@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "zec_origin_not_allowed",
+    "message": "ZEC is what the campaign receives; pay with another asset"
+  }
+}

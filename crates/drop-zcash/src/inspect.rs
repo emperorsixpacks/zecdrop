@@ -354,7 +354,7 @@ fn shielded_bundles(tx: &Transaction) -> Vec<&orchard::Bundle<OrchardAuthorized,
 
 /// Every OVK derivable from a UFVK: Orchard external/internal, plus the transparent-derived pair
 /// `UnifiedFullViewingKey::select_ovk` uses for transparent-input transactions.
-fn candidate_ovks(ufvk: &UnifiedFullViewingKey) -> Vec<OutgoingViewingKey> {
+pub(crate) fn candidate_ovks(ufvk: &UnifiedFullViewingKey) -> Vec<OutgoingViewingKey> {
     let mut ovks = Vec::new();
     if let Some(fvk) = ufvk.orchard() {
         ovks.push(fvk.to_ovk(Scope::External));

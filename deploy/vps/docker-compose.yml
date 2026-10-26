@@ -1,0 +1,38 @@
+# The hosted, key-less verifier on any VPS that runs Docker: the verifier container plus Caddy,
+# which gets and renews the https certificate. No keys, no secrets and no volume of ours.
+# Steps are in README.md next to this file. Run from this folder.
+services:
+  verifier:
+    build:
+      context: ../..
+      dockerfile: deploy/verifier.Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      TESTNET_ENDPOINT: "https://testnet.zec.rocks:443"
+      # Empty (the default) serves testnet only. Set it in .env to also serve mainnet receipts.
+      MAINNET_ENDPOINT: "${MAINNET_ENDPOINT:-}"
+      # The exact origin of the web site, no path and no trailing slash.
+      CORS_ORIGIN: "${CORS_ORIGIN:?set CORS_ORIGIN in .env}"
+    # No published port: only Caddy, on the private compose network, can reach it.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [verifier]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VERIFIER_DOMAIN: "${VERIFIER_DOMAIN:?set VERIFIER_DOMAIN in .env}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

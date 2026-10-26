@@ -13,6 +13,8 @@ drop-core = { path = "../drop-core" }
 hex = "0.4.3"
 orchard = { workspace = true }
 sapling-crypto = { workspace = true }
+# Payslip wire format only; already in the closure through drop-core.
+serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"
 # Re-encodes P2PKH hashes as addresses for the receipt (REQ-VER-004); no key types.
 zcash_address = { workspace = true }

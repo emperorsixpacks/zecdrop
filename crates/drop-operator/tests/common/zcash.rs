@@ -12,7 +12,7 @@ use drop_operator::state::Options;
 use drop_verify::{ChainSource, FetchedTx, SourceError};
 use drop_zcash::builder::{build_batch_tx, fee_rule, FundingCoin, PayoutLine};
 use drop_zcash::chain::{ChainBackend as ZcashChain, PrevOut, Submitted, TxStatus};
-use drop_zcash::{encode_memo, CampaignKeys, ZcashAddressCodec};
+use drop_zcash::{encode_memo, CampaignKeys, MainnetPermit, ZcashAddressCodec};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use zcash_keys::address::Address;
@@ -41,21 +41,79 @@ pub fn recipient_ua(i: u32) -> String {
         .unified_address()
 }
 
+/// A real unified address (Orchard receiver) for recipient `i` on `network`.
+pub fn recipient_ua_on(network: ZNetwork, i: u32) -> String {
+    CampaignKeys::derive(&RECIPIENT_SEED, network, 1000 + i)
+        .unwrap()
+        .unified_address()
+}
+
+/// A harness running the real Zcash backend over `node` on MAINNET, with TEST-ONLY wallet keys:
+/// campaigns, funding addresses and recipients are mainnet-shaped. Nothing is ever sent.
+///
+/// With `allow_mainnet` the backend is also given the mainnet permit, as the operator's start-up
+/// does once `--allow-mainnet` and the confirmation have passed; without it the backend refuses
+/// to run a mainnet campaign. The funding cap is lifted, because the NEAR tests use campaigns of
+/// a few ZEC; use [`mainnet_harness_with_cap`] to run under the real default.
+pub fn mainnet_harness(node: &SharedNode, required_depth: u32, allow_mainnet: bool) -> Harness {
+    mainnet_harness_with_cap(node, required_depth, allow_mainnet, u64::MAX)
+}
+
+/// [`mainnet_harness`] with an explicit mainnet funding cap, in zatoshi (REQ-OPS-003).
+pub fn mainnet_harness_with_cap(
+    node: &SharedNode,
+    required_depth: u32,
+    allow_mainnet: bool,
+    mainnet_max_funding_zat: u64,
+) -> Harness {
+    node.lock().mainnet = true;
+    let backend = ZcashBackend::new(FakeConnector(node.clone()));
+    let backend = if allow_mainnet {
+        backend.allow_mainnet(MainnetPermit::after_operator_gate())
+    } else {
+        backend
+    };
+    Builder {
+        seed: TEST_SEED,
+        network: drop_core::Network::Mainnet,
+        backend: Some(Arc::new(backend)),
+        codec: Some(Arc::new(ZcashAddressCodec::new(ZNetwork::MainNetwork))),
+        allow_mainnet,
+        options: Options {
+            required_depth,
+            mainnet_max_funding_zat,
+            ..Builder::default().options
+        },
+        ..Builder::default()
+    }
+    .build()
+}
+
 /// A height inside the Ironwood epoch.
 pub fn ironwood_height() -> BlockHeight {
     NETWORK.activation_height(NetworkUpgrade::Nu6_3).unwrap() + 1_000
 }
 
-fn script_of(address: &str) -> Script {
-    match Address::decode(&NETWORK, address) {
+fn script_of_on(network: &ZNetwork, address: &str) -> Script {
+    match Address::decode(network, address) {
         Some(Address::Transparent(t)) => Script::from(t.script()),
         _ => panic!("not a transparent address"),
     }
 }
 
+fn script_of(address: &str) -> Script {
+    script_of_on(&NETWORK, address)
+}
+
 pub fn script_bytes(address: &str) -> Vec<u8> {
     script_of(address).0 .0
 }
+
+/// The mainnet tip seen on 2026-10-18 (NU6.3, branch `37a5165b`): a height at which mainnet
+/// batches are built in the tests.
+pub const MAINNET_TIP: u32 = 3_522_426;
+/// What a mainnet node reports as its consensus branch id (NU6.3).
+pub const MAINNET_BRANCH: u32 = 0x37a5_165b;
 
 fn display_txid(id: zcash_primitives::transaction::TxId) -> Txid {
     id.to_string().parse().unwrap()
@@ -64,6 +122,11 @@ fn display_txid(id: zcash_primitives::transaction::TxId) -> Txid {
 /// A V5 transaction with one transparent output of `value` to `address`: the funding
 /// transaction a deposit would have. `salt` keeps different deposits' ids apart.
 pub fn funding_tx(address: &str, value: u64, salt: u8) -> (Txid, Vec<u8>) {
+    funding_tx_on(&NETWORK, address, value, salt)
+}
+
+/// [`funding_tx`] for an address of `network`.
+pub fn funding_tx_on(network: &ZNetwork, address: &str, value: u64, salt: u8) -> (Txid, Vec<u8>) {
     let bundle = tbundle::Bundle {
         vin: vec![TxIn::from_parts(
             ZOutPoint::new([salt; 32], 0),
@@ -72,7 +135,7 @@ pub fn funding_tx(address: &str, value: u64, salt: u8) -> (Txid, Vec<u8>) {
         )],
         vout: vec![TxOut::new(
             Zatoshis::from_u64(value).unwrap(),
-            script_of(address),
+            script_of_on(network, address),
         )],
         authorization: tbundle::Authorized,
     };
@@ -182,6 +245,11 @@ pub struct FakeNode {
     pub mined: HashMap<Txid, u32>,
     /// Once something was submitted, every tip query advances the chain by one block.
     pub advance_after_submit: bool,
+    /// Whether the node's addresses are mainnet ones (`t1…`), which changes how deposits are
+    /// resolved. Set by [`mainnet_harness`].
+    pub mainnet: bool,
+    /// The consensus branch id the node reports, if it reports one.
+    pub branch: Option<u32>,
 }
 
 #[derive(Clone, Default)]
@@ -211,19 +279,28 @@ impl ZcashChain for FakeZcashChain {
         Ok(node.tip)
     }
 
+    fn consensus_branch_id(&mut self) -> Result<Option<u32>, FakeNodeError> {
+        Ok(self.0.lock().branch)
+    }
+
     fn ironwood_anchor(&mut self, _height: u32) -> Result<[u8; 32], FakeNodeError> {
         Ok(orchard::Anchor::empty_tree().to_bytes())
     }
 
     fn prevout(&mut self, outpoint: &OutPoint) -> Result<Option<PrevOut>, FakeNodeError> {
         let node = self.0.lock();
+        let network = if node.mainnet {
+            ZNetwork::MainNetwork
+        } else {
+            NETWORK
+        };
         Ok(node
             .deposits
             .iter()
             .find(|d| d.outpoint == *outpoint)
             .map(|d| PrevOut {
                 value: d.value,
-                script_pubkey: script_bytes(&d.address),
+                script_pubkey: script_of_on(&network, &d.address).0 .0,
             }))
     }
 
@@ -298,7 +375,12 @@ pub fn put_deposit(
     height: Option<u32>,
     salt: u8,
 ) -> (OutPoint, Vec<u8>) {
-    let (txid, raw) = funding_tx(address, value, salt);
+    let network = if node.lock().mainnet {
+        ZNetwork::MainNetwork
+    } else {
+        NETWORK
+    };
+    let (txid, raw) = funding_tx_on(&network, address, value, salt);
     let outpoint = OutPoint { txid, vout: 0 };
     node.lock().deposits.push(Deposit {
         address: address.to_owned(),

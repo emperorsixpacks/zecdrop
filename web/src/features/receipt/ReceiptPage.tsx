@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Collapsible } from "radix-ui";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { DEMOS, REAL_CAPTURES, demoCase, isRealDemo } from "@/api/demo";
 import { ReceiptFetchError } from "@/api/receipt";
@@ -9,15 +10,18 @@ import { PageHeader } from "@/components/PageHeader";
 import { UnitProvider } from "@/components/UnitProvider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { config } from "@/lib/config";
+import { config, type ZecNetwork } from "@/lib/config";
 import { isTerminalPhase } from "@/lib/phase";
+import { isPracticeId } from "@/lib/practice-mode";
 
 import { checkReceipt } from "./checks";
 import {
   BadLinkNotice,
   InvalidResponseNotice,
   MismatchNotice,
+  NetworkNotServedNotice,
   NotFoundNotice,
+  PracticeNotice,
   ReceiptLoading,
   RejectedNotice,
   UnreachableNotice,
@@ -39,21 +43,39 @@ export default function ReceiptPage() {
   // Amounts are in the coin of the receipt's network (TAZ on testnet), or of the
   // link's claim while the answer is still on its way.
   const network = receipt?.network ?? query?.network ?? config.network;
+  // A receipt that practice mode made has a list fingerprint that says so (lib/practice-mode.ts): it is on no chain.
+  const practice = isPracticeId(receipt?.manifestCommitment ?? query?.commitment ?? "");
 
   return (
     <UnitProvider network={network}>
       <PageHeader
-        kicker="Public receipt"
         title="Payout receipt"
         description={
-          <span className="font-mono break-all" translate="no">
-            {receipt?.campaignId ?? (demo !== null && isRealDemo(demo) ? "Real batch on public testnet" : demo !== null ? "Sample campaign" : id)}
-          </span>
+          demo !== null ? (
+            sampleLine(demo)
+          ) : (
+            <>
+              {practice && "Practice id: "}
+              <span className="font-mono break-all" translate="no">
+                {receipt?.campaignId ?? id}
+              </span>
+            </>
+          )
         }
       />
 
-      <div className="space-y-8">
-        {demo !== null && <SampleBanner current={demo} />}
+      <div className="space-y-10">
+        {demo !== null && <SampleBar current={demo} />}
+
+        {practice && (
+          <Alert variant="info" role="note">
+            <AlertTitle>A practice receipt</AlertTitle>
+            <AlertDescription className="text-card-foreground">
+              Practice mode made this receipt in your browser from the simulated payout. No transaction was sent to any chain, so no
+              explorer can find these ids, and the figures below come from the simulation, not from a chain.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {link && !link.ok ? (
           <BadLinkNotice problem={link.problem} />
@@ -62,6 +84,7 @@ export default function ReceiptPage() {
         ) : result.isError ? (
           <FailureNotice
             error={result.error}
+            network={network}
             onRetry={() => void result.refetch()}
             retrying={result.isFetching}
           />
@@ -82,10 +105,13 @@ export default function ReceiptPage() {
 
 function FailureNotice({
   error,
+  network,
   onRetry,
   retrying,
 }: {
   error: unknown;
+  /** The network the link asked about. */
+  network: ZecNetwork;
   onRetry: () => void;
   retrying: boolean;
 }) {
@@ -97,6 +123,10 @@ function FailureNotice({
       return <NotFoundNotice />;
     case "rejected":
       return <RejectedNotice />;
+    case "network_not_served":
+      return <NetworkNotServedNotice network={network} />;
+    case "practice":
+      return <PracticeNotice />;
     case "invalid_response":
       return <InvalidResponseNotice />;
   }
@@ -146,53 +176,75 @@ function Answer({
   );
 }
 
-function SampleBanner({ current }: { current: NonNullable<ReturnType<typeof demoCase>> }) {
+type Sample = NonNullable<ReturnType<typeof demoCase>>;
+
+/** One line saying what the sample is, before the receipt starts. */
+function sampleLine(current: Sample): string {
+  if (isRealDemo(current)) {
+    const capture = REAL_CAPTURES[current];
+    return `${current === "real" ? "Real batch" : "The first real batch"} on ${capture.network}, captured at height ${capture.capturedAt}`;
+  }
   const here = DEMOS.find((d) => d.case === current);
-  const real = isRealDemo(current);
-  const capture = real ? REAL_CAPTURES[current] : null;
+  return `Sample data: ${(here?.label ?? "").toLowerCase()}`;
+}
+
+/** The sample switcher, and the provenance behind a "Details" click. */
+function SampleBar({ current }: { current: Sample }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const here = DEMOS.find((d) => d.case === current);
+  const capture = isRealDemo(current) ? REAL_CAPTURES[current] : null;
   return (
-    <Alert variant="info" role="status">
-      <AlertTitle>
-        {current === "real"
-          ? "Sample receipt: a real batch"
-          : current === "real-smoke"
-            ? "Sample receipt: the first real batch"
-            : "Sample receipt"}
-      </AlertTitle>
-      <AlertDescription className="space-y-2">
-        {capture !== null ? (
-          <>
-            <p>
-              Mined on {capture.network} at height {capture.minedAt} and captured at height{" "}
-              {capture.capturedAt}; confirmations are shown as of the capture, not live. The
-              transaction is real. Testnet coins have no value.
-            </p>
-            <p>
-              It was read by the same verifier that answers real links, and bundled with this page.
-              The explorer links go to a third-party explorer&apos;s own pages. Explorers are third
-              parties and can lag behind the chain; if one does not know this transaction, that
-              does not change what the verifier read.
-            </p>
-          </>
-        ) : (
-          <p>
-            This is example data bundled with the app, not a real campaign. Its transaction ids are
-            placeholders, so the explorer links will not find them.
-          </p>
-        )}
-        {here && <p>{here.summary}</p>}
-        <p>
-          Other samples:{" "}
-          {DEMOS.filter((d) => d.case !== current).map((d, index) => (
-            <span key={d.case}>
-              {index > 0 && " \u00b7 "}
-              <Link to={d.href} className="font-medium text-link underline underline-offset-4">
-                {d.label}
-              </Link>
-            </span>
+    <Collapsible.Root open={open} onOpenChange={setOpen} className="border-y border-border">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+        <label htmlFor="sample-switch" className="text-base font-semibold">
+          Sample
+        </label>
+        <select
+          id="sample-switch"
+          value={current}
+          onChange={(event) => {
+            const next = DEMOS.find((d) => d.case === event.target.value);
+            if (next !== undefined) void navigate(next.href);
+          }}
+          className="h-11 rounded-(--r-control) border border-foreground bg-card px-3 text-base font-medium"
+        >
+          {DEMOS.map((d) => (
+            <option key={d.case} value={d.case}>
+              {d.short}
+            </option>
           ))}
-        </p>
-      </AlertDescription>
-    </Alert>
+        </select>
+        <Collapsible.Trigger className="ml-auto inline-flex min-h-11 items-center gap-2 px-1 text-base font-semibold">
+          Details
+          <span aria-hidden className="mono text-xl leading-none text-muted-foreground">
+            {open ? "\u2212" : "+"}
+          </span>
+        </Collapsible.Trigger>
+      </div>
+      <Collapsible.Content className="pb-5">
+        <div className="max-w-[64ch] space-y-3 text-base">
+          {capture !== null ? (
+            <>
+              <p>
+                Mined on {capture.network} at height {capture.minedAt} and captured at height {capture.capturedAt}; confirmations are
+                shown as of the capture, not live. The transaction is real. Testnet coins have no value.
+              </p>
+              <p>
+                It was read by the same verifier that answers real links, and bundled with this page. The explorer links go to a
+                third-party explorer&apos;s own pages. Explorers are third parties and can lag behind the chain; if one does not know
+                this transaction, that does not change what the verifier read.
+              </p>
+            </>
+          ) : (
+            <p>
+              This is example data bundled with the app, not a real campaign. Its transaction ids are placeholders, so the explorer
+              links will not find them.
+            </p>
+          )}
+          {here && <p>{here.summary}</p>}
+        </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }

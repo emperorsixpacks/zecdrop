@@ -199,16 +199,22 @@ struct PayoutKey {
     memo: Option<String>,
 }
 
-fn row_key(network: Network, row: &Recipient) -> PayoutKey {
-    let receiver = zcash_keys::address::Address::decode(&zcash_network(network), row.address())
-        .and_then(|address| match address {
+/// The Orchard receiver of a payout row's unified address, as the 43 raw bytes a recovered output
+/// and a payslip carry. `None` if the address is not a unified address with an Orchard receiver.
+pub(crate) fn row_receiver(network: Network, row: &Recipient) -> Option<[u8; 43]> {
+    zcash_keys::address::Address::decode(&zcash_network(network), row.address()).and_then(
+        |address| match address {
             zcash_keys::address::Address::Unified(ua) => {
                 ua.orchard().map(|receiver| receiver.to_raw_address_bytes())
             }
             _ => None,
-        });
+        },
+    )
+}
+
+fn row_key(network: Network, row: &Recipient) -> PayoutKey {
     PayoutKey {
-        receiver,
+        receiver: row_receiver(network, row),
         value: row.amount().as_u64(),
         memo: row.memo().map(str::to_owned),
     }

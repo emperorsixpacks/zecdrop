@@ -44,8 +44,11 @@ test("the viewing key is on screen only while shown, and nowhere else", async ({
   );
 
   await page.goto(operatorUrl(`/campaign/${funded}`, { token: true }));
-  const heading = page.getByRole("heading", { name: "Give an auditor the viewing key" });
-  await expect(heading).toBeVisible();
+  const section = page.getByRole("button", { name: "Auditor access" });
+  await expect(section).toBeVisible();
+  // The key is behind a click: nothing about it is on the page until the section is opened.
+  await expect(page.getByRole("checkbox", { name: /I understand/u })).toHaveCount(0);
+  await section.click();
 
   // Not before the person has agreed.
   const reveal = page.getByRole("button", { name: "Show the viewing key" });
@@ -84,13 +87,14 @@ test("the viewing key is on screen only while shown, and nowhere else", async ({
   await page.getByRole("checkbox", { name: /I understand/u }).check();
   await reveal.click();
   await expect(box).toHaveValue(key);
-  await page.getByRole("link", { name: "All campaigns" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Campaigns" })).toBeVisible();
+  await page.getByRole("link", { name: "All payouts" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
   expect(hits(await page.content()), "after leaving the page").toBe(0);
 
   // Come back: it does not.
   await page.locator(`a[href="/campaign/${funded}"]`).click();
-  await expect(heading).toBeVisible();
+  await expect(section).toBeVisible();
+  await expect(section).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByLabel(/Viewing key for testnet/u)).toHaveCount(0);
   expect(hits(await page.content()), "after coming back").toBe(0);
 

@@ -14,3 +14,22 @@ afterEach(() => {
 // fail now and then for being slow, not for being wrong. A real failure still
 // fails, a few seconds later.
 configure({ asyncUtilTimeout: 4_000 });
+
+// jsdom does not scroll: window.scrollTo is "not implemented" and says so on the console. A new page goes to its top
+// (components/ScrollToTop), so here it is a plain no-op, which a test may spy on.
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "scrollTo", { configurable: true, writable: true, value: () => undefined });
+}
+
+// jsdom has <dialog> but not its modal methods. Opening one only sets `open`; closing
+// removes it and says so, as a browser does.
+if (typeof HTMLDialogElement !== "undefined" && typeof HTMLDialogElement.prototype.showModal !== "function") {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    if (!this.hasAttribute("open")) return;
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  };
+}

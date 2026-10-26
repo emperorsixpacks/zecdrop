@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "live_quote_exists",
+    "message": "this campaign already has a deposit address that is still valid; use it, or wait for its deadline"
+  }
+}

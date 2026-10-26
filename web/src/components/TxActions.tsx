@@ -1,6 +1,7 @@
 import { CopyButton } from "@/components/CopyButton";
 import type { ZecNetwork } from "@/lib/config";
 import { explorerTxUrl } from "@/lib/explorer";
+import { isPracticeId } from "@/lib/practice-mode";
 
 import { shortId } from "@/lib/ids";
 
@@ -19,15 +20,20 @@ export function TxActions({ txid, network, batchIndex }: TxActionsProps) {
         {shortId(txid)}
       </code>
       <CopyButton value={txid} label={`Copy transaction id for batch ${String(batchIndex)}`} />
-      <a
-        href={explorerTxUrl(network, txid)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-sm font-medium text-link underline underline-offset-4"
-      >
-        Explorer{" "}
-        <span className="sr-only">for batch {batchIndex} (opens in a new tab)</span>
-      </a>
+      {isPracticeId(txid) ? (
+        // A practice payout was never sent to a chain: an explorer would find nothing, so there is no link to it.
+        <span className="text-sm text-muted-foreground">Practice id: on no chain, so no explorer</span>
+      ) : (
+        <a
+          href={explorerTxUrl(network, txid)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-link underline underline-offset-4"
+        >
+          Explorer{" "}
+          <span className="sr-only">for batch {batchIndex} (opens in a new tab)</span>
+        </a>
+      )}
     </div>
   );
 }

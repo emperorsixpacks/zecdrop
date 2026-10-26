@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "no_live_quote",
+    "message": "this campaign has no NEAR deposit address; ask for a live quote first"
+  }
+}

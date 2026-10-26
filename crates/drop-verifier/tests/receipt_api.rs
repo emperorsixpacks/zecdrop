@@ -383,7 +383,7 @@ async fn the_number_of_transactions_per_request_is_bounded() {
     assert_eq!(ok.status, StatusCode::OK);
 }
 
-// covers: REQ-VER-002
+// covers: REQ-VER-002, REQ-VER-005
 #[tokio::test]
 async fn an_unconfigured_network_is_refused() {
     let f = fixture("ironwood_batch_3");
@@ -392,8 +392,71 @@ async fn an_unconfigured_network_is_refused() {
     let reply = get(&app, &uri).await;
     assert_eq!(reply.status, StatusCode::BAD_REQUEST);
     assert_eq!(reply.json()["error"]["code"], "network_not_configured");
+    // The refusal comes before any chain call and repeats nothing the caller sent.
+    assert_eq!(app.calls.load(Ordering::SeqCst), 0);
+    let text = reply.text();
+    assert!(!text.contains(&f.txid.to_string()), "{text}");
+    assert!(!text.contains(COMMITMENT), "{text}");
     let main_only = app_with(Chain::holding(&f, 6), Settings::default(), true);
     assert_eq!(get(&main_only, &uri).await.status, StatusCode::OK);
+}
+
+// covers: REQ-VER-005
+#[tokio::test]
+async fn one_verifier_serves_both_networks_and_each_request_reaches_its_own_node() {
+    let f = fixture("ironwood_batch_3");
+    // Testnet's node knows the batch. Mainnet's is a different node, and it has never heard of it.
+    let testnet = Chain::holding(&f, 6);
+    let mainnet = Chain::default();
+    let (testnet_calls, mainnet_calls) = (Arc::clone(&testnet.calls), Arc::clone(&mainnet.calls));
+    let (logger, logs) = Logger::capture();
+    let router = build_router(Arc::new(VerifierState {
+        sources: Sources {
+            testnet: Some(testnet),
+            mainnet: Some(mainnet),
+        },
+        settings: Settings::default(),
+        logger,
+    }));
+    let app = App {
+        router,
+        logs,
+        calls: Arc::clone(&testnet_calls),
+    };
+
+    let testnet_uri = receipt_uri(&[f.txid], f.payout_total);
+    let reply = get(&app, &testnet_uri).await;
+    assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
+    let body = reply.json();
+    assert_eq!(
+        (
+            body["network"].as_str(),
+            body["findings"].as_array().map(Vec::len)
+        ),
+        (Some("testnet"), Some(0))
+    );
+    assert_eq!(body["phase"]["phase"], "settled");
+    assert_eq!(
+        mainnet_calls.load(Ordering::SeqCst),
+        0,
+        "testnet never asks mainnet's node"
+    );
+
+    let before = testnet_calls.load(Ordering::SeqCst);
+    let reply = get(&app, &testnet_uri.replace("testnet", "mainnet")).await;
+    assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
+    let body = reply.json();
+    assert_eq!(body["network"], "mainnet");
+    assert_eq!(body["findings"][0]["code"], "tx_not_found");
+    assert!(
+        mainnet_calls.load(Ordering::SeqCst) > 0,
+        "mainnet asks its own node"
+    );
+    assert_eq!(
+        testnet_calls.load(Ordering::SeqCst),
+        before,
+        "and never testnet's"
+    );
 }
 
 // ---------------------------------------------------------------------------

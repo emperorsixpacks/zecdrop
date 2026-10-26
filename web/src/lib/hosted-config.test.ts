@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { TOUR_LOOKS, TOUR_SHOTS, tourImageSrc } from "@/features/home/tour-steps";
+
 import {
   buildHostedConfig,
   CLIENT_ROUTES,
@@ -50,6 +52,11 @@ describe("the Content-Security-Policy", () => {
     expect(directive("default-src")).toBe("default-src 'self'");
   });
 
+  it("lets the page show its own pictures (the tour's), and no one else's: img-src is not set, so default-src rules", () => {
+    expect(directive("img-src")).toBeUndefined();
+    expect(policy).not.toMatch(/img-src|data:/u);
+  });
+
   it("lets the page talk to its verifier and to nothing else", () => {
     expect(directive("connect-src")).toBe("connect-src 'self' https://verify.example.org");
   });
@@ -83,7 +90,7 @@ describe("buildHostedConfig", () => {
   it("answers every client route with index.html", () => {
     expect(config.rewrites.map((r) => r.source)).toEqual([...CLIENT_ROUTES]);
     for (const rewrite of config.rewrites) expect(rewrite.destination).toBe("/index.html");
-    for (const path of ["/r/c-1", "/r/demo", "/privacy", "/campaigns", "/new", "/new/basics", "/campaign/c-1", "/audit"]) {
+    for (const path of ["/r/c-1", "/r/demo", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new", "/new/basics", "/campaign/c-1", "/audit"]) {
       expect(
         config.rewrites.some((r) => matchSource(r.source, path)),
         path,
@@ -100,6 +107,18 @@ describe("buildHostedConfig", () => {
     }
   });
 
+  it("leaves the home page tour's pictures alone too: they are files in /tour, not client routes", () => {
+    const pictures = TOUR_SHOTS.flatMap((shot) => TOUR_LOOKS.map((look) => tourImageSrc(shot, look)));
+    expect(pictures).toHaveLength(16);
+    for (const path of pictures) {
+      expect(path).toMatch(/^\/tour\/[a-z-]+\.webp$/u);
+      expect(
+        config.rewrites.some((r) => matchSource(r.source, path)),
+        path,
+      ).toBe(false);
+    }
+  });
+
   it("does not mistake /campaigns for /campaign/…", () => {
     const campaign = CLIENT_ROUTES.find((r) => r.startsWith("/campaign/")) ?? "";
     expect(matchSource(campaign, "/campaigns")).toBe(false);
@@ -107,7 +126,7 @@ describe("buildHostedConfig", () => {
   });
 
   it("puts the security headers on every path", () => {
-    for (const path of ["/", "/r/demo", "/assets/index-AbC123.js", "/privacy"]) {
+    for (const path of ["/", "/r/demo", "/assets/index-AbC123.js", "/privacy", "/tour/receipt-light.webp"]) {
       const headers = Object.fromEntries(headersFor(path));
       expect(headers["Content-Security-Policy"], path).toContain("default-src 'self'");
       expect(headers["X-Content-Type-Options"], path).toBe("nosniff");
@@ -119,7 +138,7 @@ describe("buildHostedConfig", () => {
   it("caches hashed assets for a year and everything else not at all, never both", () => {
     const cache = (path: string) => headersFor(path).filter(([key]) => key === "Cache-Control").map(([, value]) => value);
     expect(cache("/assets/index-AbC123.js")).toEqual(["public, max-age=31536000, immutable"]);
-    for (const path of ["/", "/index.html", "/r/demo", "/favicon.svg"]) {
+    for (const path of ["/", "/index.html", "/r/demo", "/favicon.svg", "/tour/receipt-light.webp"]) {
       expect(cache(path), path).toEqual(["public, max-age=0, must-revalidate"]);
     }
   });

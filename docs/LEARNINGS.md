@@ -2,6 +2,29 @@
 
 Pitfalls and measured facts. Format: symptom → cause → fix → prevention. Newest first.
 
+## 2026-10-18 — Mainnet, checked read-only before the first run: the shape is routine, three things could still have gone wrong silently
+
+- **Observed (live, `zec.rocks:443`, read-only gRPC):** mainnet is on NU6.3 (branch `37a5165b`, Zebra 6.3.0, lightwalletd
+  v0.5.3, tip 3,522,426). `GetTreeState` returns a real, non-empty `ironwoodTree`. In the last 10,000 blocks 33,009
+  transactions have Ironwood actions and 7,160 of them have transparent inputs, so a V6 transaction that spends transparent coins
+  into Ironwood is routine there. One of them (`8749ac5e…580d`, height 3,512,426) paid a fee of 15,000 zat (3 logical actions at
+  5,000), which is our fee policy; our verifier, run locally against mainnet, read it correctly (`t1…` funding address, 2
+  Ironwood actions, pool `ironwood`).
+- **Observed (web):** mainnet NU7 has no activation height yet: a decision is due 2026-10-20 and the target is 2026-11-05
+  (the testnet height is 4,465,026). The pinned `zcash_protocol 0.11.0-pre.0` has no mainnet NU7 height (read in its source); a later pre-release was
+  reported to be the same, which is unverified.
+- **Cause of the three silent risks:** (1) the node's branch id was read and thrown away, so after mainnet NU7 every build would
+  have been stamped with the old id and rejected; (2) an empty `ironwoodTree` string was read as "the empty tree", so a node
+  that omits the field would have given a wrong anchor without an error; (3) nothing verified a built batch before it was
+  stored and sent, and the mainnet offline test never ran the proof and signature check.
+- **Fix:** the distributor compares the node's branch id with what the pinned crates derive for the target height and refuses
+  on a difference; an empty tree state is the empty tree only up to Ironwood activation; every built batch is verified (proofs,
+  signatures, branch id, public totals, no Orchard or Sapling value, public amount equals the payouts) before it leaves the
+  distributor; the operator checks the node once at start-up, before printing its link. A real mainnet tree state is a fixture
+  (`crates/drop-zcash/testdata/`), and the mainnet offline test now verifies proofs and signatures at the real tip.
+- **Prevention:** read chain state from a live node and cross-check what a build assumes (branch id, tree state) before any
+  address is funded. Mainnet validity of our own bytes is still only proven by a broadcast: see `docs/runbooks/mainnet-run.md`.
+
 ## 2026-10-07 — The first transaction design targeted a pool that no longer accepts new value
 
 - **Symptom:** The plan and ADR 0001 specified transparent inputs → Orchard outputs. Nothing flagged it; an offline
@@ -14,6 +37,15 @@ Pitfalls and measured facts. Format: symptom → cause → fix → prevention. N
 - **Prevention:** Before locking a transaction shape, read the *current* network-upgrade ZIPs and confirm activation
   on an explorer. Treat an offline spike as proof of **construction and decryption only**. Consensus validity is
   confirmed only by broadcasting on testnet; that broadcast is the gate between spike and build.
+
+## 2026-10-08 — NEAR preview works live on testnet; a fake credential makes even a dry quote fail
+
+- **Observed (live):** `POST /api/near/preview` returns a real dry quote through the operator: delivering 545,000 zat of ZEC
+  would cost 7.038518 USDC on the NEAR chain (about $7.04, 135 s estimate, 1% slippage), with no deposit address.
+  `GET /api/near/tokens` returned 199 origin assets, none of them ZEC.
+- **Gotcha:** setting `NEAR_INTENTS_JWT` to a fake value made the real service reject even the dry quote
+  (`near_unauthorized`). Leave the variable unset for previews unless you hold a real token.
+- **Not exercised:** the live quote and status calls (mainnet only) have only run against a fake service.
 
 ## 2026-10-08 — The full product path ran on public testnet: 8 recipients, create to settled in about 2 minutes
 

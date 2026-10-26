@@ -60,6 +60,10 @@ impl RunState {
     }
 }
 
+/// The default cap on what a mainnet campaign may need in funding: 0.1 ZEC, in zatoshi
+/// (REQ-OPS-003). Real money moves on mainnet and the code has not been audited.
+pub const DEFAULT_MAINNET_MAX_FUNDING_ZAT: u64 = 10_000_000;
+
 /// Tunables for runs.
 #[derive(Clone, Debug)]
 pub struct Options {
@@ -71,6 +75,9 @@ pub struct Options {
     pub max_consecutive_errors: u32,
     /// Simulate a crash after this many engine steps.
     pub crash_after_steps: Option<u32>,
+    /// The most funding (declared total plus fee), in zatoshi, a mainnet campaign may need.
+    /// Not applied on testnet.
+    pub mainnet_max_funding_zat: u64,
 }
 
 impl Default for Options {
@@ -80,6 +87,7 @@ impl Default for Options {
             poll_interval: Duration::from_millis(500),
             max_consecutive_errors: 5,
             crash_after_steps: None,
+            mainnet_max_funding_zat: DEFAULT_MAINNET_MAX_FUNDING_ZAT,
         }
     }
 }
@@ -106,6 +114,8 @@ pub struct AppParts {
     pub logger: Logger,
     /// Run tunables.
     pub options: Options,
+    /// What the NEAR Intents funding routes need.
+    pub near: crate::near::NearParts,
 }
 
 struct Inner {
@@ -123,6 +133,7 @@ struct Inner {
     hubs: Mutex<HashMap<CampaignId, Arc<EventHub>>>,
     addresses: Mutex<HashMap<CampaignId, String>>,
     progress: Mutex<HashMap<CampaignId, FundingProgress>>,
+    near: crate::near::NearState,
 }
 
 /// The handle shared by every request handler and run.
@@ -195,7 +206,13 @@ impl AppState {
             hubs: Mutex::new(HashMap::new()),
             addresses: Mutex::new(HashMap::new()),
             progress: Mutex::new(HashMap::new()),
+            near: crate::near::NearState::new(parts.near),
         }))
+    }
+
+    /// The NEAR Intents funding state (token cache, pending dry quotes) and its parts.
+    pub fn near(&self) -> &crate::near::NearState {
+        &self.0.near
     }
 
     /// The network.
@@ -572,8 +589,8 @@ impl AppState {
     }
 
     /// Reads every campaign and every ledger row once, so that a store that fails its
-    /// integrity check is found before the operator says it is serving. Returns the number of
-    /// campaigns checked.
+    /// integrity check, or that holds campaigns of another network, is found before the
+    /// operator says it is serving. Returns the number of campaigns checked.
     pub fn verify_store(&self) -> Result<usize, StoreError> {
         let headers = self.0.store.list_campaigns()?;
         for header in &headers {
@@ -582,6 +599,15 @@ impl AppState {
                 .store
                 .load_campaign(&header.id)?
                 .ok_or(StoreError::Corrupt)?;
+            // One store per network: every start-up path below (the funding poller, resuming
+            // interrupted runs) walks all campaigns, so a campaign of the other network would be
+            // run against the wrong node.
+            if record.network != self.0.network {
+                return Err(StoreError::WrongNetwork {
+                    campaign: record.network,
+                    operator: self.0.network,
+                });
+            }
             let batches =
                 drop_core::plan_batches(record.manifest.rows(), record.max_outputs_per_batch)
                     .map_err(|_| StoreError::Corrupt)?;
@@ -597,6 +623,10 @@ impl AppState {
                         StoreError::Database(e.to_string())
                     }
                 })?;
+        }
+        // The live NEAR quotes are read too: a deposit address that was edited is found now.
+        for id in self.0.store.near_quote_campaigns()? {
+            self.0.store.load_near_quote(&id)?;
         }
         Ok(headers.len())
     }

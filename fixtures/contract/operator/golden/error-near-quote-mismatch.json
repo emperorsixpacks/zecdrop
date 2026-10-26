@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "near_quote_mismatch",
+    "message": "NEAR Intents answered with a quote that does not match the request: quoted output differs from the requested amount"
+  }
+}

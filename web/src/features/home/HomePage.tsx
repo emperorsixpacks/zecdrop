@@ -1,123 +1,159 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import { SAMPLE_RECEIPT_HREF } from "@/api/demo";
+import { demoReceipt, SAMPLE_RECEIPT_HREF } from "@/api/demo";
+import { CountUp } from "@/components/CountUp";
+import { RedactionLens, type LensMode } from "@/components/lens/Lens";
+import { UnitNote, UnitProvider } from "@/components/UnitProvider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCoinUnit } from "@/lib/units";
+import { formatZec } from "@/lib/zec";
 
-// Wording follows README.md and docs/PRIVACY_BOUNDARY.md. In particular it
-// claims only what a key-less verifier can compute, and it names the limits.
+import { PracticeStart } from "./PracticeStart";
+import { samplePayoutRows } from "./sample";
+import { Tour } from "./Tour";
 
-const STEPS = [
-  {
-    title: "The operator plans the payout",
-    body: "Recipients and amounts are loaded on the operator's own machine. Spend keys never leave it, and the hosted verifier holds no keys at all.",
-  },
-  {
-    title: "Each batch is one transaction",
-    body: "Public funds go in and shielded outputs come out. The network makes the net value entering the shielded pool public, while every individual output stays encrypted.",
-  },
-  {
-    title: "Anyone can check the totals",
-    body: "A receipt shows the totals, fees, batch sizes and transaction ids, from chain data alone. An auditor holding a viewing key can go further and confirm the outputs match the payout list.",
-  },
-] as const;
+// Wording follows README.md and docs/PRIVACY_BOUNDARY.md. It claims only what a
+// key-less verifier can compute, and the status line names the limit: a real run
+// on public testnet, nothing on mainnet.
+
+// The steps to a payout, in order. The first one says why there is no wallet to connect: the keys
+// live in the operator on the person's own computer (docs/ADR/0002), never on this site.
+const STEPS: readonly { title: string; text: string }[] = [
+  { title: "Start the operator", text: "It runs on your own computer and holds the keys." },
+  { title: "Add your payout list", text: "Drop in a CSV of addresses and amounts, then check it." },
+  { title: "Fund the address", text: "Send coins to the address it shows. Open in wallet fills in the amount." },
+  { title: "Send and share", text: "One transaction sends all the payouts. Share the receipt link so anyone can check the total." },
+];
+
+const LINES: readonly { lead: string; text: string }[] = [
+  { lead: "Public", text: "The total, the fee and how many payouts." },
+  { lead: "Hidden", text: "Who got paid, and how much each person got." },
+  { lead: "Checkable", text: "Anyone can recompute the total from the chain." },
+];
+
+/** The count, the total and the fee: the three things that stay readable in every view. */
+function Summary({ payouts, total, fee }: { payouts: number; total: bigint; fee: bigint | null }) {
+  const unit = useCoinUnit();
+  return (
+    <div className="space-y-1">
+      <p className="display flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[1.625rem] sm:text-[2.125rem]" data-testid="lens-summary">
+        <span>{payouts === 1 ? "1 payout" : `${String(payouts)} payouts`}</span>
+        <span>
+          <CountUp zatoshi={total} /> {unit}
+        </span>
+        {fee !== null && (
+          <span className="text-muted-foreground">
+            + {formatZec(fee)} {unit} fee
+          </span>
+        )}
+      </p>
+      <p className="text-sm text-muted-foreground">These three are public in every view.</p>
+    </div>
+  );
+}
 
 export default function HomePage() {
+  const rows = useMemo(() => samplePayoutRows(), []);
+  // The real 8-output batch: the numbers above the list are the receipt's own.
+  const real = useMemo(() => demoReceipt("real"), []);
+  const [mode, setMode] = useState<LensMode>("public");
+  const [selectedId, setSelectedId] = useState<string | null>("person-3");
+
+  const payouts = real.batches.reduce((sum, batch) => sum + (batch.shieldedActions ?? 0), 0);
+  const total = real.declaredTotal === null ? null : BigInt(real.declaredTotal);
+  const fee = real.feeTotal === null ? null : BigInt(real.feeTotal);
+
   return (
-    <div className="space-y-14">
-      <title>ZecDrop - Private amounts, public accountability</title>
+    <UnitProvider network={real.network}>
+      <div className="space-y-12 sm:space-y-16">
+        <title>ZecDrop - Pay many people, keep who got what private</title>
 
-      <section className="max-w-3xl space-y-6 pt-2 sm:pt-6">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Confidential batch payouts on Zcash
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Private amounts. Public accountability.
+        {/* The headline, large and heavy, on the desk. The page's one big gesture is the sheet below it. */}
+        <h1 className="display text-[clamp(2.5rem,8vw,5rem)] leading-[0.98] text-balance">
+          <span className="block">Pay many people.</span> <span className="block">Keep who got what private.</span>{" "}
+          <span className="block">Prove the total.</span>
         </h1>
-        <p className="text-lg text-muted-foreground">
-          Pay many people from one funded campaign. Anyone can check how much was funded, how
-          much entered the shielded pool, in how many outputs, and what it cost. Only each
-          recipient, and an auditor holding a viewing key, can see who got what.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Button asChild className="h-11 px-5 text-base">
-            <Link to={SAMPLE_RECEIPT_HREF}>View a sample receipt</Link>
-          </Button>
-          <Button asChild variant="outline" className="h-11 px-5 text-base">
-            <Link to="/privacy">Read the privacy boundary</Link>
-          </Button>
+
+        <div className="grid gap-x-14 gap-y-12 lg:grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,6fr)_minmax(0,7fr)]">
+          <div className="space-y-6 lg:col-start-1 lg:row-start-1">
+            <p className="max-w-[40ch] text-xl">A real 8-person payout ran on public testnet. Not tried on mainnet.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link to={SAMPLE_RECEIPT_HREF}>See a real receipt</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/privacy">How privacy works</Link>
+              </Button>
+            </div>
+            {/* Beside the other way in that is not the main one: on a wide screen the two sit on one line, so the order of the
+                column does not change and the focus never has to go back up it. */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <PracticeStart label="Try a practice payout" size="default" />
+              <Link to="/get-paid" className="inline-flex min-h-11 items-center text-base font-medium text-link underline underline-offset-4">
+                Being paid? Start here
+              </Link>
+            </div>
+          </div>
+
+          {/* The one sheet: a payout list as a document, seen through whichever lens is chosen. */}
+          <section
+            aria-labelledby="lens-heading"
+            className="slip space-y-6 p-4 sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+          >
+            <h2 id="lens-heading" className="text-xl leading-tight font-bold tracking-[-0.01em]">
+              Same payout, three views
+            </h2>
+            {total !== null && <Summary payouts={payouts} total={total} fee={fee} />}
+            <RedactionLens rows={rows} mode={mode} onModeChange={setMode} selectedId={selectedId} onSelect={setSelectedId} />
+            <UnitNote />
+          </section>
+
+          <ul className="divide-y divide-border border-y border-border lg:col-start-1 lg:row-start-2 lg:self-start">
+            {LINES.map((line) => (
+              <li key={line.lead} className="grid gap-x-6 gap-y-1 py-4 sm:grid-cols-[7rem_1fr]">
+                <span className="text-base font-bold">{line.lead}</span>
+                <span className="max-w-[64ch] text-base">{line.text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </section>
 
-      <section aria-labelledby="ran-heading" className="max-w-3xl space-y-3">
-        <h2 id="ran-heading" className="text-2xl font-semibold tracking-tight">
-          It has run on public testnet
-        </h2>
-        <p className="text-base text-muted-foreground">
-          A real 8-recipient batch ran on public testnet, from a funded campaign through the
-          operator. Its public receipt shows the batch&apos;s total, its fee, its transaction and how
-          many shielded outputs it has. It does not list the recipients or what each one received.
-          Testnet coins have no value, and this has not been tried on mainnet.
-        </p>
-        <p>
-          <Link to={SAMPLE_RECEIPT_HREF} className="font-medium text-link underline underline-offset-4">
-            See the receipt of that batch
-          </Link>
-        </p>
-      </section>
+        <section aria-labelledby="steps-heading" className="space-y-6 border-t border-border pt-10">
+          <div className="space-y-2">
+            <h2 id="steps-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
+              How to run a payout
+            </h2>
+            <p className="max-w-[48ch] text-lg">There is no wallet to connect: the operator on your own computer holds the keys.</p>
+          </div>
+          <ol className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((step, index) => (
+              <li key={step.title} className="space-y-3">
+                <span aria-hidden className="mono flex size-8 items-center justify-center rounded-full bg-primary text-base font-medium text-primary-foreground">
+                  {index + 1}
+                </span>
+                <h3 className="text-xl leading-snug font-bold tracking-[-0.01em]">{step.title}</h3>
+                <p className="max-w-[32ch] text-base">{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-      <section aria-labelledby="how-heading" className="space-y-4">
-        <h2 id="how-heading" className="text-2xl font-semibold tracking-tight">
-          How it works
-        </h2>
-        <ol className="grid gap-4 md:grid-cols-3">
-          {STEPS.map((step, index) => (
-            <li key={step.title}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    <h3>
-                      <span className="text-muted-foreground">{index + 1}. </span>
-                      {step.title}
-                    </h3>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{step.body}</p>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      </section>
+        <section aria-labelledby="practice-heading" className="space-y-4 border-t border-border pt-10">
+          <h2 id="practice-heading" className="display text-[1.75rem] sm:text-[2.25rem]">
+            Try it yourself
+          </h2>
+          <div className="max-w-[48ch] space-y-1 text-lg">
+            <p>Run a whole payout in this page, with no install, no wallet and no money.</p>
+            <p>It is a simulation in your browser, and every screen says so.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <PracticeStart label="Try it yourself in practice mode" />
+          </div>
+        </section>
 
-      <section aria-labelledby="limits-heading" className="max-w-3xl space-y-3">
-        <h2 id="limits-heading" className="text-2xl font-semibold tracking-tight">
-          The honest limits
-        </h2>
-        <p>
-          Amounts stay hidden only when payouts vary: a batch of one reveals that person&apos;s
-          amount, and equal payouts make every amount derivable from the public total. The
-          operator sees every recipient and amount, and an auditor given a viewing key sees
-          everything for that campaign, permanently.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Status: a prototype under construction. It runs on testnet by default and has not been
-          independently audited. The sample receipt is made-up data.{" "}
-          <Link to="/privacy" className="font-medium text-link underline underline-offset-4">
-            Read the full list of limits
-          </Link>
-          .
-        </p>
-      </section>
-
-      <p className="border-t pt-6 text-sm text-muted-foreground">
-        Running a campaign?{" "}
-        <Link to="/campaigns" className="font-medium text-link underline underline-offset-4">
-          Open the operator app
-        </Link>
-        .
-      </p>
-    </div>
+        <Tour />
+      </div>
+    </UnitProvider>
   );
 }

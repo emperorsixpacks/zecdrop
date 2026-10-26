@@ -7,6 +7,7 @@ import { SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import { clearSession } from "@/api/operator/session";
 import "@/test/dom";
 import { installFakeOperator, replyWith } from "@/test/fake-operator";
+import { island } from "@/test/island";
 import { renderApp } from "@/test/render-app";
 
 // The operator pages are behind the token gate; with no token they explain how
@@ -26,15 +27,17 @@ afterEach(() => {
 });
 
 const PUBLIC_HEADINGS: [path: string, heading: string][] = [
-  ["/", "Private amounts. Public accountability."],
+  ["/", "Pay many people. Keep who got what private. Prove the total."],
   ["/r/abc123", "Payout receipt"],
   ["/r/demo?demo=1", "Payout receipt"],
   ["/r/demo?demo=real", "Payout receipt"],
   ["/r/demo?demo=real-smoke", "Payout receipt"],
-  ["/privacy", "What is public, what is private"],
+  ["/get-paid", "Get paid in ZEC"],
+  ["/payslip", "Check a payslip"],
+  ["/privacy", "How privacy works"],
 ];
 
-const OPERATOR_PATHS = ["/campaigns", "/new/basics", "/new/recipients", "/campaign/abc123", "/audit"];
+const OPERATOR_PATHS = ["/campaigns", "/new", "/new/check", "/new/send", "/campaign/abc123", "/audit"];
 
 const PAGE_HEADINGS: [path: string, heading: string][] = [
   ...PUBLIC_HEADINGS,
@@ -69,11 +72,11 @@ describe("routes", () => {
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
   });
 
-  it("has a Privacy boundary footer link to /privacy on every page", () => {
+  it("has a How privacy works footer link to /privacy on every page", () => {
     for (const [path] of [...PAGE_HEADINGS, ["/nope", ""] as const]) {
       const { unmount } = renderAt(path);
       const footer = screen.getByRole("contentinfo");
-      expect(within(footer).getByRole("link", { name: "Privacy boundary" })).toHaveAttribute(
+      expect(within(footer).getByRole("link", { name: "How privacy works" })).toHaveAttribute(
         "href",
         "/privacy",
       );
@@ -90,7 +93,7 @@ describe("routes", () => {
   it("lets the pitch page reach the sample receipt", async () => {
     const user = userEvent.setup();
     renderAt("/");
-    await user.click(screen.getByRole("link", { name: "View a sample receipt" }));
+    await user.click(screen.getByRole("link", { name: "See a real receipt" }));
     expect(
       await screen.findByRole("heading", { level: 2, name: "Status" }),
     ).toBeInTheDocument();
@@ -98,9 +101,9 @@ describe("routes", () => {
 });
 
 describe("layouts", () => {
-  const OPERATOR_ONLY = ["Campaigns", "New campaign", "Audit"];
+  const OPERATOR_ONLY = ["Payouts", "Audit"];
 
-  it.each(["/campaigns", "/new/basics", "/campaign/x", "/audit"])(
+  it.each(["/campaigns", "/new", "/new/check", "/campaign/x", "/audit"])(
     "shows operator navigation on %s",
     (path) => {
       renderAt(path);
@@ -111,7 +114,35 @@ describe("layouts", () => {
     },
   );
 
-  it.each(["/", "/r/abc123", "/r/demo?demo=1", "/privacy", "/nope"])(
+  it.each(["/campaigns", "/campaign/x", "/audit"])("offers to start a payout from %s", (path) => {
+    renderAt(path);
+    expect(screen.getByRole("link", { name: "New payout" })).toHaveAttribute("href", "/new");
+  });
+
+  it.each(["/new", "/new/check", "/new/send"])("does not offer to start one while paying, on %s", (path) => {
+    renderAt(path);
+    expect(screen.queryByRole("link", { name: "New payout" })).toBeNull();
+  });
+
+  it("shows the three stages while paying, and only there", async () => {
+    renderApp("/new", { signedIn: true });
+    const tracker = await screen.findByRole("navigation", { name: "Progress" });
+    expect(within(tracker).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["1Payouts", "2Check", "3Send"]);
+    expect(within(tracker).getByText("Payouts").closest("[aria-current='step']")).not.toBeNull();
+  });
+
+  it.each(["/campaigns", "/audit"])("has no tracker on %s", async (path) => {
+    renderApp(path, { signedIn: true });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("navigation", { name: "Progress" })).toBeNull();
+  });
+
+  it.each(["/new/basics", "/new/recipients", "/new/review", "/new/bogus"])("has no page at %s any more", async (path) => {
+    renderApp(path, { signedIn: true });
+    expect(await screen.findByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it.each(["/", "/r/abc123", "/r/demo?demo=1", "/get-paid", "/payslip", "/privacy", "/nope"])(
     "shows only the public menu on %s",
     (path) => {
       renderAt(path);
@@ -120,13 +151,41 @@ describe("layouts", () => {
         "href",
         SAMPLE_RECEIPT_HREF,
       );
-      expect(within(nav).getByRole("link", { name: "Privacy boundary" })).toBeInTheDocument();
+      expect(within(nav).getByRole("link", { name: "Get paid" })).toHaveAttribute("href", "/get-paid");
+      expect(within(nav).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
+      expect(within(nav).getByRole("link", { name: "How privacy works" })).toHaveAttribute("href", "/privacy");
+      expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
       for (const label of OPERATOR_ONLY) {
         expect(within(nav).queryByRole("link", { name: label })).toBeNull();
       }
-      expect(screen.getByRole("link", { name: "ZecDrop" })).toHaveAttribute("href", "/");
+      expect(screen.queryByRole("link", { name: "New payout" })).toBeNull();
+      // The header is one capsule, closed: a button that names the site and the page, not a link.
+      expect(island()).toHaveAttribute("aria-expanded", "false");
+      expect(island()).toHaveAccessibleName(/^ZecDrop /u);
+      expect(screen.queryByRole("link", { name: "ZecDrop" })).toBeNull();
     },
   );
+
+  it.each([
+    ["/", "Home"],
+    ["/r/abc123", "Receipt"],
+    ["/get-paid", "Get paid"],
+    ["/payslip", "Payslip"],
+    ["/privacy", "How privacy works"],
+  ])("names the page on %s in the capsule: %s", (path, name) => {
+    renderAt(path);
+    expect(island()).toHaveAccessibleName(`ZecDrop ${name} testnet`);
+  });
+
+  it.each([
+    ["/campaigns", "Payouts"],
+    ["/new", "New payout"],
+    ["/campaign/x", "Payout"],
+    ["/audit", "Audit"],
+  ])("names the operator's page on %s in the capsule: %s", (path, name) => {
+    renderAt(path);
+    expect(island()).toHaveAccessibleName(`ZecDrop ${name} testnet`);
+  });
 
   it("shows the network badge", () => {
     renderAt("/");

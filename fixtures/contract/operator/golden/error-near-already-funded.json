@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "already_funded",
+    "message": "this campaign already has its deposit"
+  }
+}

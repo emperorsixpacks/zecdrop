@@ -121,6 +121,8 @@ export type OperatorError =
   | { code: "funding_conflict"; message: string; recorded: { outpoint: OutPointView; amount: string } }
   /** The key was asked for without the acknowledgement header. Carries the disclosure warning. */
   | { code: "confirmation_required"; message: string; warning: string }
+  /** The deposit address was made but could not be kept: it is said here so it is not stranded. */
+  | { code: "near_quote_not_saved"; message: string; depositAddress: string; deadline: string | null }
   | { code: string; message: string };
 
 const errorWire = z.union([
@@ -176,6 +178,17 @@ const errorWire = z.union([
     .transform(
       (e): OperatorError => ({ code: "confirmation_required", message: e.message, warning: e.warning }),
     ),
+  z
+    .object({
+      code: z.literal("near_quote_not_saved"),
+      message: shortText,
+      deposit_address: z.string().min(1).max(128),
+      deadline: z.string().min(1).max(40).nullable(),
+    })
+    .strict()
+    .transform(
+      (e): OperatorError => ({ code: "near_quote_not_saved", message: e.message, depositAddress: e.deposit_address, deadline: e.deadline }),
+    ),
   // Every other error is just a code and a sentence.
   z
     .object({ code: z.string().min(1).max(64), message: shortText })
@@ -198,6 +211,7 @@ export const KNOWN_ERROR_CODES = [
   "plan_failed",
   "batch_size_too_large",
   "amount_too_large",
+  "mainnet_cap_exceeded",
   "csv_too_large",
   "body_too_large",
   "import_failed",
@@ -216,6 +230,25 @@ export const KNOWN_ERROR_CODES = [
   "account_registry_error",
   "host_not_allowed",
   "store_corrupt",
+  // The NEAR Intents funding routes.
+  "near_unavailable",
+  "near_rejected",
+  "near_unauthorized",
+  "near_quote_mismatch",
+  "near_bad_response",
+  "near_zec_not_listed",
+  "near_quote_not_saved",
+  "mainnet_not_enabled",
+  "amount_out_of_range",
+  "already_funded",
+  "live_quote_exists",
+  "no_dry_quote",
+  "dry_quote_expired",
+  "dry_quote_stale",
+  "no_live_quote",
+  "unknown_origin_asset",
+  "zec_origin_not_allowed",
+  "invalid_refund_address",
 ] as const;
 
 const KNOWN = new Set<string>(KNOWN_ERROR_CODES);

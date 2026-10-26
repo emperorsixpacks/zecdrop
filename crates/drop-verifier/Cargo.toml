@@ -27,6 +27,11 @@ tower-http = { version = "0.7.1", features = ["cors", "timeout", "set-header"] }
 
 [dev-dependencies]
 hex = "0.4.3"
+# The payslip tests issue payslips from a fixture's outgoing viewing key, as its owner would. These
+# are development-only, so they do not ship (tests/no_keys.rs walks only normal and build edges).
+orchard = { workspace = true }
+zcash_primitives = { workspace = true }
+zcash_protocol = { workspace = true }
 tokio = { version = "1.53.2", features = ["test-util", "io-util"] }
 http-body-util = "0.1.5"
 tower = { version = "0.5.3", features = ["util", "limit"] }

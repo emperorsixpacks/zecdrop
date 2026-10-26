@@ -24,10 +24,13 @@ async function tabThrough(page: Page, limit = 80): Promise<Stop[]> {
       const el = document.activeElement;
       if (!el || el === document.body || el === document.documentElement) return null;
       const box = el.getBoundingClientRect();
-      const style = getComputedStyle(el);
+      // The header capsule rings itself, all of it, and not its button (src/index.css): that is where the ring is looked for.
+      const capsule = el.matches('[data-slot="island"]');
+      const style = getComputedStyle(capsule ? (el.closest(".island") ?? el) : el);
       const outlined = style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0;
       const ringed = style.boxShadow !== "none";
-      const bordered = style.borderTopColor !== "rgba(0, 0, 0, 0)" && el.matches(":focus-visible");
+      // (A border colour is set on every element, so this one is no proof; the capsule is held to the ring alone.)
+      const bordered = !capsule && style.borderTopColor !== "rgba(0, 0, 0, 0)" && el.matches(":focus-visible");
       return {
         label: (el.getAttribute("aria-label") ?? el.textContent ?? el.tagName).trim().slice(0, 50),
         top: Math.round(box.top + window.scrollY),
@@ -51,9 +54,11 @@ for (const viewport of VIEWPORTS) {
         await open(page, target);
         const stops = await tabThrough(page);
 
-        // The first stop is the skip link, and it becomes visible when focused.
+        // The first stop is the skip link, and it becomes visible when focused. The header capsule is next: one stop, with none of
+        // its links, which wait behind it until it is opened (e2e/island.spec.ts walks them).
         expect(stops[0]?.label).toBe("Skip to content");
         expect(stops[0]?.visible).toBe(true);
+        expect(stops[1]?.label).toMatch(/^ZecDrop /u);
 
         expect(stops.length).toBeGreaterThan(3);
         for (const stop of stops) {
@@ -95,6 +100,12 @@ test.describe("sample receipt", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await open(page, pageNamed("sample receipt"));
 
+    // The transactions are behind a button; it opens from the keyboard too.
+    const section = page.getByRole("button", { name: "Transactions" });
+    await section.focus();
+    await page.keyboard.press("Enter");
+    await expect(section).toHaveAttribute("aria-expanded", "true");
+
     const button = page.getByRole("button", { name: "Copy transaction id for batch 0" }).first();
     await button.focus();
     await page.keyboard.press("Enter");
@@ -108,6 +119,7 @@ test.describe("sample receipt", () => {
     test(`shows ${viewport.width < 1024 ? "cards" : "the table"} at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await open(page, pageNamed("sample receipt"));
+      await page.getByRole("button", { name: "Transactions" }).click();
 
       const table = page.getByRole("table", { name: "Payout batches" });
       const cards = page.getByRole("list", { name: "Payout batches" });
@@ -122,11 +134,12 @@ test.describe("sample receipt", () => {
   }
 
   for (const theme of THEMES) {
-    test(`the sample banner and boundary section are readable (${theme})`, async ({ page }) => {
+    test(`the sample line and the boundary section are readable (${theme})`, async ({ page }) => {
       await useTheme(page, theme);
       await open(page, pageNamed("sample receipt"));
-      await expect(page.locator("#main").getByText("Sample receipt", { exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { name: /What this proves/u })).toBeVisible();
+      await expect(page.locator("#main").getByText("Sample data: a campaign in progress")).toBeVisible();
+      await page.getByRole("button", { name: "What this proves and what it does not" }).click();
+      await expect(page.getByRole("heading", { name: "What this does not prove" })).toBeVisible();
     });
   }
 });

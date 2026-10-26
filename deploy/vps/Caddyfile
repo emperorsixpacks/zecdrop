@@ -1,0 +1,5 @@
+# Caddy asks Let's Encrypt for a certificate for this name and serves it over https.
+# The name must already point at this machine, and ports 80 and 443 must be open.
+{$VERIFIER_DOMAIN} {
+	reverse_proxy verifier:8080
+}

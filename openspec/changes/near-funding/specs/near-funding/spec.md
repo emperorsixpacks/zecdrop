@@ -1,7 +1,7 @@
 # near-funding
 
 ### REQ-FUND-001 — Quote to the transparent campaign address
-Status: planned
+Status: implemented
 Funding via NEAR Intents SHALL request a dry quote before a real one, SHALL set the recipient to the campaign's
 transparent address, and SHALL handle every documented status (PENDING_DEPOSIT, KNOWN_DEPOSIT_TX, PROCESSING,
 SUCCESS, INCOMPLETE_DEPOSIT, REFUNDED, FAILED).

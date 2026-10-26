@@ -53,7 +53,9 @@ describe("the page is served from a hosted name", () => {
       expect(within(nav).queryByRole("link", { name: label })).toBeNull();
     }
     expect(within(nav).getByRole("link", { name: "Sample receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
-    expect(within(nav).getByRole("link", { name: "Privacy boundary" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Get paid" })).toHaveAttribute("href", "/get-paid");
+    expect(within(nav).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
+    expect(within(nav).getByRole("link", { name: "How privacy works" })).toBeInTheDocument();
   });
 
   it("says what is here instead, with working links", async () => {
@@ -67,9 +69,9 @@ describe("the page is served from a hosted name", () => {
 
   it("leaves the public pages alone", () => {
     renderApp("/privacy");
-    expect(screen.getByRole("heading", { level: 1, name: "What is public, what is private" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "How privacy works" })).toBeInTheDocument();
     renderApp("/");
-    expect(screen.getAllByRole("heading", { level: 1, name: "Private amounts. Public accountability." }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { level: 1, name: "Pay many people. Keep who got what private. Prove the total." }).length).toBeGreaterThan(0);
   });
 
   it("does not claim anything it cannot back up", () => {

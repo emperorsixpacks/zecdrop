@@ -33,3 +33,6 @@ zeroize = "1.9.1"
 
 [dev-dependencies]
 drop-core = { path = "../drop-core", features = ["test-util"] }
+serde_json = "1.0.151"
+# The payslip tests show what an `rseed` opens (the output's memo), through the public decryption API.
+zcash_note_encryption = "0.5.1"

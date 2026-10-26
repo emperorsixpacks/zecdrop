@@ -1,11 +1,11 @@
 import { useId, useState, type FormEvent } from "react";
 
 import type { OperatorCampaign } from "@/api/operator/schemas";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Disclosure } from "@/components/Disclosure";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { practiceId, usePractice } from "@/lib/practice-mode";
 import { useCoinUnit } from "@/lib/units";
 import { parsePositiveZec, ZecParseError, zecFromZatoshi } from "@/lib/zec";
 
@@ -30,26 +30,17 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
   const health = useHealth();
   const record = useRecordFunding(campaign.id);
   const unit = useCoinUnit();
-  const ids = { txid: useId(), vout: useId(), amount: useId() };
+  const ids = { heading: useId(), txid: useId(), vout: useId(), amount: useId() };
 
-  const [txid, setTxid] = useState(randomTxid);
+  const practice = usePractice((state) => state.on);
+  // In practice mode even the pretend deposit's id says what it is: it is on no chain.
+  const [txid, setTxid] = useState(() => (practice ? practiceId() : randomTxid()));
   const [vout, setVout] = useState("0");
   const [amount, setAmount] = useState(() => zecFromZatoshi(campaign.fundingRequired));
   const [problem, setProblem] = useState<string | null>(null);
 
   // Only when the operator itself says it is the mock chain. Missing or false: no dev controls.
   if (health.data?.mock !== true) return null;
-
-  if (campaign.funding !== null) {
-    return (
-      <Alert variant="info" role="status">
-        <AlertTitle>Mock deposit recorded</AlertTitle>
-        <AlertDescription>
-          {zecFromZatoshi(campaign.funding.amount)} {unit}, pretend funds. This campaign is ready to start.
-        </AlertDescription>
-      </Alert>
-    );
-  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -69,68 +60,67 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">
-          <h2>Mock chain: record a pretend deposit</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          This is a development shortcut. No funds move: it only tells the mock chain that a deposit of this size
-          arrived. The campaign needs {zecFromZatoshi(campaign.fundingRequired)} {unit} (the total plus fees).
-        </p>
-        <form onSubmit={submit} className="space-y-4" noValidate>
-          <div className="space-y-1.5">
-            <Label htmlFor={ids.txid}>Deposit transaction id</Label>
-            <Input
-              id={ids.txid}
-              value={txid}
-              onChange={(e) => {
-                setTxid(e.target.value.trim());
-              }}
-              className="font-mono text-xs"
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+    <section aria-labelledby={ids.heading} className="space-y-5">
+      <h2 id={ids.heading} className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">
+        Practice mode: record a pretend deposit
+      </h2>
+      <p className="max-w-[64ch] text-base">
+        No funds move. The campaign needs {zecFromZatoshi(campaign.fundingRequired)} {unit}.
+      </p>
+      <form onSubmit={submit} className="space-y-4" noValidate>
+        <Disclosure summary="Change the deposit" className="max-w-xl">
+          <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor={ids.vout}>Output index</Label>
+              <Label htmlFor={ids.txid}>Deposit transaction id</Label>
               <Input
-                id={ids.vout}
-                inputMode="numeric"
-                value={vout}
+                id={ids.txid}
+                value={txid}
                 onChange={(e) => {
-                  setVout(e.target.value.trim());
+                  setTxid(e.target.value.trim());
                 }}
+                className="font-mono text-xs"
+                spellCheck={false}
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={ids.amount}>Amount ({unit})</Label>
-              <Input
-                id={ids.amount}
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value.trim());
-                }}
-                autoComplete="off"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor={ids.vout}>Output index</Label>
+                <Input
+                  id={ids.vout}
+                  inputMode="numeric"
+                  value={vout}
+                  onChange={(e) => {
+                    setVout(e.target.value.trim());
+                  }}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={ids.amount}>Amount ({unit})</Label>
+                <Input
+                  id={ids.amount}
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value.trim());
+                  }}
+                  autoComplete="off"
+                />
+              </div>
             </div>
           </div>
-          {problem !== null && (
-            <p role="alert" className="text-sm text-destructive">
-              {problem}
-            </p>
-          )}
-          {record.isError && <FailureNotice error={record.error} />}
-          <Button type="submit" disabled={record.isPending}>
-            {record.isPending ? "Recording…" : "Record mock deposit"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        </Disclosure>
+        {problem !== null && (
+          <p role="alert" className="text-base font-medium text-problem">
+            {problem}
+          </p>
+        )}
+        {record.isError && <FailureNotice error={record.error} />}
+        <Button type="submit" size="lg" disabled={record.isPending}>
+          {record.isPending ? "Recording…" : "Record mock deposit"}
+        </Button>
+      </form>
+    </section>
   );
 }

@@ -264,6 +264,71 @@ async fn the_tools_obey_the_mainnet_gate() {
     assert!(output.stdout.is_empty());
 }
 
+// covers: REQ-OPS-001, REQ-OPS-004
+#[tokio::test]
+async fn the_tools_refuse_a_campaign_of_another_network() {
+    // A mainnet campaign, and the tool started with no network flag (testnet): without this check
+    // its viewing key would come out with no mainnet flag at all.
+    let node = SharedNode::default();
+    let mainnet = mainnet_harness_with_cap(&node, 3, true, u64::MAX);
+    let reply = mainnet
+        .post(
+            "/api/campaigns",
+            serde_json::json!({
+                "name": "CLI mainnet drop",
+                "csv": format!(
+                    "address,amount,memo\n{},0.001,hello\n{},0.002,\n",
+                    recipient_ua_on(zcash_protocol::consensus::Network::MainNetwork, 0),
+                    recipient_ua_on(zcash_protocol::consensus::Network::MainNetwork, 1)
+                ),
+                "max_outputs_per_batch": 5,
+                "fee_policy": "zip317_text",
+            }),
+        )
+        .await;
+    assert_eq!(
+        reply.status,
+        axum::http::StatusCode::CREATED,
+        "{}",
+        reply.text()
+    );
+    let id = reply.json()["id"].as_str().unwrap().to_owned();
+    let mut command = operator();
+    command
+        .args(["--db", mainnet.db.to_str().unwrap()])
+        .args(["export-ufvk", "--campaign", &id])
+        .arg("--i-understand-this-is-irreversible");
+    let output = run(command, None);
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty(), "no key on stdout");
+    let stderr = text(&output.stderr);
+    assert!(
+        stderr.contains("mainnet campaign") && stderr.contains("--network mainnet"),
+        "{stderr}"
+    );
+
+    // The other way round: a testnet campaign asked for with the mainnet gate open.
+    let h = real_harness(&SharedNode::default(), 3);
+    let (id, _seed) = store_with_campaign(&h).await;
+    let mut command = operator();
+    command
+        .env("ZECDROP_CONFIRM_MAINNET", "I-UNDERSTAND")
+        .args(["--db", h.db.to_str().unwrap()])
+        .args(["--network", "mainnet", "--allow-mainnet"])
+        .args(["export-ufvk", "--campaign", &id.to_string()])
+        .arg("--i-understand-this-is-irreversible");
+    let output = run(command, None);
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty(), "no key on stdout");
+    let stderr = text(&output.stderr);
+    assert!(stderr.contains("testnet campaign"), "{stderr}");
+    // The refusal names the networks and nothing of the campaign.
+    assert!(
+        !stderr.contains("CLI drop") && !stderr.contains(&id.to_string()),
+        "{stderr}"
+    );
+}
+
 // covers: REQ-SEC-001, REQ-SEC-002
 #[test]
 fn init_wallet_creates_the_seed_and_prints_nothing_secret() {

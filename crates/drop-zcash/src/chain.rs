@@ -34,6 +34,14 @@ pub trait ChainBackend {
 
     fn tip_height(&mut self) -> Result<u32, Self::Error>;
 
+    /// The consensus branch id the node reports for its current tip, if this backend can ask.
+    /// The distributor refuses to build when it differs from the id this build derives for the
+    /// target height, so a build that does not know the network's current upgrade never sends.
+    /// The default is "unknown", which skips the check (in-memory fakes).
+    fn consensus_branch_id(&mut self) -> Result<Option<u32>, Self::Error> {
+        Ok(None)
+    }
+
     /// The Ironwood note-commitment-tree root after block `height`, as `orchard::Anchor` bytes.
     fn ironwood_anchor(&mut self, height: u32) -> Result<[u8; 32], Self::Error>;
 

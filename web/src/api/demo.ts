@@ -55,6 +55,8 @@ export interface DemoInfo {
   case: DemoCase;
   /** Link text, e.g. "A receipt with findings". */
   label: string;
+  /** Two or three words, for the sample switcher. */
+  short: string;
   href: string;
   /** One sentence on what this sample shows. */
   summary: string;
@@ -81,6 +83,7 @@ export const REAL_CAPTURES: Readonly<
 export const DEMOS: readonly DemoInfo[] = [
   {
     case: "real",
+    short: "Real batch",
     label: "A real batch of 8 outputs from public testnet",
     href: SAMPLE_RECEIPT_HREF,
     summary:
@@ -88,24 +91,28 @@ export const DEMOS: readonly DemoInfo[] = [
   },
   {
     case: "real-smoke",
+    short: "First batch",
     label: "The first real batch, a smaller one",
     href: "/r/demo?demo=real-smoke",
     summary: "The first batch mined on public testnet, with 3 shielded outputs, as the live verifier read it.",
   },
   {
     case: "clean",
+    short: "In progress",
     label: "A campaign in progress",
     href: "/r/demo?demo=1",
     summary: "Two batches: one confirmed, one not built yet. Nothing is wrong.",
   },
   {
     case: "findings",
+    short: "With findings",
     label: "A receipt with findings",
     href: "/r/demo?demo=findings",
     summary: "The verifier could not confirm everything, and reports each problem.",
   },
   {
     case: "mismatch",
+    short: "Total mismatch",
     label: "A declared total that does not add up",
     href: "/r/demo?demo=mismatch",
     summary: "The batches add up to a different total than the one declared.",

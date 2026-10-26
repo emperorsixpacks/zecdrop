@@ -64,7 +64,9 @@ fn normalise(value: &mut Value) {
                     ("id" | "campaign_id", Value::String(_)) => *inner = json!(FAKE_ID),
                     ("created_at", Value::Number(_)) => *inner = json!(1_700_000_000u64),
                     ("manifest_commitment", Value::String(_)) => *inner = json!(FAKE_COMMITMENT),
-                    ("funding_address", Value::String(_)) => *inner = json!(FAKE_ADDRESS),
+                    ("funding_address" | "campaign_funding_address", Value::String(_)) => {
+                        *inner = json!(FAKE_ADDRESS)
+                    }
                     ("outpoint" | "funding_input", Value::String(_)) => {
                         *inner = json!(fake_outpoint())
                     }
@@ -102,6 +104,13 @@ impl Golden {
                 CampaignKeys::derive(&TEST_SEED, NETWORK, 0)
                     .unwrap()
                     .funding_address(),
+                CampaignKeys::derive(
+                    &TEST_SEED,
+                    zcash_protocol::consensus::Network::MainNetwork,
+                    0,
+                )
+                .unwrap()
+                .funding_address(),
                 recipient_ua(0),
                 recipient_ua(1),
                 recipient_ua(2),
@@ -622,5 +631,285 @@ async fn the_real_mode_api_shapes_are_pinned() {
         "the mock chain has no real viewing keys",
     );
 
+    near_scenarios(&mut g).await;
+
     g.finish();
+}
+
+// ---------------------------------------------------------------------------
+// NEAR Intents funding (REQ-FUND-001)
+// ---------------------------------------------------------------------------
+//
+// The service is a stand-in answering from drop-near's recorded fixtures. The token list and the
+// dry quote have the shape the REAL service answered on 2026-10-07 (captured); the live quote and
+// the statuses have the shape of its DOCUMENTATION (never captured: NEAR is mainnet-only and no
+// non-dry quote was ever requested). The index notes say which is which.
+
+const NEAR_REFUND: &str = "refund-account.near";
+const NEAR_CONFIRM: (&str, &str) = ("x-zecdrop-confirm-near", "I-UNDERSTAND");
+
+async fn mainnet_campaign(h: &Harness) -> CampaignId {
+    let csv = format!(
+        "address,amount,memo\n{},1.5,\n{},0.75,\n",
+        recipient_ua_on(zcash_protocol::consensus::Network::MainNetwork, 0),
+        recipient_ua_on(zcash_protocol::consensus::Network::MainNetwork, 1)
+    );
+    let reply = h
+        .post(
+            "/api/campaigns",
+            json!({ "name": "Near drop", "csv": csv, "max_outputs_per_batch": 5, "fee_policy": "zip317_text" }),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::CREATED, "{}", reply.text());
+    CampaignId::new(reply.json()["id"].as_str().unwrap()).unwrap()
+}
+
+fn near_path(id: &CampaignId, tail: &str) -> String {
+    format!("/api/campaigns/{id}/funding/near/{tail}")
+}
+
+async fn near_dry(h: &Harness, id: &CampaignId, origin: &str, refund: &str) -> Reply {
+    h.post(
+        &near_path(id, "dry-quote"),
+        json!({ "origin_asset_id": origin, "refund_to": refund }),
+    )
+    .await
+}
+
+async fn near_live(h: &Harness, id: &CampaignId, headers: &[(&str, &str)]) -> Reply {
+    h.call_with(
+        Method::POST,
+        &near_path(id, "live-quote"),
+        Auth::Token,
+        None,
+        headers,
+    )
+    .await
+}
+
+async fn near_scenarios(g: &mut Golden) {
+    use common::near::{Script, STATUSES, USDC};
+    let preview_body = json!({ "origin_asset_id": USDC, "amount_zat": 545_000 });
+
+    // ---- the testnet operator: tokens, a price preview, and why a campaign cannot use it ----
+    let testnet = Harness::new();
+    let tokens = testnet.get("/api/near/tokens").await;
+    g.record("near-tokens.json", "GET", "/api/near/tokens", 200, &tokens,
+        "CAPTURED SHAPE: the usable origin assets (no ZEC), sorted; the list is the real service's of 2026-10-07 (an excerpt), cached for 60 s");
+    let preview = testnet
+        .post("/api/near/preview", preview_body.clone())
+        .await;
+    g.record("near-preview.json", "POST", "/api/near/preview", 200, &preview,
+        "CAPTURED SHAPE: a dry quote for 545,000 zat of native ZEC from USDC on NEAR, exactly the request the real service answered on 2026-10-07; works on testnet and mainnet operators; creates nothing");
+    let (testnet_id, _) = testnet.create().await;
+    let not_applicable = near_dry(&testnet, &testnet_id, USDC, NEAR_REFUND).await;
+    g.record("error-near-not-applicable.json", "POST", "/api/campaigns/{id}/funding/near/dry-quote", 409, &not_applicable,
+        "a testnet campaign cannot be funded through NEAR Intents (mainnet ZEC only); the same answer for live-quote and status");
+    let bad_origin = testnet
+        .post(
+            "/api/near/preview",
+            json!({ "origin_asset_id": "nep141:not-listed.near", "amount_zat": 1000 }),
+        )
+        .await;
+    g.record(
+        "error-near-unknown-origin-asset.json",
+        "POST",
+        "/api/near/preview",
+        422,
+        &bad_origin,
+        "the origin asset is not in the service's token list",
+    );
+    let zec_origin = testnet
+        .post(
+            "/api/near/preview",
+            json!({ "origin_asset_id": "nep141:zec.omft.near", "amount_zat": 1000 }),
+        )
+        .await;
+    g.record(
+        "error-near-zec-origin-not-allowed.json",
+        "POST",
+        "/api/near/preview",
+        422,
+        &zec_origin,
+        "ZEC (native or bridged) is what the campaign receives, never what pays",
+    );
+    let bad_amount = testnet
+        .post(
+            "/api/near/preview",
+            json!({ "origin_asset_id": USDC, "amount_zat": 0 }),
+        )
+        .await;
+    g.record(
+        "error-near-amount-out-of-range.json",
+        "POST",
+        "/api/near/preview",
+        422,
+        &bad_amount,
+        "amount_zat must be a whole number of zatoshi above zero and within the total supply",
+    );
+
+    // ---- the service misbehaving, seen through the preview ----
+    for (file, status, note, edit) in [
+        (
+            "error-near-unavailable.json",
+            503,
+            "the service could not be reached",
+            Box::new(|s: &mut Script| s.transport_error = Some("down".into()))
+                as Box<dyn Fn(&mut Script)>,
+        ),
+        (
+            "error-near-rejected.json",
+            502,
+            "the service refused the request; only the HTTP status is repeated, never its words",
+            Box::new(|s: &mut Script| s.fail_with = Some((400, "no".into()))),
+        ),
+        (
+            "error-near-unauthorized.json",
+            502,
+            "the service rejected the credentials (NEAR_INTENTS_JWT)",
+            Box::new(|s: &mut Script| s.fail_with = Some((401, "no".into()))),
+        ),
+        (
+            "error-near-quote-mismatch.json",
+            502,
+            "the service quoted a different output than asked for",
+            Box::new(|s: &mut Script| s.dry_amount_out = Some("1".into())),
+        ),
+        (
+            "error-near-bad-response.json",
+            502,
+            "the service answered with something unusable (here: a deposit address on a dry quote)",
+            Box::new(|s: &mut Script| s.dry_with_address = true),
+        ),
+    ] {
+        testnet.clock.advance(61); // a stale token cache, so the failing call is the one asked
+        testnet.near.script(|s| *s = Script::default());
+        testnet.near.script(edit);
+        let reply = testnet
+            .post("/api/near/preview", preview_body.clone())
+            .await;
+        g.record(file, "POST", "/api/near/preview", status, &reply, note);
+    }
+
+    // ---- a mainnet campaign on a mainnet operator that allows it ----
+    let mainnet = mainnet_harness(&SharedNode::default(), 3, true);
+    let id = mainnet_campaign(&mainnet).await;
+    let bad_refund = near_dry(&mainnet, &id, USDC, "not a plain address!").await;
+    g.record(
+        "error-near-invalid-refund-address.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/dry-quote",
+        422,
+        &bad_refund,
+        "the refund address must be plain text on the origin chain",
+    );
+    let no_dry = near_live(&mainnet, &id, &[NEAR_CONFIRM]).await;
+    g.record(
+        "error-near-no-dry-quote.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/live-quote",
+        409,
+        &no_dry,
+        "a deposit address is only asked for after a dry quote for this campaign",
+    );
+    let no_quote = mainnet.get(&near_path(&id, "status")).await;
+    g.record(
+        "error-near-no-live-quote.json",
+        "GET",
+        "/api/campaigns/{id}/funding/near/status",
+        409,
+        &no_quote,
+        "no deposit address was ever asked for this campaign",
+    );
+
+    let dry = near_dry(&mainnet, &id, USDC, NEAR_REFUND).await;
+    g.record("near-dry-quote.json", "POST", "/api/campaigns/{id}/funding/near/dry-quote", 200, &dry,
+        "SHAPE OF THE CAPTURED DRY QUOTE with this campaign's own amount and recipient substituted; mainnet campaigns only; creates nothing; good for 10 minutes");
+    let unconfirmed = near_live(&mainnet, &id, &[]).await;
+    g.record("error-near-confirmation-required.json", "POST", "/api/campaigns/{id}/funding/near/live-quote", 400, &unconfirmed,
+        "the live quote needs the header X-Zecdrop-Confirm-Near: I-UNDERSTAND; the warning to show is in the error");
+    let live = near_live(&mainnet, &id, &[NEAR_CONFIRM]).await;
+    g.record("near-live-quote.json", "POST", "/api/campaigns/{id}/funding/near/live-quote", 200, &live,
+        "FROM THE DOCUMENTATION, NEVER CAPTURED: the deposit address, amount and deadline, plain instructions, and campaign_funded: false (it never says funded)");
+    let again = near_live(&mainnet, &id, &[NEAR_CONFIRM]).await;
+    g.record(
+        "error-near-live-quote-exists.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/live-quote",
+        409,
+        &again,
+        "the campaign already has a deposit address that is still valid",
+    );
+    for stem in STATUSES {
+        mainnet.near.script(|s| s.status = stem);
+        let reply = mainnet.get(&near_path(&id, "status")).await;
+        g.record(&format!("near-status-{stem}.json"), "GET", "/api/campaigns/{id}/funding/near/status", 200, &reply,
+            "FROM THE DOCUMENTATION, NEVER CAPTURED: a status as a closed word plus the next step; campaign_funded comes from the operator's own record, never from the service");
+    }
+
+    // ---- more refusals, each on a campaign of its own ----
+    let expired_id = mainnet_campaign(&mainnet).await;
+    near_dry(&mainnet, &expired_id, USDC, NEAR_REFUND).await;
+    mainnet.clock.advance(601);
+    let expired = near_live(&mainnet, &expired_id, &[NEAR_CONFIRM]).await;
+    g.record(
+        "error-near-dry-quote-expired.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/live-quote",
+        409,
+        &expired,
+        "the dry quote is older than ten minutes",
+    );
+    let stale_id = mainnet_campaign(&mainnet).await;
+    near_dry(&mainnet, &stale_id, USDC, NEAR_REFUND).await;
+    let mut pending = mainnet.state.near().take_dry(&stale_id).unwrap();
+    pending.funding_required = Zatoshi::new(pending.funding_required.as_u64() + 1).unwrap();
+    mainnet.state.near().keep_dry(stale_id.clone(), pending);
+    let stale = near_live(&mainnet, &stale_id, &[NEAR_CONFIRM]).await;
+    g.record(
+        "error-near-dry-quote-stale.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/live-quote",
+        409,
+        &stale,
+        "what the campaign needs changed since the dry quote",
+    );
+    let funded_id = mainnet_campaign(&mainnet).await;
+    mainnet
+        .state
+        .store()
+        .record_funding(
+            &funded_id,
+            drop_operator::store::FundingObserved {
+                outpoint: drop_core::OutPoint {
+                    txid: "ab".repeat(32).parse().unwrap(),
+                    vout: 0,
+                },
+                amount: Zatoshi::new(1_000_000_000).unwrap(),
+            },
+        )
+        .unwrap();
+    let funded = near_dry(&mainnet, &funded_id, USDC, NEAR_REFUND).await;
+    g.record(
+        "error-near-already-funded.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/dry-quote",
+        409,
+        &funded,
+        "the campaign already has its deposit",
+    );
+
+    // ---- a mainnet operator not started with --allow-mainnet ----
+    let cautious = mainnet_harness(&SharedNode::default(), 3, false);
+    let cautious_id = mainnet_campaign(&cautious).await;
+    near_dry(&cautious, &cautious_id, USDC, NEAR_REFUND).await;
+    let refused = near_live(&cautious, &cautious_id, &[NEAR_CONFIRM]).await;
+    g.record(
+        "error-near-mainnet-not-enabled.json",
+        "POST",
+        "/api/campaigns/{id}/funding/near/live-quote",
+        403,
+        &refused,
+        "a real swap is mainnet money: the operator must be started with --allow-mainnet",
+    );
 }

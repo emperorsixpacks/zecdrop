@@ -1,20 +1,10 @@
 @import "tailwindcss";
 
-/* Theming model
- *
- * Dark is the default. Light applies only when <html data-theme="light">,
- * which src/lib/theme.ts sets from the saved choice or the OS preference.
- * The `dark:` variant follows the same rule, so component variants written
- * with `dark:` never disagree with the tokens below.
- *
- * Colours are full OKLCH values (no channel tricks); utilities pick them up
- * through the `@theme inline` map. The first group of tokens is the contract
- * the generated shadcn components expect; `link` and `status-*` are ours.
- *
- * Contrast was computed (WCAG 2.2) for both themes: text pairs >= 4.5:1,
- * input borders and focus ring >= 3:1, including tinted badge backgrounds.
- * Re-run the check if you change a value. */
-@custom-variant dark (&:where(:root:not([data-theme="light"]) *));
+/* Design tokens: see web/DESIGN.md. The look is Redacted paper: a document page, black redaction
+ * bars, and a marker-yellow highlighter for what is revealed and where focus is. The action is ink
+ * on paper (black) and, in the dark set, the marker itself. Text is Archivo (with its width
+ * axis, for the headlines) and IBM Plex Mono, both bundled. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -36,119 +26,760 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* ZecDrop additions */
+  /* ZecDrop */
   --color-link: var(--link);
-  --color-status-shielded: var(--status-shielded);
-  --color-status-done: var(--status-done);
+  --color-bar: var(--bar);
+  --color-island: var(--island);
+  --color-island-ink: var(--island-ink);
+  --color-island-muted: var(--island-muted);
+  --color-highlighter: var(--highlighter);
+  --color-marker: var(--p-marker);
+  --color-marker-ink: var(--p-marker-ink);
+  --color-accent-2: var(--p-marker); /* the older name for the marker */
+  --color-accent-text: var(--accent-text);
+  --color-verified: var(--verified);
+  --color-problem: var(--problem);
+  /* kept for the components that still use the older names */
+  --color-status-shielded: var(--muted-foreground);
+  --color-status-done: var(--verified);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Crisp corners, like a printed page: 8px on controls, 4px on the sheet and the bars. */
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1rem;
+  --radius-4xl: 1rem;
 
-  /* System stacks only: no web font means no third-party request and no
-   * flash of unstyled text, which suits a tool that runs offline. */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-    "Liberation Mono", monospace;
-  --font-heading: var(--font-sans); /* generated components use font-heading */
+  /* Bundled (src/main.tsx imports the font files): no request to any other host. */
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Scale: 14 / 16 / 20 / 28 / 44 / 72 */
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-xl: 1.25rem;
+  --text-3xl: 1.75rem;
+  --text-5xl: 2.75rem;
+  --text-7xl: 4.5rem;
 }
 
+/* ---- The colours ----------------------------------------------------------------------------
+ * Redacted paper. Light is the page: a cool grey desk with a white sheet on it, ink, and black
+ * redaction bars. Dark is the same page after hours: near-black, light ink, and the marker as
+ * the action. The marker (a highlighter yellow) is what has been revealed and where focus is, in
+ * both. Nothing in the app names a colour, it names a role; <html data-theme="dark|light">
+ * (src/lib/theme.ts) picks the set, and the roles below read it. src/colours.test.ts computes the
+ * contrast of every pair of roles that meet in the app, in both sets, and fails below WCAG 2.2 AA
+ * (text 4.5:1, a control's boundary 3:1); it also fails on a colour literal anywhere else.
+ *
+ *   bg, surface     the desk, and the sheet that sits on it (cards, sheets, fields)
+ *   ink, muted      text, and quieter text
+ *   rule, control   hairlines, and the boundary of a control (>= 3:1)
+ *   accent          the one action: its fill; accent-ink is the text on it
+ *   accent-text     the accent as a TEXT colour (>= 4.5:1)
+ *   marker          the highlighter: revealed text, focus; marker-ink is the text on it
+ *   bar             the redaction bar
+ *   island, island-ink, island-muted
+ *                   the header capsule: the redaction bar itself, its text, and its quieter text
+ *   good, bad       "verified" and "problem", as text
+ *   qr-ink, qr-paper  a QR code: black on white in both sets, since a scanner reads a dark code on a light ground
+ *
+ * Before the script has set the attribute the page is the light set, so nothing flashes for the
+ * default. */
 :root {
-  color-scheme: dark;
-  --radius: 0.625rem;
-
-  --background: oklch(0.155 0.006 75);
-  --foreground: oklch(0.96 0.004 85);
-  --card: oklch(0.2 0.007 75);
-  --card-foreground: oklch(0.96 0.004 85);
-  --popover: oklch(0.22 0.008 75);
-  --popover-foreground: oklch(0.96 0.004 85);
-
-  /* Zcash gold, #F4B728. `primary` is a fill and always carries dark text. */
-  --primary: oklch(0.814 0.158 83);
-  --primary-foreground: oklch(0.2 0.02 80);
-  --secondary: oklch(0.27 0.008 75);
-  --secondary-foreground: oklch(0.96 0.004 85);
-  --muted: oklch(0.25 0.007 75);
-  --muted-foreground: oklch(0.74 0.01 80);
-  --accent: oklch(0.29 0.01 78);
-  --accent-foreground: oklch(0.96 0.004 85);
-  --destructive: oklch(0.72 0.17 25);
-
-  --border: oklch(0.3 0.008 75); /* decorative card edges */
-  --input: oklch(0.55 0.01 80); /* a control's boundary: must clear 3:1 */
-  --ring: oklch(0.814 0.158 83);
-
-  /* Gold used as TEXT or an outline. Same as primary here; darker amber in
-   * light, where gold text on a pale background is unreadable. */
-  --link: oklch(0.814 0.158 83);
-  --status-shielded: oklch(0.78 0.12 295);
-  --status-done: oklch(0.8 0.16 155);
+  color-scheme: light;
+  --p-bg: #f3f3f0;
+  --p-surface: #ffffff;
+  --p-ink: #141414;
+  --p-muted: #595954;
+  --p-rule: #dad9d3;
+  --p-control: #85847d;
+  --p-accent: #141414;
+  --p-accent-ink: #ffffff;
+  --p-accent-text: #141414;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
+  --p-bar: #000000;
+  --p-island: #000000;
+  --p-island-ink: #f2f2ee;
+  --p-island-muted: #a1a19b;
+  --p-bezel: #0b0b0b;
+  --p-good: #0b6b3a;
+  --p-bad: #b3261e;
+  --p-qr-ink: #000000;
+  --p-qr-paper: #ffffff;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
+  --p-bg: #f3f3f0;
+  --p-surface: #ffffff;
+  --p-ink: #141414;
+  --p-muted: #595954;
+  --p-rule: #dad9d3;
+  --p-control: #85847d;
+  --p-accent: #141414;
+  --p-accent-ink: #ffffff;
+  --p-accent-text: #141414;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
+  --p-bar: #000000;
+  --p-island: #000000;
+  --p-island-ink: #f2f2ee;
+  --p-island-muted: #a1a19b;
+  --p-bezel: #0b0b0b;
+  --p-good: #0b6b3a;
+  --p-bad: #b3261e;
+  --p-qr-ink: #000000;
+  --p-qr-paper: #ffffff;
+}
 
-  --background: oklch(0.985 0.004 85);
-  --foreground: oklch(0.2 0.01 75);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.01 75);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.01 75);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --p-bg: #121212;
+  --p-surface: #1b1b1b;
+  --p-ink: #f2f2ee;
+  --p-muted: #a1a19b;
+  --p-rule: #333330;
+  --p-control: #77776f;
+  --p-accent: #ffd60a;
+  --p-accent-ink: #141414;
+  --p-accent-text: #ffd60a;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
+  --p-bar: #c9c9c2;
+  --p-island: #c9c9c2;
+  --p-island-ink: #141414;
+  --p-island-muted: #3d3d38;
+  --p-bezel: #000000;
+  --p-good: #4ade80;
+  --p-bad: #ff8a8a;
+  --p-qr-ink: #000000;
+  --p-qr-paper: #ffffff;
+}
 
-  --primary: oklch(0.814 0.158 83);
-  --primary-foreground: oklch(0.2 0.02 80);
-  --secondary: oklch(0.94 0.008 85);
-  --secondary-foreground: oklch(0.2 0.01 75);
-  --muted: oklch(0.955 0.006 85);
-  --muted-foreground: oklch(0.46 0.012 80);
-  --accent: oklch(0.93 0.015 85);
-  --accent-foreground: oklch(0.2 0.01 75);
-  --destructive: oklch(0.5 0.2 27);
+/* ---- Roles: what the app asks for -------------------------------------------------------- */
+:root {
+  --background: var(--p-bg);
+  --foreground: var(--p-ink);
+  --card: var(--p-surface);
+  --card-foreground: var(--p-ink);
+  --popover: var(--p-surface);
+  --popover-foreground: var(--p-ink);
 
-  --border: oklch(0.89 0.008 85);
-  --input: oklch(0.62 0.01 80);
-  --ring: oklch(0.46 0.1 75);
+  --primary: var(--p-accent);
+  --primary-foreground: var(--p-accent-ink);
+  --secondary: color-mix(in srgb, var(--p-ink) 7%, var(--p-bg));
+  --secondary-foreground: var(--p-ink);
+  --muted: color-mix(in srgb, var(--p-ink) 5%, var(--p-bg));
+  --muted-foreground: var(--p-muted);
+  --accent: color-mix(in srgb, var(--p-ink) 7%, var(--p-bg)); /* the neutral hover fill */
+  --accent-foreground: var(--p-ink);
+  --destructive: var(--p-bad);
 
-  --link: oklch(0.46 0.1 75);
-  --status-shielded: oklch(0.46 0.16 295);
-  --status-done: oklch(0.42 0.12 155);
+  --border: var(--p-rule);
+  --input: var(--p-control);
+  --ring: var(--p-ink);
+
+  --link: var(--p-ink);
+  --bar: var(--p-bar); /* redaction bar */
+  --island: var(--p-island); /* the header capsule: the redaction bar, with light text on it (dark text in the dark set) */
+  --island-ink: var(--p-island-ink);
+  --island-muted: var(--p-island-muted);
+  --bezel: var(--p-bezel); /* the screen's edge: ink on the page, pure black after hours */
+  --bezel-edge: transparent; /* a hairline on the curve; the dark set draws one (below) */
+  --highlighter: var(--p-marker);
+  --verified: var(--p-good);
+  --problem: var(--p-bad);
+  --accent-text: var(--p-accent-text);
+  --qr-ink: var(--p-qr-ink); /* a QR code: black on white whatever the theme, because a scanner needs it */
+  --qr-paper: var(--p-qr-paper);
+}
+:root[data-theme="dark"] {
+  /* Black against near-black barely shows a curve, so the dark set draws the screen's edge with a hairline of the ink. */
+  --bezel-edge: color-mix(in srgb, var(--p-ink) 16%, transparent);
+}
+
+/* ---- The screen, and one scale of curves ------------------------------------------------------
+ * The site is paper and ink seen on a device: the screen has rounded corners (a fixed frame, below), the header capsule is
+ * the notch, and every shape on it is cut from one scale: the screen, then the capsule (--r-island), a slip of paper
+ * (--r-card), a field (--r-control), and a pill (--r-chip) for buttons, chips and the segmented controls. Where a box sits
+ * in another with a little padding, its radius is the outer one less that padding, so the two curves stay concentric (the
+ * capsule's rows, below). Tuned by eye: see web/DESIGN.md, "The screen". */
+:root {
+  --bezel-w: 6px;
+  --screen-r: 26px;
+  --r-island: 1.375rem; /* half the closed capsule's height */
+  --r-island-open: 1.75rem;
+  --r-card: 1.25rem;
+  --r-control: 0.875rem;
+  --r-chip: 999px;
+}
+@media (width >= 40rem) {
+  :root {
+    --bezel-w: 8px;
+    --screen-r: 30px;
+  }
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
     @apply font-sans antialiased;
+    font-size: 16px;
   }
 
   body {
     @apply bg-background text-foreground;
+    line-height: 1.5;
   }
 
-  /* Keyboard focus is always visible, including on bare links. */
+  /* Big type: heavy and a little condensed (Archivo's width axis), with tight tracking. Not
+   * tabular: the font gives a decimal point a digit's width under tabular figures, which breaks
+   * "0.005" apart. A number that counts up sets its own digits tabular (CountUp). */
+  .display {
+    font-weight: 800;
+    font-stretch: 88%;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  /* Ids, addresses and amount columns. */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 0;
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  /* Keyboard focus is always visible: an ink outline with a highlighter ring around it. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--highlighter);
+    border-radius: 4px;
   }
 }
 
-/* Respect the OS "reduce motion" setting for every animation and transition,
- * including ones inside third-party components. */
+/* ---- Motion ------------------------------------------------------------------------------
+ * Every duration is multiplied by --motion: 1 when Lively, a third of that when Calm
+ * (src/lib/motion.ts sets <html data-motion>). Under the system's "reduce motion" nothing
+ * animates at all, whatever the choice: the last rule in this file. Every animation here
+ * ends in the state the page is in when it is not animating, so taking it away loses
+ * nothing but the movement. */
+html { --motion: 1; }
+html[data-motion="calm"] { --motion: 0.35; }
+
+/* The redaction bar: a plain block of the bar colour, black on the page and ink-coloured in the
+ * dark set. It holds no text. */
+.redacted {
+  position: relative;
+  display: inline-block;
+  color: transparent;
+  background-color: var(--bar);
+  border-radius: 2px;
+  user-select: none;
+}
+
+/* A bar that is put back wipes in from the left; one that is lifted wipes away to the right,
+ * one row after another (--i is the row). The text it uncovers is drawn at once, under it. */
+@keyframes bar-in {
+  from { transform: scaleX(0); transform-origin: left center; }
+  to { transform: scaleX(1); transform-origin: left center; }
+}
+@keyframes bar-out {
+  from { transform: scaleX(1); transform-origin: right center; }
+  to { transform: scaleX(0); transform-origin: right center; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+.bar-in {
+  animation: bar-in calc(450ms * var(--motion)) cubic-bezier(0.7, 0, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms * var(--motion));
+}
+.bar-out {
+  position: absolute;
+  inset: 0;
+  animation: bar-out calc(450ms * var(--motion)) cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms * var(--motion));
+}
+.reveal-in {
+  animation: fade-in calc(300ms * var(--motion)) both;
+  animation-delay: calc(var(--i, 0) * 60ms * var(--motion));
+}
+
+/* A hidden bar answers a touch: under a pointer, or a finger, it shows its label, "hidden", sliding up inside it, and puts it away again
+ * when the pointer leaves. Never a figure: the label is the same word on every bar, so it teaches what a bar is and gives nothing
+ * away. It is a picture and no more: it is drawn from the stylesheet with an empty alternative text (so no screen reader reads it,
+ * and the bar's own name, "hidden", is still the one thing that is read), and a browser that does not know that syntax draws none. */
+.bar-touch {
+  overflow: hidden;
+}
+@supports (content: "x" / "") {
+  .bar-touch::after {
+    content: "hidden" / "";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--island-ink);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    transform: translateY(105%);
+    transition: transform calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1);
+  }
+  .bar-touch:hover::after,
+  .bar-touch:active::after {
+    transform: translateY(0);
+  }
+}
+
+/* Rows that arrive (after a drop) slide in one after the other. */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-14px); }
+}
+.slide-in {
+  animation: slide-in calc(350ms * var(--motion)) both;
+  animation-delay: calc(var(--i, 0) * 70ms * var(--motion));
+}
+
+/* Rows answer the pointer with a faint tint of the ink. No lift: a row is not a card. */
+.row-hover { transition: background-color 200ms; }
+.row-hover:hover { background-color: color-mix(in srgb, var(--foreground) 5%, transparent); }
+
+/* The slider thumb of a segmented control is one pill that glides to the chosen option, with a small spring at the end. */
+.segmented-glide {
+  transition:
+    transform calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1),
+    width calc(220ms * var(--motion)) cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+
+/* Everything that can be pressed answers at once (.press-only: a thing that gives under a press but has no lift of its own, like a row
+ * in a menu or the label of a segmented control). Pressed, it gives (a hair smaller and a pixel down, in 90ms) and springs
+ * back (in about 200ms); under a pointer that hovers, and when Lively, it lifts a pixel with a soft shadow of the ink. Both
+ * are the visitor's own action: nothing moves by itself. Under "reduce motion" they are taken away (the last rule below). */
+.press,
+.press-only {
+  transition:
+    transform calc(200ms * var(--motion)) cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow calc(200ms * var(--motion)),
+    background-color 150ms,
+    color 150ms,
+    filter 200ms;
+}
+.press:active:not(:disabled, [aria-disabled="true"]),
+.press-only:active:not(:disabled, [aria-disabled="true"]) {
+  transform: translateY(1px) scale(0.98);
+  transition-duration: calc(90ms * var(--motion)), calc(90ms * var(--motion)), 150ms, 150ms, 200ms;
+}
+/* The lift's shadow goes while it is pressed, and is never drawn on a thing that has the keyboard's focus: the focus ring is a
+ * shadow too (the highlighter, in the base layer), and this rule is outside the layers, so it would win and take the ring away. */
+.press:active:not(:disabled, :focus-visible, [aria-disabled="true"]) {
+  box-shadow: none;
+}
+/* A thing that lifts a pixel under the pointer must not lose the pointer on its lowest pixel (it would drop, find the pointer
+ * again, and lift again: a flicker). A transparent halo, a part of the same element and two pixels wide, keeps the pointer on it. */
+.press {
+  position: relative;
+}
+.press::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+}
+@media (hover: hover) {
+  html[data-motion="lively"] .press:hover:not(:active, :disabled, [aria-disabled="true"]) {
+    transform: translateY(-1px);
+  }
+  html[data-motion="lively"] .press:hover:not(:active, :disabled, :focus-visible, [aria-disabled="true"]) {
+    box-shadow: 0 8px 14px -10px color-mix(in srgb, var(--foreground) 55%, transparent);
+  }
+}
+
+/* A slip of paper: a card that sits on the page. A hairline for its edge and two soft shadows of the ink, one tight and one
+ * long, so it reads as a sheet an inch above the desk and not as a grey box. In the dark set a shadow would not show: a
+ * lighter edge draws the card instead. */
+.slip {
+  background-color: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--r-card);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--p-ink) 7%, transparent),
+    0 1px 0 color-mix(in srgb, var(--p-ink) 6%, transparent),
+    0 14px 24px -18px color-mix(in srgb, var(--p-ink) 35%, transparent);
+}
+:root[data-theme="dark"] .slip {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--p-ink) 13%, transparent);
+}
+
+/* The screen: a fixed frame on top of the page, drawn as a ring of the bezel colour around a window with rounded corners. It
+ * takes no press and no scroll (pointer-events: none), and the page scrolls under it as it always did. It is above the page and
+ * the practice banner, and below the capsule, the popovers, the toast and the dialogs (which the browser draws in its top
+ * layer). Content that sits near a corner must stay clear of the curve: --frame-pad is the least distance from the screen's
+ * edge at which a box's corner is still inside it (the bezel, and the part of the corner's circle that cuts in). */
+:root {
+  --frame-pad: calc(var(--bezel-w) + var(--screen-r) * 0.3);
+}
+.screen-frame {
+  position: fixed;
+  inset: var(--bezel-w);
+  z-index: 30;
+  border-radius: var(--screen-r);
+  box-shadow:
+    0 0 0 100vmax var(--bezel),
+    inset 0 0 0 1px var(--bezel-edge);
+  pointer-events: none;
+}
+@media print {
+  .screen-frame {
+    display: none;
+  }
+}
+
+/* The paper's grain: a faint, static speckle on the desk, from a small file of the site's own (the hosted policy allows no
+ * data: image). It is one fixed layer behind the content, so it costs no layout and does not move with a scroll; the cards sit
+ * above it and stay clean. The speckle is black; after hours it is turned to white. --grain-opacity is its strength, for whoever
+ * wants it more or less (or none: the tour's pictures, which are of the operator's screens and not of this page, set it to 0). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url("/grain.png") 0 0 / 128px 128px;
+  opacity: var(--grain-opacity, 0.035);
+  pointer-events: none;
+}
+:root[data-theme="dark"] body::before {
+  filter: invert(1);
+  opacity: var(--grain-opacity, 0.03);
+}
+@media print {
+  body::before {
+    display: none;
+  }
+}
+
+/* Sections that open and close: the grid-rows trick, so the height is animated without a jump.
+ * The panel stays mounted while it closes (Radix waits for the animation), then goes. */
+.accordion-panel { display: grid; }
+.accordion-panel > .accordion-inner { min-height: 0; overflow: hidden; }
+.accordion-panel[data-state="open"] { animation: accordion-open calc(350ms * var(--motion)) ease both; }
+.accordion-panel[data-state="closed"] { animation: accordion-close calc(300ms * var(--motion)) ease both; }
+@keyframes accordion-open {
+  from { grid-template-rows: 0fr; opacity: 0; }
+  to { grid-template-rows: 1fr; opacity: 1; }
+}
+@keyframes accordion-close {
+  from { grid-template-rows: 1fr; opacity: 1; }
+  to { grid-template-rows: 0fr; opacity: 0; }
+}
+
+/* The confirm sheet rises, and the page dims behind it. */
+dialog[data-slot="sheet"][open] { animation: sheet-up calc(400ms * var(--motion)) cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+dialog[data-slot="sheet"][open]::backdrop { animation: fade-in calc(250ms * var(--motion)) both; }
+@keyframes sheet-up {
+  from { transform: translateY(2.5rem); opacity: 0; }
+}
+
+/* The receipt's flow of funds draws itself when it scrolls into view: the line fills,
+ * and the three stations pop in one after the other. Before that they are not drawn. */
+.flow-line > i { display: block; width: 100%; height: 0; border-radius: inherit; background-color: var(--foreground); }
+.flow[data-in="true"] .flow-line > i { height: 100%; transition: height calc(1200ms * var(--motion)) ease; }
+.flow:not([data-in="true"]) .flow-dot { transform: scale(0); }
+.flow[data-in="true"] .flow-dot { animation: pop calc(500ms * var(--motion)) both; animation-delay: calc(var(--i, 0) * 550ms * var(--motion)); }
+@keyframes pop {
+  from { transform: scale(0); }
+}
+
+/* The tick on a settled receipt is drawn, not shown. */
+.check-draw path { stroke-dasharray: 40; stroke-dashoffset: 0; animation: draw calc(600ms * var(--motion)) 200ms ease backwards; }
+@keyframes draw {
+  from { stroke-dashoffset: 40; }
+}
+
+/* A receipt is a sheet with a torn bottom edge: saw teeth, 14px high. Only the mask's alpha matters,
+ * so the colours here are keywords, not colours. The sheet needs at least a tooth of padding under
+ * its last line. */
+.receipt-sheet {
+  --tooth: 14px;
+  -webkit-mask: conic-gradient(from -45deg at bottom, transparent, black 1deg 89deg, transparent 90deg) 50% / calc(var(--tooth) * 2) 100%;
+  mask: conic-gradient(from -45deg at bottom, transparent, black 1deg 89deg, transparent 90deg) 50% / calc(var(--tooth) * 2) 100%;
+}
+
+/* The stamp that comes down once when a campaign settles. */
+.stamp {
+  display: inline-block;
+  border: 3px double var(--verified);
+  border-radius: 6px;
+  padding: 0.25rem 1rem;
+  color: var(--verified);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+}
+@keyframes stamp-in {
+  from { opacity: 0; transform: scale(2.2) rotate(-18deg); }
+  to { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+.stamp-in { animation: stamp-in calc(420ms * var(--motion)) cubic-bezier(0.2, 1.4, 0.3, 1) both; }
+
+/* ...and, Lively only, a short burst of confetti beside it. */
+.confetti { position: absolute; left: 3rem; top: 1.5rem; pointer-events: none; }
+.confetti > i {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: burst 900ms ease-out forwards;
+}
+@keyframes burst {
+  to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; }
+}
+
+/* The practice-mode pill: hatched, so it reads as "not real". */
+.hatched {
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--foreground) 9%, transparent) 5px 6px);
+}
+
+/* The practice-mode pill, on the header capsule: stripes of the capsule's own ink, since the capsule is dark where the
+ * page is light and the other way round. (After .hatched, which it overrides.) */
+.island .hatched {
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--island-ink) 30%, transparent) 5px 6px);
+}
+
+/* ---- The header: one capsule ----------------------------------------------------------------
+ * The header is the site's redaction bar, floating at the top centre of the page like the iPhone's Dynamic Island.
+ * Collapsed it is one button: the mark, the name of the page and the network. Opened (a tap, Enter or Space) it morphs
+ * into a panel with the links and the settings. The only motion is that morph, and only while the visitor is opening
+ * or closing it (data-morph, which src/components/TopBar.tsx holds for a moment): nothing moves on load or on scroll,
+ * and under "reduce motion" nothing moves at all. The reasons are in web/DESIGN.md. */
+:root {
+  --island-height: 2.75rem;
+  /* The capsule sits like a notch in the curved screen: half a rem below the bezel. */
+  --island-edge: max(calc(var(--bezel-w) + 0.5rem), env(safe-area-inset-top));
+}
+
+/* A link that is scrolled to, or a control that is tabbed to, must not end up under the capsule. */
+html {
+  scroll-padding-top: calc(var(--island-edge) + var(--island-height) + 1rem);
+}
+
+@layer components {
+  /* The strip the capsule sits in. As tall as the closed capsule, so opening it never moves the page; it lets every press
+   * through but the capsule's own. It sticks below the practice banner, which scrolls away. */
+  .island-header {
+    position: sticky;
+    top: var(--island-edge);
+    z-index: 40;
+    display: flex;
+    flex: none;
+    justify-content: center;
+    height: var(--island-height);
+    margin-top: var(--island-edge);
+    pointer-events: none;
+    /* So that the panel can be laid out at the width it opens to (100cqw is this strip's width). */
+    container-type: inline-size;
+    /* It is the one thing that stays when the page changes (see "A new page", below). */
+    view-transition-name: island;
+  }
+
+  /* Closed: as wide as its row (--island-w, measured, because a width of fit-content cannot be animated). Open: wide. */
+  .island {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--island-height) 0fr;
+    align-self: flex-start;
+    width: var(--island-w, fit-content);
+    max-width: calc(100% - 1.5rem);
+    border-radius: var(--r-island);
+    background-color: var(--island);
+    color: var(--island-ink);
+    pointer-events: auto;
+  }
+  .island[data-open="true"] {
+    grid-template-rows: var(--island-height) 1fr;
+    width: min(calc(100% - 1.5rem), 34rem);
+    border-radius: var(--r-island-open);
+  }
+  .island[data-morph="true"] {
+    transition-property: width, grid-template-rows, border-radius;
+    transition-duration: calc(350ms * var(--motion));
+    transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* The closed capsule: the one row. It keeps its place and its size while the panel opens around it. */
+  .island-row {
+    display: flex;
+    align-items: center;
+    justify-self: center;
+    width: max-content;
+    height: var(--island-height);
+  }
+  /* A cap on the page's name, from the screen's width, so that a long one is cut short (and still read in full by a screen
+   * reader) before the capsule outgrows the screen. The longest name of the site, "How privacy works", is 121px at the
+   * size it is set in, and fits whole from 320px up. It cannot be a share of the capsule's own width: that is measured
+   * from the row, which this would be a share of. */
+  .island-name {
+    max-width: clamp(4rem, calc(100vw - 15.5rem), 12rem);
+  }
+  @media (width < 24rem) {
+    .island-name {
+      max-width: clamp(4rem, calc(100vw - 10rem), 12rem);
+    }
+  }
+  .island-chevron {
+    transform: rotate(0deg);
+  }
+  .island[data-open="true"] .island-chevron {
+    transform: rotate(180deg);
+  }
+  .island[data-morph="true"] .island-chevron {
+    transition: transform calc(350ms * var(--motion)) cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* The panel: its row grows from nothing as the capsule opens. Closed, it is out of the tab order (inert) and out of the
+   * accessibility tree (hidden), once the morph has finished. What is in it is laid out at the width it opens to, in the
+   * middle, and the capsule's growing edges uncover it: nothing in it moves or reflows during the morph, and nothing of it
+   * sticks out of the screen while the capsule is narrow (it is clipped to the capsule). */
+  .island-panel {
+    display: flex;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s linear calc(350ms * var(--motion));
+  }
+  .island[data-open="true"] .island-panel {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .island-panel-inner {
+    flex: none;
+    width: min(calc(100cqw - 1.5rem), 34rem);
+    max-height: calc(100dvh - var(--island-edge) - var(--island-height) - 1.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Room for the focus ring of the rows, which the panel would otherwise cut off. */
+    padding: 0.5rem;
+  }
+
+  /* What is in the panel fades in a row after the other, and out at once. */
+  .island-item {
+    opacity: 0;
+  }
+  .island[data-open="true"] .island-item {
+    opacity: 1;
+  }
+  .island[data-morph="true"] .island-item {
+    transition: opacity calc(120ms * var(--motion));
+  }
+  /* The last of them has finished by about 390ms, inside the time the transitions are held on (MORPH_MS). */
+  .island[data-morph="true"][data-open="true"] .island-item {
+    transition: opacity calc(180ms * var(--motion)) ease calc((60ms + var(--i, 0) * 30ms) * var(--motion));
+  }
+
+  /* The controls in the capsule are the page's own, drawn in the capsule's colours: they read these roles. */
+  .island-panel,
+  .island-action {
+    --foreground: var(--island-ink);
+    --muted-foreground: var(--island-muted);
+    --secondary: color-mix(in srgb, var(--island-ink) 14%, transparent);
+    --ring: var(--island-ink);
+  }
+
+  /* Tabbing to the capsule rings all of it, closed or open, in the page's own ring: it is the capsule's edge that is seen
+   * against the page. (Where :has is not known, the button rings itself.) */
+  @supports selector(:has(*)) {
+    .island-row > button:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+    .island:has(.island-row > button:focus-visible) {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 5px var(--highlighter);
+    }
+  }
+}
+
+/* A new page: where the browser can (document.startViewTransition, asked for by src/lib/view-transition.ts) the old page
+ * cross-fades into the new in 180ms, and the capsule, which has a name of its own, is carried across rather than faded: it
+ * keeps its place and only changes its width when the name of the page does. Where it cannot, the page changes as it always did. */
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: calc(180ms * var(--motion, 1));
+}
+::view-transition-group(island) {
+  animation-duration: calc(180ms * var(--motion, 1));
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Forced colours (Windows high contrast): the capsule is a bordered box, and nothing that was said by a colour is lost. */
+@media (forced-colors: active) {
+  .screen-frame,
+  body::before {
+    display: none;
+  }
+  .slip {
+    outline: 1px solid CanvasText;
+  }
+  .island {
+    outline: 1px solid CanvasText;
+  }
+  .island-mark {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+  .island-link[aria-current="page"] .island-label {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+}
+
+/* Respect the OS "reduce motion" setting for every animation and transition. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* None at all, not a very short one: a 0.01ms transition still runs for a frame, and a
+     * theme change would show half-old colours (it did, to the contrast check). */
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
+  }
+  /* No press, no lift: the state of a pressed thing is its colour alone. (Not its focus ring, which is a shadow too.) */
+  .press:active,
+  .press:hover,
+  .press-only:active {
+    transform: none !important;
+  }
+  .press:active:not(:focus-visible),
+  .press:hover:not(:focus-visible) {
+    box-shadow: none !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

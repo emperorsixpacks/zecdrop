@@ -12,8 +12,9 @@ negative test SHALL show sentinel addresses and amounts are absent from the raw 
 
 ### REQ-OPS-001 — Testnet by default
 Status: implemented
-The operator SHALL default to testnet and SHALL require an explicit flag and an interactive or API confirmation to
-run on mainnet.
+The operator SHALL default to testnet and SHALL require an explicit flag (`--allow-mainnet`) and a confirmation (the
+environment variable `ZECDROP_CONFIRM_MAINNET`) to run on mainnet, and SHALL refuse the mock chain and a seed file on
+mainnet.
 
 ### REQ-OPS-002 — Local API is not exposed
 Status: implemented

@@ -13,14 +13,16 @@
 //! | [`codec`] | `drop_core::codec::AddressCodec` | REQ-IMP-001 (core) |
 //! | [`builder`] | the batch transaction | REQ-TX-001, REQ-TX-002 |
 //! | [`inspect`] | public totals and key-holder recovery of a built/mined tx | REQ-TX-001, REQ-TX-002 |
+//! | [`payslip`] | one recipient's proof of payment, issued locally from a viewing key | |
 //! | [`chain`] | the small chain port the distributor needs (tip, anchor, prevout, send, status) | |
 //! | [`lightwalletd`] | [`ChainBackend`] over `drop-chain`'s key-less client | |
 //! | [`distributor`] | `drop_core::engine::Distributor` | REQ-TX-001 |
 //!
 //! ## Using drop-zcash from the operator
 //!
-//! Everything below is testnet until the operator's mainnet opt-in exists:
-//! [`ZcashDistributor::new`] refuses mainnet keys.
+//! The examples below use testnet. [`ZcashDistributor::new`] refuses mainnet keys; a mainnet
+//! distributor comes from [`ZcashDistributor::new_for_mainnet`], which needs a [`MainnetPermit`]
+//! that only the operator creates, after its own `--allow-mainnet` and confirmation gate.
 //!
 //! **1. Campaign keys and addresses** (one ZIP 32 account per campaign index):
 //!
@@ -107,16 +109,17 @@ pub mod inspect;
 pub mod keys;
 pub mod lightwalletd;
 pub mod memo;
+pub mod payslip;
 
 mod txid;
 
 pub use builder::{
-    build_batch_tx, build_sweep, BuildError, BuiltTx, FundingCoin, PayoutLine,
+    build_batch_tx, build_sweep, expected_branch_id, BuildError, BuiltTx, FundingCoin, PayoutLine,
     MAX_IRONWOOD_ACTIONS_PER_TX,
 };
 pub use chain::{ChainBackend, PrevOut, Submitted, TxStatus};
 pub use codec::ZcashAddressCodec;
-pub use distributor::{ZcashDistributor, ZcashError};
+pub use distributor::{MainnetPermit, ZcashDistributor, ZcashError};
 pub use keys::{CampaignKeys, KeyError};
 pub use memo::{decode_memo, encode_memo, MemoError};
 

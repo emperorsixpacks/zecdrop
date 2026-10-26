@@ -141,3 +141,12 @@ describe("DEMOS (the links between samples)", () => {
     }
   });
 });
+
+describe("the sample switcher's labels", () => {
+  it("are short, different from each other, and in the order of the samples", () => {
+    const shorts = DEMOS.map((d) => d.short);
+    expect(shorts).toEqual(["Real batch", "First batch", "In progress", "With findings", "Total mismatch"]);
+    expect(new Set(shorts).size).toBe(shorts.length);
+    for (const short of shorts) expect(short.split(" ").length).toBeLessThanOrEqual(3);
+  });
+});

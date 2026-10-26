@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "unknown_origin_asset",
+    "message": "that is not an asset NEAR Intents lists; see GET /api/near/tokens"
+  }
+}

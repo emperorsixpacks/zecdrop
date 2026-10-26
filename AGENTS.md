@@ -17,8 +17,8 @@ Built for ZECATHON, track **Shielded Payments**. Status: under construction (see
 ## Hackathon constraints (these are rules, not preferences)
 
 - **All code is written during the build window.** Libraries are fine; copying existing products is not.
-  An earlier project (ZamaDrop, on Ethereum/Zama fhEVM) inspired the concept. **Never copy, paste or lightly
-  edit any file from it.** Write fresh. Generated code must name its generator in `PROVENANCE.md`.
+  **Never copy, paste or lightly edit any file from another project.** Write fresh. Generated code must name its
+  generator in `PROVENANCE.md`.
 - Repo must be public by **Oct 28, 2026 23:59 UTC**. Until then keep it private and keep secrets out of history.
 - Submission needs: working demo, two-minute video, description, public repo. See `docs/HACKATHON.md`.
 

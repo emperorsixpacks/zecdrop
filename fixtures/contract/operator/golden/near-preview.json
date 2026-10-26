@@ -1,0 +1,23 @@
+{
+  "amount_in": "7679013",
+  "amount_in_formatted": "7.679013",
+  "amount_in_usd": "7.677108604776",
+  "amount_out_zat": "545000",
+  "destination_asset": {
+    "asset_id": "nep141:zec.omft.near",
+    "blockchain": "zec",
+    "decimals": 8,
+    "symbol": "ZEC"
+  },
+  "min_amount_in": "7602222",
+  "note": "A price preview only, not a quote you can pay. It asks NEAR Intents what it would cost today to deliver this much ZEC to a placeholder address, which is what funding a campaign of this size from this asset would cost on mainnet. It creates no deposit address and moves nothing. Testnet campaigns cannot be funded this way: NEAR Intents has no testnet ZEC.",
+  "origin_asset": {
+    "asset_id": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "blockchain": "near",
+    "decimals": 6,
+    "symbol": "USDC"
+  },
+  "preview": true,
+  "slippage_bps": 100,
+  "time_estimate_seconds": 135
+}

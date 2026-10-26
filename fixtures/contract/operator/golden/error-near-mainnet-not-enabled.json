@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "mainnet_not_enabled",
+    "message": "a real swap is mainnet money: start the operator with --allow-mainnet"
+  }
+}

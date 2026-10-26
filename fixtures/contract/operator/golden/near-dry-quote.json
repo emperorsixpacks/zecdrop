@@ -1,0 +1,20 @@
+{
+  "amount_in": "7679013",
+  "amount_in_formatted": "7.679013",
+  "amount_in_usd": "7.677108604776",
+  "campaign_funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "campaign_id": "c-000000000001",
+  "dry": true,
+  "expires_at": "2026-10-08T00:10:00Z",
+  "funding_required_zat": "225015000",
+  "min_amount_in": "7602222",
+  "note": "A price check, not a payment: nothing was created and there is no deposit address yet. It stays good for ten minutes; to get a deposit address, POST live-quote with the confirmation header.",
+  "origin_asset": {
+    "asset_id": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "blockchain": "near",
+    "decimals": 6,
+    "symbol": "USDC"
+  },
+  "time_estimate_seconds": 135,
+  "valid_for_seconds": 600
+}

@@ -9,6 +9,11 @@ holding a viewing key) can see who got what, and only the auditor can confirm th
 > Built for **ZECATHON**, track **Shielded Payments**. **Status: under construction.** Nothing below is a
 > finished feature unless it is marked *works today*.
 
+**Live demo:** <https://zecdrop-site.vercel.app> is the public receipt viewer, with the real 8-recipient testnet
+receipt bundled as a sample. The operator, which holds the keys, runs on your own computer: there is no wallet to
+connect. To test it yourself, see [`docs/JUDGES.md`](docs/JUDGES.md): check the real payout with the key-less verifier,
+or run the whole flow on a fake chain. A real testnet run is in [`docs/runbooks/testnet-demo.md`](docs/runbooks/testnet-demo.md).
+
 ## How it works
 
 Each batch is **one Zcash transaction**: transparent funds in → N shielded outputs (with memos) out, in the Ironwood pool (new value can no longer enter Orchard since NU6.3).
@@ -40,18 +45,24 @@ Rust workspace on `librustzcash` (`drop-core`, `drop-zcash`, `drop-chain`, `drop
 
 ## Status
 
-Updated 2026-10-08. "Verified" means the lead ran the tests and probed the behaviour; nothing here has touched a
-live network yet except read-only calls.
+Updated 2026-10-18. "Verified" means the lead ran the tests and probed the behaviour. The public testnet runs are
+listed in the table below; no transaction has been sent to mainnet.
 
 | Piece | State |
 |---|---|
 | Domain core (`drop-core`): money, CSV import, batch planner, fee policy, salted manifest commitment, resumable engine | built and tested |
 | Ironwood batch builder (`drop-zcash`): one transparent input to N shielded outputs, decryptable by the campaign key | built, tested, and **accepted by public testnet** (one 3-recipient batch, mined at height 4,478,065; [ADR 0001](docs/ADR/0001-single-tx-transparent-to-ironwood-batches.md)) |
 | Operator (`drop-operator`): local API, encrypted store, mock chain and real-chain mode | built; **ran the full 8-recipient demo on public testnet** (create, detect funding, prove, broadcast, 3 confirmations, settled in about 2 minutes; txid `6e2359182d1d…`) |
-| Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds; the page shows demo data until a real receipt exists |
+| Key-less verifier (`drop-verifier`) and public receipt page | built, hardened, container builds. The public site is live at <https://zecdrop-site.vercel.app> and shows the real 8-recipient receipt from a bundled capture. The hosted verifier runs on a teammate's VPS ([`deploy/vps/`](deploy/vps/README.md)); checked 2026-10-16, a live receipt link for the real batch loads on the site and shows it settled |
 | Local audit command | built; reconciled the real 8-recipient campaign (8 of 8 outputs, total equals the public figure, salted commitment recomputed equals the receipt's) |
-| NEAR Intents funding | library only (dry quotes); not wired into the operator; mainnet-only |
+| Payslips (`drop-verify`, `drop-zcash`, `drop-operator`, `drop-verifier`) | built and tested: one recipient's proof of one output, checkable by anyone with no key. The eight payslips of the real testnet batch verify in CI against the transaction as mined, and the verifier, run locally against public testnet, answered one as verified and a changed copy as invalid. A payslip also opens its output's memo ([`docs/PRIVACY_BOUNDARY.md`](docs/PRIVACY_BOUNDARY.md), "Payslips") |
+| Mainnet | the code runs on mainnet behind `--allow-mainnet`, a confirmation variable, a 0.1 ZEC cap per campaign and start-up checks of the node (network, upgrade, Ironwood tree); tested offline at mainnet parameters and read-only against the real mainnet node's data. **No mainnet payout has been made yet** ([`docs/runbooks/mainnet-run.md`](docs/runbooks/mainnet-run.md)) |
+| NEAR Intents funding | wired into the operator: a live price preview works on testnet (a dry quote, creates nothing); the mainnet quote and status paths are built and tested with a fake service but **never exercised against the real one** |
 | Security review | one independent review done; fixes in progress ([`docs/SECURITY.md`](docs/SECURITY.md)) |
+
+Scale: one batch carries up to 330 payouts. Creating the transaction for 330 payouts, including the zero-knowledge proof that
+lets the network check it without seeing who gets what, took 2 minutes 22 seconds on a laptop. The transaction is 1 MB and the
+network fee is 0.01655 ZEC ([`docs/BENCHMARKS.md`](docs/BENCHMARKS.md)).
 
 Known limits: campaigns larger than one batch need a funding-split step that is not built; released wallets probably
 cannot sync current testnet (NU7), so the recipient side is shown with our own tooling.
@@ -74,11 +85,10 @@ wallet, with their amounts and memos. It is public on purpose, so anyone can rep
 campaign's hidden amounts are not secret; it demonstrates the mechanism, not privacy for these particular payouts.
 No key material is in the repository.
 
-## Lineage and build window
+## Build window
 
-ZecDrop is a new implementation for Zcash,
-written during the ZECATHON build window; third-party libraries are used as dependencies and generated code is
-declared in `PROVENANCE.md` files.
+ZecDrop was written during the ZECATHON build window; third-party libraries are used as dependencies and generated
+code is declared in `PROVENANCE.md` files.
 
 ## License
 
