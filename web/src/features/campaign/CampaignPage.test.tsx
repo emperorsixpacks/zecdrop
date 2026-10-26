@@ -156,6 +156,16 @@ describe("a campaign waiting for funding", () => {
     expect(await screen.findByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.shieldedPretend);
   });
 
+  // covers: REQ-FUND-004
+  it("calls a deposit pretend from the campaign itself, before the operator has said it is the mock chain", async () => {
+    open({
+      "GET /api/health": () => new Promise(() => undefined),
+      "GET /api/campaigns/:id": () => ({ status: 200, body: campaignWith("campaign-funded.json", { funding_source: "transparent" }) }),
+      "GET /api/campaigns/:id/events": quietStream,
+    });
+    expect(await screen.findByTestId("deposit-source")).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentPretend);
+  });
+
   it("says nothing about where a pretend deposit came from when it did not say", async () => {
     open({ "GET /api/campaigns/:id": () => replyWith("campaign-funded.json"), "GET /api/campaigns/:id/events": quietStream });
     expect(await screen.findByText("Funded.")).toBeInTheDocument();
@@ -477,6 +487,20 @@ describe("a settled campaign", () => {
     });
   }
 
+  // covers: REQ-FUND-004
+  it("says in the share panel that a pretend deposit's source is pretend", async () => {
+    const user = userEvent.setup();
+    open({
+      "GET /api/campaigns/:id": () => ({ status: 200, body: campaignWith("campaign-settled.json", { funding_source: "shielded" }) }),
+      "GET /api/campaigns/:id/events": () => replyWithStream("events-settled.sse.txt"),
+      "GET /api/campaigns/:id/receipt": () => replyWith("receipt-settled.json"),
+    });
+    await openSection(user, "Share the receipt");
+    await screen.findByTestId("receipt-link");
+    expect(screen.getByText(/This deposit is pretend; a real one from the shielded pool would name no address of yours/u)).toBeInTheDocument();
+    expect(screen.queryByText(/The deposit came from the shielded pool, so it names no address of yours/u)).toBeNull();
+  });
+
   it("seals it: the stamp, every batch confirmed, and the status sentence", async () => {
     const user = userEvent.setup();
     openSettled();
@@ -796,6 +820,27 @@ describe("a real chain", () => {
       expect(warning).toHaveTextContent(FUNDING_SOURCE_WORDING.transparent);
       expect(screen.getByRole("button", { name: /^Send \d+ payouts?$/u })).toBeEnabled();
     });
+
+    it("keeps looking until the operator has read the deposit, then says what it spent", async () => {
+      let reads = 0;
+      open(
+        {
+          "GET /api/campaigns/:id": () => {
+            reads += 1;
+            const body = goldenJson("campaign-real-funded.json") as Json;
+            // The first answer comes before the operator has read the deposit (it reads it just after, or after a restart).
+            return { status: 200, body: reads === 1 ? { ...body, funding_source: null } : body };
+          },
+          "GET /api/campaigns/:id/events": quietStream,
+        },
+        realHealth,
+      );
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.queryByTestId("deposit-source")).toBeNull();
+      const warning = await screen.findByTestId("deposit-source", {}, { timeout: 8_000 });
+      expect(warning).toHaveTextContent(FUNDING_SOURCE_WORDING.transparentTitle);
+      expect(reads).toBeGreaterThan(1);
+    }, 15_000);
 
     it("says nothing until the operator has read the deposit", async () => {
       open(

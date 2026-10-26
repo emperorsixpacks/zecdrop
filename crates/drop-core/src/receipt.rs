@@ -41,7 +41,10 @@
 //! the transaction that created a batch's funding input had no transparent input, so the chain
 //! names no address it came from, and [`FundingSource::Transparent`] when it spent a transparent
 //! coin, whose origin is public. It is a privacy fact, not a finding: it never changes the phase,
-//! and it never names the address or the amount of anything the deposit spent.
+//! and it never names the address or the amount of anything the deposit spent. It looks one step
+//! back only: a batch funded by a transaction of the campaign's own (a sweep of its change, or a
+//! funding split) reads as `Transparent`, because that transaction spends the campaign's own
+//! transparent coins.
 //!
 //! Known limit: a batch's `net_into_pool` is the sum of its outputs. A batch with
 //! one recipient, or with all-equal amounts, therefore makes those amounts

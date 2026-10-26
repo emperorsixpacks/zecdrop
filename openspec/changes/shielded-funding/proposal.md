@@ -19,8 +19,9 @@ privacy boundary called the funder's address public as if there were no choice. 
 ## Approach
 `drop-core` gets the `FundingSource` type and the rule that combines several deposits into one answer; `drop-verify` gets the
 key-less classifier, a function of a deposit's bytes. The verifier classifies the deposits it already loads (no new request).
-The operator fetches the deposit transaction by id from the node it already uses, which already knows the funding address it
-watches, checks that the bytes hash to the id, classifies it with the same function and keeps the answer in memory, keyed by
+The operator fetches the deposit transaction by id from the node it already uses (over a connection of its own, so a slow read
+never holds up the look at a funding address), which already knows the funding address it watches, checks that the bytes hash
+to the id, classifies it with the same function and keeps the answer in memory, keyed by
 the deposit's txid, beside the address and progress caches it already has. Nothing is added to the store: the answer is public
 chain data that can be read again after a restart, and the store's row tags stay as they are.
 
@@ -29,6 +30,9 @@ chain data that can be read again after a restart, and the store's row tags stay
   value came out of a shielded pool and it names no address; it does not say who paid. `transparent` means it spent at least one
   transparent coin (a coinbase input counts as one); the address may be the payer's, a swap service's or the campaign's own
   change, and the receipt never names it.
+- **One step back.** The deposit is the transaction that created the batch's input. A batch funded by a transaction of the
+  campaign's own (a sweep of its change, or the funding split, which is not built) therefore reads as `transparent`, which is
+  true of that transaction; a funding split, once built, will have to look one step further.
 - **Not a finding.** A transparent deposit is a privacy fact about a valid campaign, so it does not touch the phase: a campaign
   funded from a transparent address still settles.
 - **Receipt level, not per batch.** A real campaign is one batch. Several deposits combine to `transparent` if any is known to be

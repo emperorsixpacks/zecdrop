@@ -14,16 +14,19 @@ const REVEALS: readonly string[] = [
   "That someone looked: the verifier that answers the link learns which receipt was viewed.",
 ];
 
-/** The last limit depends on what the deposit spent (docs/PRIVACY_BOUNDARY.md, "Where the deposit came from"). */
-function hidden(source: FundingSource | null): readonly string[] {
+/** The last limit depends on what the deposit spent (docs/PRIVACY_BOUNDARY.md, "Where the deposit came from"); a pretend deposit
+ * (the mock chain, practice mode: no funding address) is said to be one. */
+function hidden(source: FundingSource | null, pretend: boolean): readonly string[] {
   return [
     "Recipient addresses, per-recipient amounts and memos are not in the link and cannot be derived from it.",
     "A batch of one, or a batch of equal amounts, lets the amounts be worked out from the public total; the review step warns about these.",
-    source === "shielded"
-      ? "The funding address and amount are public. The deposit came from the shielded pool, so it names no address of yours."
-      : source === "transparent"
-        ? "The funding address and amount are public, and so is the transparent address the deposit came from."
-        : "The funding address and amount are public, and so is any transparent address the deposit came from.",
+    pretend && source !== null
+      ? `The funding address and amount are public. This deposit is pretend; a real one ${source === "shielded" ? "from the shielded pool would name no address of yours" : "from a transparent address would put that address on the chain"}.`
+      : source === "shielded"
+        ? "The funding address and amount are public. The deposit came from the shielded pool, so it names no address of yours."
+        : source === "transparent"
+          ? "The funding address and amount are public, and so is the transparent address the deposit came from."
+          : "The funding address and amount are public, and so is any transparent address the deposit came from.",
   ];
 }
 
@@ -80,7 +83,8 @@ export function ShareDetails({ campaign }: { campaign: OperatorCampaign }) {
         </ul>
         <h3 className="pt-2 text-base font-bold">What it does not show, and the limits</h3>
         <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-          {hidden(campaign.fundingSource).map((item) => (
+          {/* No funding address with the right wallet is the mock chain or practice mode; another wallet has none either. */}
+          {hidden(campaign.fundingSource, campaign.fundingAddress === null && campaign.walletMatches).map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

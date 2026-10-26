@@ -89,7 +89,8 @@ export function FundingAddress({ address, network, someBatchesNotBuilt, practice
           </p>
         </>
       )}
-      <DepositSpent source={source} />
+      {/* A practice receipt has no deposit to speak of: nothing was sent to any address. */}
+      {!practice && <DepositSpent source={source} />}
       <p className="text-sm text-muted-foreground">
         The campaign name on this page is only a label from whoever made the link. The funding
         address and the list fingerprint are what tie a receipt to a campaign.

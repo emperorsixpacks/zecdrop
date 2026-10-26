@@ -6,9 +6,9 @@
 //! killed, or the `--mock-crash-after-steps` simulation) is continued by starting
 //! it again: stored transactions are re-broadcast, never rebuilt (REQ-RES-001).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use drop_core::{
     derive_phase, plan_batches, AddressCodec, Batch, CampaignId, CampaignPhase, Engine, FeePolicy,
@@ -135,11 +135,23 @@ struct Inner {
     addresses: Mutex<HashMap<CampaignId, String>>,
     progress: Mutex<HashMap<CampaignId, FundingProgress>>,
     /// What each deposit seen so far spent, by its txid (REQ-FUND-004). Public chain data, read
-    /// from the deposit's own bytes and kept for the life of the process; only known answers are
-    /// kept, so a failed read is tried again by the next poll.
+    /// from the deposit's own bytes and kept for the life of the process. On the mock chain it holds
+    /// what `fund-observed` declared, by the declared deposit's txid, until the operator stops.
     sources: Mutex<HashMap<Txid, FundingSource>>,
+    /// Deposits being read right now: one read per deposit at a time.
+    reading: Mutex<HashSet<Txid>>,
+    /// When a deposit's last read gave no answer (the node did not know it, its bytes were not it, or
+    /// the node failed): it is not read again before [`DEPOSIT_RETRY_AFTER`].
+    unanswered: Mutex<HashMap<Txid, Instant>>,
     near: crate::near::NearState,
 }
+
+/// How long an answer waits for a deposit's read before going without it. The read goes on in
+/// the background and the page picks its result up, so a slow node delays no answer by more.
+const DEPOSIT_READ_WAIT: Duration = Duration::from_secs(2);
+
+/// How long after a read that gave no answer the same deposit is read again.
+const DEPOSIT_RETRY_AFTER: Duration = Duration::from_secs(60);
 
 /// The handle shared by every request handler and run.
 #[derive(Clone)]
@@ -212,6 +224,8 @@ impl AppState {
             addresses: Mutex::new(HashMap::new()),
             progress: Mutex::new(HashMap::new()),
             sources: Mutex::new(HashMap::new()),
+            reading: Mutex::new(HashSet::new()),
+            unanswered: Mutex::new(HashMap::new()),
             near: crate::near::NearState::new(parts.near),
         }))
     }
@@ -364,23 +378,47 @@ impl AppState {
         lock(&self.0.sources).get(&deposit).copied()
     }
 
-    /// What a deposit declared to the mock chain's `fund-observed` spent.
+    /// What a deposit declared to the mock chain's `fund-observed` spent: kept by the deposit's txid
+    /// until the operator stops, like a real answer, so two pretend deposits with one txid share it.
     pub fn declare_deposit_source(&self, deposit: Txid, source: FundingSource) {
         lock(&self.0.sources).insert(deposit, source);
     }
 
-    /// Reads once what `deposit` spent, from its own bytes. A known answer is kept; a failure is
-    /// not, so the next poll tries again. It never fails anything: where a deposit came from
-    /// informs the page and decides nothing.
+    /// Reads what `deposit` spent, from its own bytes, in a background task: at most one read of it at
+    /// a time, none while its answer is known, and none for [`DEPOSIT_RETRY_AFTER`] after a read that
+    /// gave no answer. Waits for the read [`DEPOSIT_READ_WAIT`] at most, so a slow node delays no
+    /// answer by more: where a deposit came from informs the page and decides nothing.
     async fn learn_deposit_source(&self, deposit: Txid) {
         if lock(&self.0.sources).contains_key(&deposit) {
             return;
         }
-        let backend = Arc::clone(&self.0.backend);
-        let read = tokio::task::spawn_blocking(move || backend.deposit_source(&deposit)).await;
-        if let Ok(Ok(Some(source))) = read {
-            lock(&self.0.sources).insert(deposit, source);
+        if lock(&self.0.unanswered)
+            .get(&deposit)
+            .is_some_and(|at| at.elapsed() < DEPOSIT_RETRY_AFTER)
+        {
+            return;
         }
+        if !lock(&self.0.reading).insert(deposit) {
+            return;
+        }
+        let state = self.clone();
+        let read = tokio::spawn(async move {
+            let backend = Arc::clone(&state.0.backend);
+            let answer =
+                tokio::task::spawn_blocking(move || backend.deposit_source(&deposit)).await;
+            match answer {
+                Ok(Ok(Some(source))) => {
+                    lock(&state.0.sources).insert(deposit, source);
+                    lock(&state.0.unanswered).remove(&deposit);
+                }
+                _ => {
+                    lock(&state.0.unanswered).insert(deposit, Instant::now());
+                }
+            }
+            lock(&state.0.reading).remove(&deposit);
+        });
+        // A read still going on after the wait is not cancelled: it fills the cache when it ends.
+        let _ = tokio::time::timeout(DEPOSIT_READ_WAIT, read).await;
     }
 
     /// Looks at the campaign's funding address once.
@@ -466,30 +504,26 @@ impl AppState {
         Ok(PollOutcome::Waiting(progress))
     }
 
-    /// Polls every unfunded campaign now and then, forever. Start it only for backends
-    /// with funding addresses.
+    /// Polls every unfunded campaign now and then, forever, and reads again what the funded ones'
+    /// deposits spent when that is not known (after a restart). Start it only for backends with
+    /// funding addresses.
     pub fn spawn_funding_poller(&self, interval: Duration) -> tokio::task::JoinHandle<()> {
         let state = self.clone();
         tokio::spawn(async move {
             loop {
-                match state.0.store.unfunded_campaigns() {
-                    Ok(ids) => {
-                        for id in ids {
-                            if state.poll_funding(&id).await.is_err() {
-                                state
-                                    .0
-                                    .logger
-                                    .warn(format_args!("funding poll failed campaign={id}"));
+                match state.0.store.campaign_deposits() {
+                    Ok(campaigns) => {
+                        for (id, deposit) in campaigns {
+                            match deposit {
+                                None => {
+                                    if state.poll_funding(&id).await.is_err() {
+                                        state.0.logger.warn(format_args!(
+                                            "funding poll failed campaign={id}"
+                                        ));
+                                    }
+                                }
+                                Some(deposit) => state.learn_deposit_source(deposit.txid).await,
                             }
-                        }
-                    }
-                    Err(error) => state.0.logger.warn(format_args!("funding poll: {error}")),
-                }
-                // After a restart, what the funded campaigns' deposits spent is read again.
-                match state.0.store.funded_deposits() {
-                    Ok(deposits) => {
-                        for deposit in deposits {
-                            state.learn_deposit_source(deposit).await;
                         }
                     }
                     Err(error) => state.0.logger.warn(format_args!("funding poll: {error}")),

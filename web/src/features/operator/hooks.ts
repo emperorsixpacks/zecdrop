@@ -63,8 +63,10 @@ export function useCampaigns() {
 const FUNDING_REFRESH_MS = 5_000;
 
 /** One campaign. While a run is going, also looks again every two seconds as a
- * safety net beside the event stream, and every few seconds while a real-chain
- * campaign waits for its deposit. */
+ * safety net beside the event stream; every few seconds while a real-chain
+ * campaign waits for its deposit; and every few seconds while a real-chain
+ * deposit is recorded but what it spent is not known yet (the operator reads
+ * it in the background, and again after a restart). */
 export function useCampaign(id: string) {
   const ready = useReady();
   return useQuery({
@@ -77,6 +79,7 @@ export function useCampaign(id: string) {
       if (campaign === undefined) return false;
       if (campaign.run.state === "running") return 2_000;
       if (campaign.funding === null && campaign.fundingAddress !== null) return FUNDING_REFRESH_MS;
+      if (campaign.funding !== null && campaign.fundingSource === null && campaign.fundingAddress !== null) return FUNDING_REFRESH_MS;
       return false;
     },
   });

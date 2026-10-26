@@ -20,8 +20,13 @@ Pitfalls and measured facts. Format: symptom → cause → fix → prevention. N
   site: the key is optional in the schema, and **the site is deployed before the verifier**; (2) the store's row tag covers a
   presence byte for every column, so adding a column would have made every existing row read as corrupt: the answer is public
   chain data, kept in memory and read again after a restart instead.
+- **Found in review, fixed before merging:** the first version awaited the deposit read inside the funding check (a hung node
+  would hold the answer up to the request timeout), shared one lock with the address lookups that decide funding, re-read
+  unanswerable deposits on every poll, and the page stopped refreshing once funded, so a source learnt a moment later never
+  showed. Now the read runs in the background with a two-second wait, one read per deposit, a minute between reads that gave
+  no answer, over a connection of its own, and the page keeps looking until the source is known.
 - **Prevention:** when a privacy limit is written down, check whether it is a limit of the design or only of how it is used,
-  and whether the product can say which one happened.
+  and whether the product can say which one happened. An informational read never sits in the path of a decision.
 
 ## 2026-10-18 — Mainnet, checked read-only before the first run: the shape is routine, three things could still have gone wrong silently
 

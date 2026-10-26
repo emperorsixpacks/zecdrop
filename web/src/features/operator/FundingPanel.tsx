@@ -192,7 +192,8 @@ export function FundingPanel({ campaign }: { campaign: OperatorCampaign }) {
             .
           </span>
         </p>
-        <DepositSource source={campaign.fundingSource} pretend={health.data?.mock === true} />
+        {/* No funding address: nothing real could have been sent to it (the mock chain, practice mode), so the deposit is pretend. */}
+        <DepositSource source={campaign.fundingSource} pretend={campaign.fundingAddress === null || health.data?.mock === true} />
       </div>
     );
   }

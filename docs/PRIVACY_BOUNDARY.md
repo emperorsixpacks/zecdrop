@@ -55,6 +55,12 @@ a valid campaign.
 payer who shields coins just before paying, or pays an amount nobody else moves, can still be linked by amount and timing: coins
 that are transparent should be shielded well before the payout, not on the way to it. It does not say who paid.
 
+**One step back.** The deposit is the transaction that created the batch's input. When that is one of the campaign's own
+transactions (a sweep of its change back to the funding address, which is a testnet tool, or the funding split, which is not
+built), it spends the campaign's own transparent coins, so the receipt says `transparent` even when the money first came in
+from a shielded balance: that link between the campaign's addresses is public. Our 8-recipient testnet batch is such a case.
+A funding split, once built, would have to look one step further for its batches.
+
 **Only the deposit the batch spends is described.** Anything else sent to the funding address stays on the chain there. A small
 test payment from a transparent address before the real deposit ties that address to the campaign even though the batch never
 spends it and the receipt says `shielded`. Pay in one deposit, as the funding screen asks. Our own testnet runs show both kinds: the 3-person batch of 2026-10-08 was funded straight from the faucet's

@@ -783,3 +783,127 @@ async fn nothing_the_deposit_spent_reaches_the_answers_or_the_logs() {
         assert_clean("output", &text, &needles);
     }
 }
+
+/// The fake node, slow to serve a transaction by id, and counting how often it is asked.
+struct SlowTransactions {
+    inner: FakeConnector,
+    delay: std::time::Duration,
+    asked: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl ZcashConnector for SlowTransactions {
+    type Backend = FakeZcashChain;
+
+    fn connect(&self, keys: &CampaignKeys) -> Result<FakeZcashChain, ChainError> {
+        self.inner.connect(keys)
+    }
+
+    fn sightings(&self, address: &str) -> Result<Vec<UtxoSighting>, ChainError> {
+        self.inner.sightings(address)
+    }
+
+    fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
+        self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        std::thread::sleep(self.delay);
+        self.inner.transaction(txid)
+    }
+}
+
+fn slow_harness(
+    node: &SharedNode,
+    delay_ms: u64,
+) -> (Harness, Arc<std::sync::atomic::AtomicUsize>) {
+    let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let h = Builder {
+        seed: TEST_SEED,
+        backend: Some(Arc::new(ZcashBackend::new(SlowTransactions {
+            inner: FakeConnector(node.clone()),
+            delay: std::time::Duration::from_millis(delay_ms),
+            asked: Arc::clone(&asked),
+        }))),
+        codec: Some(Arc::new(ZcashAddressCodec::new(NETWORK))),
+        options: deep_enough(),
+        ..Builder::default()
+    }
+    .build();
+    (h, asked)
+}
+
+// covers: REQ-FUND-004
+#[tokio::test(flavor = "multi_thread")]
+async fn a_slow_node_holds_up_no_answer_and_the_source_arrives_later() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let (h, _) = slow_harness(&node, 4_000);
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+
+    // Funded at once; the answer waits for the read a little, never as long as the node takes.
+    let started = std::time::Instant::now();
+    let v = check(&h, &id).await;
+    assert!(
+        started.elapsed() < std::time::Duration::from_millis(3_500),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(v["phase"]["phase"], "funded");
+    assert!(v["funding_source"].is_null());
+
+    // The read goes on in the background, and its answer is there once it ends.
+    let mut known = false;
+    for _ in 0..80 {
+        if h.get(&format!("/api/campaigns/{id}")).await.json()["funding_source"] == "shielded" {
+            known = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(known, "the background read filled in the source");
+}
+
+// covers: REQ-FUND-004
+#[tokio::test]
+async fn a_deposit_is_read_once_and_one_with_no_answer_is_not_read_again_at_once() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let (h, asked) = slow_harness(&node, 0);
+    let read = || asked.load(std::sync::atomic::Ordering::SeqCst);
+
+    // Known after one read, and never read again.
+    let (id, view) = create(&h).await;
+    put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(SHIELDED_SET),
+    );
+    assert_eq!(check(&h, &id).await["funding_source"], "shielded");
+    assert_eq!(read(), 1);
+    check(&h, &id).await;
+    check(&h, &id).await;
+    assert_eq!(read(), 1, "a known answer is not read again");
+
+    // A deposit the node does not know: one read, then none for a while, however often it is asked.
+    let (other, view) = create(&h).await;
+    let op = put_deposit_tx(
+        &node,
+        view["funding_address"].as_str().unwrap(),
+        REQUIRED,
+        Some(990),
+        real_deposit(TRANSPARENT_SET),
+    );
+    node.lock().transactions.remove(&op.txid);
+    assert!(check(&h, &other).await["funding_source"].is_null());
+    assert_eq!(read(), 2);
+    for _ in 0..3 {
+        assert!(check(&h, &other).await["funding_source"].is_null());
+    }
+    assert_eq!(read(), 2, "no answer is not asked for again at once");
+}

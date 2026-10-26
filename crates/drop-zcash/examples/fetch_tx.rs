@@ -7,7 +7,7 @@
 
 use drop_chain::{ChainConfig, LightwalletdSource};
 use drop_core::{Network, Txid};
-use drop_verify::ChainSource;
+use drop_verify::{ChainSource, ParsedTx};
 use zcash_primitives::transaction::Transaction;
 use zcash_protocol::consensus::BranchId;
 
@@ -49,6 +49,13 @@ fn run() -> Result<(), String> {
             .ok_or_else(|| "the server does not know this transaction".to_owned())
     })?;
 
+    // The same checks the verifier and the operator make: every byte read, and the bytes are the
+    // transaction asked for; and the same rule for what a deposit spent (REQ-VER-007).
+    let parsed = ParsedTx::parse_any_version(&fetched.raw)
+        .map_err(|_| "the server's bytes are not one whole transaction")?;
+    if parsed.txid() != txid {
+        return Err("the server answered with another transaction".into());
+    }
     let tx = Transaction::read(fetched.raw.as_slice(), BranchId::Nu6_3)
         .map_err(|e| format!("not a transaction: {e}"))?;
     let (inputs, outputs) = tx.transparent_bundle().map_or((0, Vec::new()), |b| {
@@ -80,6 +87,10 @@ fn run() -> Result<(), String> {
     );
     println!("orchard              {orchard:?} (actions, balance)");
     println!("ironwood             {ironwood:?} (actions, balance)");
+    println!(
+        "as a deposit         {:?} (what it spent)",
+        parsed.deposit_source()
+    );
     println!("raw                  {}", hex::encode(&fetched.raw));
     Ok(())
 }

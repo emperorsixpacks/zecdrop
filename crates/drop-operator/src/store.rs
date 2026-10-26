@@ -739,16 +739,18 @@ impl Store {
             .collect()
     }
 
-    /// The transactions that funded the campaigns funded so far: each recorded deposit's txid.
-    pub fn funded_deposits(&self) -> Result<Vec<Txid>, StoreError> {
+    /// Every campaign with the deposit recorded for it, if any, in one read of the store: what the
+    /// funding poller needs each round (the unfunded ones to look at, the funded ones' deposits).
+    pub fn campaign_deposits(&self) -> Result<Vec<(CampaignId, Option<OutPoint>)>, StoreError> {
         self.all_campaigns()?
             .into_iter()
-            .filter_map(|columns| columns.funding_outpoint)
-            .map(|outpoint| {
-                outpoint
-                    .parse::<OutPoint>()
-                    .map(|o| o.txid)
-                    .map_err(|_| StoreError::Corrupt)
+            .map(|columns| {
+                let id = CampaignId::new(&columns.id).map_err(|_| StoreError::Corrupt)?;
+                let deposit = match columns.funding_outpoint {
+                    Some(text) => Some(text.parse::<OutPoint>().map_err(|_| StoreError::Corrupt)?),
+                    None => None,
+                };
+                Ok((id, deposit))
             })
             .collect()
     }
@@ -2283,6 +2285,7 @@ mod tests {
             assert_corrupt(what, store.list_campaigns());
             assert_corrupt(what, store.started_campaigns());
             assert_corrupt(what, store.unfunded_campaigns());
+            assert_corrupt(what, store.campaign_deposits());
             assert_corrupt(
                 what,
                 store.record_funding(
@@ -2877,6 +2880,36 @@ mod tests {
         };
         store.record_funding(&a, funding).unwrap();
         assert_eq!(store.unfunded_campaigns().unwrap(), vec![b]);
+    }
+
+    // covers: REQ-FUND-002, REQ-FUND-004
+    #[test]
+    fn campaign_deposits_lists_every_campaign_with_its_recorded_deposit_in_one_read() {
+        let (_dir, store) = new_store();
+        let (a, b) = (id("camp-a"), id("camp-b"));
+        add_campaign(&store, &a);
+        add_campaign(&store, &b);
+        assert_eq!(
+            store.campaign_deposits().unwrap(),
+            vec![(a.clone(), None), (b.clone(), None)]
+        );
+        let deposit = OutPoint {
+            txid: txid(5),
+            vout: 2,
+        };
+        store
+            .record_funding(
+                &a,
+                FundingObserved {
+                    outpoint: deposit,
+                    amount: Zatoshi::new(1).unwrap(),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            store.campaign_deposits().unwrap(),
+            vec![(a, Some(deposit)), (b, None)]
+        );
     }
 
     // covers: REQ-SEC-002

@@ -161,6 +161,9 @@ struct Scanner {
 pub struct LightwalletdConnector {
     config: ChainConfig,
     scanner: Mutex<Scanner>,
+    /// A connection of its own for reading deposits by id, so that a slow read never holds up the
+    /// look at a funding address that decides whether a campaign is funded.
+    reader: Mutex<Scanner>,
 }
 
 impl LightwalletdConnector {
@@ -180,10 +183,21 @@ impl LightwalletdConnector {
         // could not spend from it: a network upgrade it does not know, or a node without the
         // Ironwood tree state, is found here and not after the deposit.
         let info = runtime.block_on(preflight(&source)).map_err(from_backend)?;
+        let reader_runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|_| permanent("could not start the async runtime"))?;
+        let (reader_source, _) = reader_runtime
+            .block_on(LightwalletdSource::connect(&config))
+            .map_err(from_lwd)?;
         Ok((
             LightwalletdConnector {
                 config,
                 scanner: Mutex::new(Scanner { runtime, source }),
+                reader: Mutex::new(Scanner {
+                    runtime: reader_runtime,
+                    source: reader_source,
+                }),
             },
             info,
         ))
@@ -191,6 +205,10 @@ impl LightwalletdConnector {
 
     fn scanner(&self) -> MutexGuard<'_, Scanner> {
         self.scanner.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn reader(&self) -> MutexGuard<'_, Scanner> {
+        self.reader.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -228,10 +246,10 @@ impl ZcashConnector for LightwalletdConnector {
     }
 
     fn transaction(&self, txid: &Txid) -> Result<Option<Vec<u8>>, ChainError> {
-        let scanner = self.scanner();
-        let fetched = scanner
+        let reader = self.reader();
+        let fetched = reader
             .runtime
-            .block_on(scanner.source.transaction(txid))
+            .block_on(reader.source.transaction(txid))
             .map_err(|_| transient("the chain data source is unavailable"))?;
         Ok(fetched.map(|f| f.raw))
     }
