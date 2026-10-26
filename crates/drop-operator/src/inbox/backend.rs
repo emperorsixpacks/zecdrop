@@ -53,7 +53,8 @@ impl DevtoolInbox {
     }
 
     /// What a crash may have left behind: setup scratch directories (which may hold an identity), PCZT files, and a
-    /// wallet database journal. Run once at start-up, before anything else touches the wallets.
+    /// wallet database journal; and any wallet directory others could read. Run once at start-up, before anything else
+    /// touches the wallets.
     pub fn tidy(&self) {
         setup::sweep_leftovers(&self.root);
         let Ok(entries) = fs::read_dir(&self.root) else {
@@ -62,6 +63,7 @@ impl DevtoolInbox {
         for entry in entries.flatten() {
             let wallet = entry.path();
             if wallet.is_dir() {
+                let _ = setup::own_only(&wallet);
                 let _ = fs::remove_dir_all(wallet.join(SCRATCH));
                 let _ = WalletDb::of(&wallet).recover_journal();
             }
@@ -285,5 +287,41 @@ impl InboxBackend for DevtoolInbox {
                 .map_err(|_| InboxError::Chain)?;
             Ok(fetched.and_then(|tx| tx.mined_height))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    use drop_chain::ChainConfig;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn start_up_removes_what_a_crash_left_and_makes_every_wallet_the_owners_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let wallet = root.join("3");
+        fs::create_dir_all(wallet.join(SCRATCH)).unwrap();
+        fs::write(wallet.join(SCRATCH).join("created.pczt"), "x").unwrap();
+        fs::set_permissions(&wallet, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::create_dir_all(root.join(".setup-4-abcd")).unwrap();
+        fs::write(root.join(".setup-4-abcd/identity.age"), "x").unwrap();
+        let chain = LightwalletdSource::connect_lazy(&ChainConfig::new(
+            "http://127.0.0.1:1",
+            Network::Testnet,
+        ))
+        .unwrap();
+        let devtool = Devtool::new(root.join("unused"), "127.0.0.1:1".into(), Network::Testnet);
+
+        DevtoolInbox::new(devtool, root.clone(), Network::Testnet, chain).tidy();
+
+        assert!(!wallet.join(SCRATCH).exists(), "no PCZT file is left");
+        assert!(!root.join(".setup-4-abcd").exists(), "no identity is left");
+        assert_eq!(
+            fs::metadata(&wallet).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
     }
 }

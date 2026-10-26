@@ -10,7 +10,7 @@
 use std::{
     fs,
     io::Write,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 
@@ -82,6 +82,7 @@ pub async fn set_up(
     let target = wallet_dir(root, account);
     if target.exists() {
         // Already set up: check it again rather than trust it.
+        own_only(&target)?;
         return check(&target, &keys);
     }
     fs::DirBuilder::new()
@@ -114,6 +115,7 @@ pub async fn set_up(
         let _ = fs::remove_file(&identity_file);
         initialised?;
         check(&wallet, &keys)?;
+        own_only(&wallet)?;
         fs::rename(&wallet, &target)?;
         Ok::<(), SetupError>(())
     }
@@ -134,6 +136,13 @@ fn check(dir: &Path, keys: &InboxKeys) -> Result<InboxWallet, SetupError> {
         account: account.uuid,
         address: keys.address(),
     })
+}
+
+/// Makes a wallet's directory the owner's alone (0700). zcash-devtool makes it with the default mode, and what is in it
+/// (viewing keys, notes, amounts) is readable to anyone who can reach it.
+pub(super) fn own_only(dir: &Path) -> Result<(), SetupError> {
+    fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+    Ok(())
 }
 
 /// Removes what a setup interrupted by a crash left behind under `root`: scratch directories (which may hold an identity).
@@ -233,10 +242,14 @@ INSERT INTO accounts VALUES (1, x'0102030405060708090a0b0c0d0e0f10', 0, x'{ivk_h
             .map(|e| e.file_name())
             .collect();
         assert_eq!(left, vec![std::ffi::OsString::from("4")]);
-        assert_eq!(
-            std::fs::metadata(&root).unwrap().permissions().mode() & 0o777,
-            0o700
-        );
+        // The root and the wallet's own directory are the owner's alone, though zcash-devtool made the wallet's with the
+        // default mode.
+        for dir in [&root, &wallet.dir] {
+            assert_eq!(
+                std::fs::metadata(dir).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
         // Setting it up again only checks it.
         assert_eq!(
             set_up(&devtool, &test_seed(), Network::Testnet, 4, &root, 1)
