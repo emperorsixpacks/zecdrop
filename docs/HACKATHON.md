@@ -38,7 +38,7 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 ## Pre-flip checklist (before making the repo public)
 
 - [x] No seeds, mnemonics, UFVKs, JWTs or `.env` in any commit (full history scanned 2026-10-15: only placeholder test keys and "TEST ONLY" test seeds; the only tracked dotfile is `web/.env.example`). Re-scan after any new commit.
-- [ ] README says all code was written in the build window.
+- [x] README says all code was written in the build window.
 - [ ] `PROVENANCE.md` present for generated code (present in `web/` and `crates/drop-chain/`); no file copied from another project (the owner confirms this one).
 - [x] LICENSE-MIT and LICENSE-APACHE present.
 - [ ] README commands work from a clean clone.
