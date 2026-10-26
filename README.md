@@ -76,8 +76,7 @@ No key material is in the repository.
 
 ## Lineage and build window
 
-The concept descends from an earlier project, **ZamaDrop**, a confidential token distribution built on Zama's
-fhEVM (Ethereum). That project's contracts and code are not used here. ZecDrop is a new implementation for Zcash,
+ZecDrop is a new implementation for Zcash,
 written during the ZECATHON build window; third-party libraries are used as dependencies and generated code is
 declared in `PROVENANCE.md` files.
 
