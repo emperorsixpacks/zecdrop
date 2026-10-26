@@ -26,7 +26,7 @@ use drop_core::{CampaignId, FailureKind, Zatoshi};
 use drop_operator::accounts::{AccountAllocator, AccountError};
 use drop_operator::chain::{ChainError, UtxoSighting};
 use drop_operator::real::{ZcashBackend, ZcashConnector};
-use drop_operator::state::Options;
+use drop_operator::state::{Options, RunState};
 use drop_zcash::{CampaignKeys, ZcashAddressCodec};
 use serde_json::{json, Map, Value};
 
@@ -39,6 +39,7 @@ const FAKE_ID: &str = "c-000000000001";
 const FAKE_COMMITMENT: &str = "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0";
 const FAKE_ADDRESS: &str = "tFAKEfundingAddressNotARealAddress0000";
 const FAKE_UFVK: &str = "uviewFAKEplaceholderNotAKeyNotAKeyNotAKeyNotAKey";
+const FAKE_RECIPIENT: &str = "utest1FAKErecipientAddressNotARealAddress0000";
 
 fn fake_outpoint() -> String {
     format!("{}:0", "cd".repeat(32))
@@ -72,6 +73,12 @@ fn normalise(value: &mut Value) {
                     }
                     ("ufvk", Value::String(_)) => *inner = json!(FAKE_UFVK),
                     ("txid", Value::String(_)) => *inner = json!("a0".repeat(32)),
+                    // A payout row's address, and a payslip's receiver (from that address), note
+                    // seed and place in the shuffled bundle.
+                    ("address", Value::String(_)) => *inner = json!(FAKE_RECIPIENT),
+                    ("receiver", Value::String(_)) => *inner = json!("f0".repeat(43)),
+                    ("rseed", Value::String(_)) => *inner = json!("f1".repeat(32)),
+                    ("action", Value::Number(_)) => *inner = json!(0),
                     _ => normalise(inner),
                 }
             }
@@ -114,6 +121,9 @@ impl Golden {
                 recipient_ua(0),
                 recipient_ua(1),
                 recipient_ua(2),
+                receiver_hex(0),
+                receiver_hex(1),
+                receiver_hex(2),
             ],
         }
     }
@@ -211,6 +221,16 @@ fn ufvk_of(account: u32) -> String {
         .unwrap()
 }
 
+/// The Orchard receiver of recipient `i`, as a payslip spells it.
+fn receiver_hex(i: u32) -> String {
+    match zcash_keys::address::Address::decode(&NETWORK, &recipient_ua(i)) {
+        Some(zcash_keys::address::Address::Unified(ua)) => {
+            hex::encode(ua.orchard().unwrap().to_raw_address_bytes())
+        }
+        _ => panic!("not a unified address"),
+    }
+}
+
 fn rows() -> Vec<Row> {
     vec![
         Row {
@@ -288,7 +308,7 @@ fn down() -> ChainError {
     }
 }
 
-// covers: REQ-FUND-002, REQ-AUD-001, REQ-SEC-001, REQ-OPS-002
+// covers: REQ-FUND-002, REQ-AUD-001, REQ-SEC-001, REQ-OPS-002, REQ-PAY-005
 #[tokio::test]
 async fn the_real_mode_api_shapes_are_pinned() {
     let mut g = Golden::new();
@@ -632,8 +652,86 @@ async fn the_real_mode_api_shapes_are_pinned() {
     );
 
     near_scenarios(&mut g).await;
+    payslips_scenarios(&mut g).await;
 
     g.finish();
+}
+
+// ---------------------------------------------------------------------------
+// Payslips for the payer's page (REQ-PAY-005)
+// ---------------------------------------------------------------------------
+
+async fn confirmed_payslips(h: &Harness, id: &CampaignId) -> Reply {
+    h.call_with(
+        Method::GET,
+        &campaign_path(id, "/payslips"),
+        Auth::Token,
+        None,
+        &[CONFIRM],
+    )
+    .await
+}
+
+async fn payslips_scenarios(g: &mut Golden) {
+    let path = "/api/campaigns/{id}/payslips";
+
+    // A campaign of its own, funded, then run to settled on an in-memory node.
+    let node = SharedNode::default();
+    let tip = u32::from(ironwood_height());
+    node.lock().tip = tip;
+    let h = real_harness(&node, DEPTH);
+    let (id, created) = create(&h).await;
+    let address = created.json()["funding_address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    g.forbidden.push(address.clone());
+    put_deposit(&node, &address, REQUIRED, Some(tip - 100), 3);
+    let funded = h.post_empty(&campaign_path(&id, "/check-funding")).await;
+    assert_eq!(funded.json()["phase"]["phase"], "funded");
+    let early = confirmed_payslips(&h, &id).await;
+    g.record(
+        "error-not-settled.json",
+        "GET",
+        path,
+        409,
+        &early,
+        "payslips are issued once every batch is confirmed at the required depth; here the campaign is funded and not started",
+    );
+
+    let start = h.post_empty(&campaign_path(&id, "/start")).await;
+    assert_eq!(start.status, StatusCode::ACCEPTED, "{}", start.text());
+    assert_eq!(h.state.wait_for_run(&id).await, RunState::Settled);
+    let refused = h.get(&campaign_path(&id, "/payslips")).await;
+    g.record(
+        "error-payslips-confirmation-required.json",
+        "GET",
+        path,
+        400,
+        &refused,
+        "the payslips are never released without X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND; the payslip warning is in the error",
+    );
+    let payslips = confirmed_payslips(&h, &id).await;
+    g.record(
+        "payslips.json",
+        "GET",
+        path,
+        200,
+        &payslips,
+        "every payslip of a settled campaign, one per payout row in payout-list order with the row's number, address (a placeholder here), amount and memo, and the warning the UI must show; a payslip is null if no output matched its row; receiver, rseed and action are placeholders",
+    );
+
+    let mock = Harness::new();
+    let (mock_id, _) = mock.create().await;
+    let unavailable = confirmed_payslips(&mock, &mock_id).await;
+    g.record(
+        "error-payslips-not-available.json",
+        "GET",
+        path,
+        409,
+        &unavailable,
+        "the mock chain has no real transactions to prove",
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,12 @@
 //! or memos (REQ-PRIV-002): campaigns are described by counts, batch totals,
 //! transaction ids, warnings and the manifest commitment only.
 //!
+//! There are two deliberate exceptions, and both need the request header
+//! `X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND` and answer with a `warning` the UI must show:
+//! the viewing-key export, whose key discloses every payout to whoever holds it, and, the second,
+//! the payslips of a settled campaign, which name each payout row's address, amount and memo so
+//! the payer's page can give each person theirs (REQ-PAY-005).
+//!
 //! | Route | Purpose |
 //! |-------|---------|
 //! | `GET /api/health` | `{"ok":true,"network":...,"mock":bool}`; no token |
@@ -13,6 +19,9 @@
 //! | `GET /api/campaigns/{id}` | one campaign: phase, batches, warnings, run state |
 //! | `GET /api/campaigns/{id}/receipt` | the public receipt |
 //! | `POST /api/campaigns/{id}/fund-observed` | record the funding deposit (mock chain only) |
+//! | `POST /api/campaigns/{id}/check-funding` | look at the funding address now (real chain only) |
+//! | `GET /api/campaigns/{id}/audit-ufvk-export` | the campaign's viewing key, for an auditor; needs the disclosure header |
+//! | `GET /api/campaigns/{id}/payslips` | every payslip of a settled campaign with its row's address, amount and memo; needs the disclosure header |
 //! | `POST /api/campaigns/{id}/start` | run the engine in the background |
 //! | `GET /api/campaigns/{id}/events` | Server-Sent Events of engine progress |
 //! | `GET /api/near/tokens` | assets a funder could pay with through NEAR Intents (never ZEC) |
@@ -44,6 +53,7 @@ use drop_core::{
     FeePolicy, FundingState, ImportOptions, Ledger, Manifest, ManifestCommitment, Network,
     OutPoint, Pool, PrivacyWarning, PublicReceipt, ReceiptInputs, RowError, Salt, Txid, Zatoshi,
 };
+use drop_verify::payslip::Payslip;
 use drop_zcash::MAX_IRONWOOD_ACTIONS_PER_TX;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -53,7 +63,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use crate::api_near;
 use crate::auth::require_token;
 use crate::chain::FundingLayout;
-use crate::commands::{campaign_ufvk, DISCLOSURE_WARNING};
+use crate::commands::{campaign_ufvk, DISCLOSURE_WARNING, PAYSLIPS_WARNING};
 use crate::crypto::random_bytes;
 use crate::error::StoreError;
 use crate::events;
@@ -61,6 +71,7 @@ use crate::funding::{funding_plan, fundings_for, FundingPlan, FundingShortfall};
 use crate::guard::{guard_static, require_loopback_host, StaticRoot, CONTENT_SECURITY_POLICY};
 use crate::http::{ApiError, ApiJson};
 use crate::logging::Logger;
+use crate::payslips::{issue_stored_payslips, row_number, Issued, PayslipsError};
 use crate::state::{
     needs_funding_split, AppState, FundingProgress, PollOutcome, RunState, StartOutcome,
 };
@@ -91,6 +102,7 @@ pub fn build_router(state: AppState, web_dir: Option<PathBuf>, bound: SocketAddr
         .route("/campaigns/{id}/fund-observed", post(fund_observed))
         .route("/campaigns/{id}/check-funding", post(check_funding))
         .route("/campaigns/{id}/audit-ufvk-export", get(export_ufvk))
+        .route("/campaigns/{id}/payslips", get(export_payslips))
         .route("/near/tokens", get(api_near::near_tokens))
         .route(
             "/near/preview",
@@ -667,11 +679,29 @@ async fn check_funding(
     Ok(Json(view(&state, &record)?))
 }
 
-/// The request header that must carry [`EXPORT_CONFIRMATION`] for a viewing key to be released.
+/// The request header that must carry [`EXPORT_CONFIRMATION`] for a viewing key, or a campaign's
+/// payslips, to be released.
 const EXPORT_HEADER: &str = "x-zecdrop-confirm-disclosure";
 
-/// The value acknowledging that exporting a viewing key discloses every payout, irreversibly.
+/// The value acknowledging that the answer discloses payouts to whoever reads it.
 const EXPORT_CONFIRMATION: &str = "I-UNDERSTAND";
+
+/// Refuses a disclosure the request does not acknowledge with [`EXPORT_HEADER`]. The refusal
+/// carries `warning`, for the UI to show the person before it asks again.
+fn require_disclosure(headers: &HeaderMap, warning: &'static str) -> Result<(), ApiError> {
+    let confirmed = headers
+        .get(EXPORT_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v == EXPORT_CONFIRMATION);
+    if confirmed {
+        return Ok(());
+    }
+    Err(ApiError::bad_request(
+        "confirmation_required",
+        format!("send the header `X-Zecdrop-Confirm-Disclosure: {EXPORT_CONFIRMATION}` after showing the person the warning"),
+    )
+    .with_details(json!({ "warning": warning })))
+}
 
 /// The campaign's viewing key for an auditor.
 ///
@@ -689,17 +719,7 @@ async fn export_ufvk(
             "the mock chain has no real viewing keys",
         ));
     }
-    let confirmed = headers
-        .get(EXPORT_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v == EXPORT_CONFIRMATION);
-    if !confirmed {
-        return Err(ApiError::bad_request(
-            "confirmation_required",
-            format!("send the header `X-Zecdrop-Confirm-Disclosure: {EXPORT_CONFIRMATION}` after showing the person the warning"),
-        )
-        .with_details(json!({ "warning": DISCLOSURE_WARNING })));
-    }
+    require_disclosure(&headers, DISCLOSURE_WARNING)?;
     let record = load(&state, &id)?;
     state.check_wallet(&record)?;
     let ufvk = campaign_ufvk(state.seed(), record.network, record.account)
@@ -710,6 +730,105 @@ async fn export_ufvk(
         "network": record.network,
         "ufvk": ufvk.as_str(),
     })))
+}
+
+/// What the payer's page is given: every payslip of a settled campaign.
+#[derive(Serialize)]
+struct PayslipsView {
+    warning: &'static str,
+    campaign_id: CampaignId,
+    network: Network,
+    /// One per payout row, in payout-list order.
+    payslips: Vec<PayslipRow>,
+    unmatched_outputs: usize,
+}
+
+/// One payout row as the payout list has it, and its payslip; `null` if no output the campaign's
+/// key opened matches the row.
+#[derive(Serialize)]
+struct PayslipRow {
+    /// The row's 1-based position in the payout list, as in the CLI's file names.
+    number: usize,
+    address: String,
+    amount: Zatoshi,
+    memo: Option<String>,
+    payslip: Option<Payslip>,
+}
+
+/// Every payslip of a settled campaign, for the payer's own page to give each person
+/// theirs (REQ-PAY-005).
+///
+/// The second answer that carries recipient data, after the viewing key, with the same contract:
+/// the request must carry `X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND`, and the response always
+/// carries a `warning` field that the UI must show before any payslip leaves the screen. The
+/// payslips are issued from the transaction bytes stored before broadcast, so no node is asked,
+/// and only once every batch is confirmed at the required depth (409 `not_settled` before).
+async fn export_payslips(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<PayslipsView>, ApiError> {
+    if state.backend().is_mock() {
+        return Err(ApiError::conflict(
+            "not_available",
+            "the mock chain has no real transactions to prove",
+        ));
+    }
+    require_disclosure(&headers, PAYSLIPS_WARNING)?;
+    let record = load(&state, &id)?;
+    state.check_wallet(&record)?;
+    let batches = state.plan(&record)?;
+    let ledger = state.store().ledger();
+    let statuses = ledger
+        .statuses(&record.id, count(batches.len()))
+        .map_err(|e| state.internal(&e))?;
+    let ufvk = campaign_ufvk(state.seed(), record.network, record.account)
+        .map_err(|e| state.internal(&e))?;
+    let depth = state.options().required_depth;
+    // Opening the outputs and checking every payslip is CPU work.
+    let (record, issued) = tokio::task::spawn_blocking(move || {
+        let issued = issue_stored_payslips(&ledger, &record, &statuses, &ufvk, depth);
+        (record, issued)
+    })
+    .await
+    .map_err(|_| ApiError::internal())?;
+    let issued = issued.map_err(|e| match e {
+        PayslipsError::NotSettled => ApiError::conflict("not_settled", e.to_string()),
+        other => state.internal(&other),
+    })?;
+    Ok(Json(payslips_view(&state, &record, issued)?))
+}
+
+/// Pairs each payout row with its payslip. Both are in payout-list order: the plan keeps the
+/// rows' order, and the payslips follow the plan.
+fn payslips_view(
+    state: &AppState,
+    record: &CampaignRecord,
+    issued: Issued,
+) -> Result<PayslipsView, ApiError> {
+    let rows = record.manifest.rows();
+    if issued.rows.len() != rows.len() {
+        return Err(state.internal(&"the payslips do not line up with the payout list"));
+    }
+    let payslips = rows
+        .iter()
+        .zip(issued.rows)
+        .enumerate()
+        .map(|(index, (row, payslip))| PayslipRow {
+            number: row_number(index),
+            address: row.address().to_owned(),
+            amount: row.amount(),
+            memo: row.memo().map(str::to_owned),
+            payslip,
+        })
+        .collect();
+    Ok(PayslipsView {
+        warning: PAYSLIPS_WARNING,
+        campaign_id: record.id.clone(),
+        network: record.network,
+        payslips,
+        unmatched_outputs: issued.unmatched_outputs,
+    })
 }
 
 async fn start_campaign(

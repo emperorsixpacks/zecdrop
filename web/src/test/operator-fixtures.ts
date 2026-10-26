@@ -49,6 +49,7 @@ import f_fund_invalid_body from "../../../fixtures/contract/operator/fund-invali
 import f_fund_ok from "../../../fixtures/contract/operator/fund-ok.json?raw";
 import f_fund_same_again from "../../../fixtures/contract/operator/fund-same-again.json?raw";
 import f_health from "../../../fixtures/contract/operator/health.json?raw";
+import f_payslips_mock from "../../../fixtures/contract/operator/payslips-mock.json?raw";
 import f_receipt_funded from "../../../fixtures/contract/operator/receipt-funded.json?raw";
 import f_receipt_not_funded from "../../../fixtures/contract/operator/receipt-not-funded.json?raw";
 import f_receipt_running from "../../../fixtures/contract/operator/receipt-running.json?raw";
@@ -108,6 +109,9 @@ import g_error_near_zec_origin_not_allowed from "../../../fixtures/contract/oper
 import g_error_needs_funding_split from "../../../fixtures/contract/operator/golden/error-needs-funding-split.json?raw";
 import g_error_not_applicable from "../../../fixtures/contract/operator/golden/error-not-applicable.json?raw";
 import g_error_not_available from "../../../fixtures/contract/operator/golden/error-not-available.json?raw";
+import g_error_not_settled from "../../../fixtures/contract/operator/golden/error-not-settled.json?raw";
+import g_error_payslips_confirmation_required from "../../../fixtures/contract/operator/golden/error-payslips-confirmation-required.json?raw";
+import g_error_payslips_not_available from "../../../fixtures/contract/operator/golden/error-payslips-not-available.json?raw";
 import g_error_store_corrupt from "../../../fixtures/contract/operator/golden/error-store-corrupt.json?raw";
 import g_error_wrong_wallet_seed from "../../../fixtures/contract/operator/golden/error-wrong-wallet-seed.json?raw";
 import g_health_real from "../../../fixtures/contract/operator/golden/health-real.json?raw";
@@ -123,6 +127,7 @@ import g_near_status_processing from "../../../fixtures/contract/operator/golden
 import g_near_status_refunded from "../../../fixtures/contract/operator/golden/near-status-refunded.json?raw";
 import g_near_status_success from "../../../fixtures/contract/operator/golden/near-status-success.json?raw";
 import g_near_tokens from "../../../fixtures/contract/operator/golden/near-tokens.json?raw";
+import g_payslips from "../../../fixtures/contract/operator/golden/payslips.json?raw";
 import g_receipt_real from "../../../fixtures/contract/operator/golden/receipt-real.json?raw";
 
 /** Response files by name (e.g. "create-valid.json"), as text. */
@@ -168,6 +173,7 @@ export const FIXTURES: Readonly<Record<string, string>> = {
   "fund-ok.json": f_fund_ok,
   "fund-same-again.json": f_fund_same_again,
   "health.json": f_health,
+  "payslips-mock.json": f_payslips_mock,
   "receipt-funded.json": f_receipt_funded,
   "receipt-not-funded.json": f_receipt_not_funded,
   "receipt-running.json": f_receipt_running,
@@ -259,6 +265,9 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "error-needs-funding-split.json": g_error_needs_funding_split,
   "error-not-applicable.json": g_error_not_applicable,
   "error-not-available.json": g_error_not_available,
+  "error-not-settled.json": g_error_not_settled,
+  "error-payslips-confirmation-required.json": g_error_payslips_confirmation_required,
+  "error-payslips-not-available.json": g_error_payslips_not_available,
   "error-store-corrupt.json": g_error_store_corrupt,
   "error-wrong-wallet-seed.json": g_error_wrong_wallet_seed,
   "health-real.json": g_health_real,
@@ -274,6 +283,7 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "near-status-refunded.json": g_near_status_refunded,
   "near-status-success.json": g_near_status_success,
   "near-tokens.json": g_near_tokens,
+  "payslips.json": g_payslips,
   "receipt-real.json": g_receipt_real,
 };
 

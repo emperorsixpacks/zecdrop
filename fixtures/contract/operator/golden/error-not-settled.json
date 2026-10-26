@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "not_settled",
+    "message": "payslips are issued only once every batch of the campaign is final on the chain"
+  }
+}

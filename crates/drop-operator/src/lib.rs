@@ -131,6 +131,26 @@
 //! Orchard batch transactions built with test-only keys and an in-memory chain source; a live
 //! fixture (a real testnet batch transaction with its campaign key) does not exist yet.
 //!
+//! ## Payslips
+//!
+//! A payslip is one recipient's proof that one output of a batch pays them a stated amount
+//! ([`payslips`]). `drop-operator FLAGS payslips --campaign <id> --out-dir <dir>` writes one
+//! owner-only file per payout row of a settled campaign, from the batches it fetches from the
+//! node; `verify-payslip` checks one with no key.
+//!
+//! | Route | What it does |
+//! |---|---|
+//! | `GET /api/campaigns/{id}/payslips` | a `warning`, and every payslip of a settled campaign: one per payout row in payout-list order, each with its row's `number`, `address`, `amount` and `memo` |
+//!
+//! The route gives the operator's own page the same payslips, issued from the transaction bytes
+//! stored before broadcast (no node is asked) once every batch is confirmed at the required depth.
+//! It is the second deliberate exception to "no response carries an address, an amount or a memo",
+//! after the viewing-key export, and is held to the same rules: it needs the header
+//! `X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND` (a request without it is refused with the
+//! `warning` in the error), it logs nothing but the route, and its answer is `no-store`. It
+//! answers 409 `not_available` on the mock chain, whose transactions are not real, and 409
+//! `not_settled` until the campaign is settled.
+//!
 //! ## Funding from other assets (NEAR Intents)
 //!
 //! Manual funding always works; this is a convenience (REQ-FUND-001, ADR 0004, `drop-near`).
@@ -211,6 +231,7 @@
 //! | REQ-AUD-003 | Manifest commitment recomputed from recovered outputs | [`audit`] |
 //! | REQ-FUND-001 | Optional funding through NEAR Intents: dry before live, mainnet only, never "funded" | [`near`], [`store`] |
 //! | REQ-PLAN-001 | A batch never exceeds what one transaction can pay | [`api`] |
+//! | REQ-PAY-005 | The payer's page gets a settled campaign's payslips, from the stored transactions | [`payslips`], [`api`] |
 //!
 //! ## Where secrets are
 //!

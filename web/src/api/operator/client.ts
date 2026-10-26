@@ -27,12 +27,14 @@ import {
   parseCampaignList,
   parseHealth,
   parseOperatorError,
+  parsePayslipsExport,
   parseViewingKeyExport,
   parseStartResponse,
   type OperatorCampaign,
   type OperatorCampaignSummary,
   type OperatorError,
   type OperatorHealth,
+  type PayslipsExport,
   type StartResponse,
   type ViewingKeyExport,
 } from "./schemas";
@@ -217,6 +219,16 @@ export const DISCLOSURE_ACKNOWLEDGEMENT = "I-UNDERSTAND";
 export async function exportViewingKey(id: string, signal?: AbortSignal): Promise<ViewingKeyExport> {
   return await request(campaignPath(id, "/audit-ufvk-export"), {
     parse: parseViewingKeyExport,
+    extraHeaders: { [DISCLOSURE_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** Ask for the payslips of a settled campaign: every payout with its own payslip (REQ-PAY-005). The caller must
+ * already have shown the person what a payslip discloses. They are returned to the caller and kept nowhere else. */
+export async function exportPayslips(id: string, signal?: AbortSignal): Promise<PayslipsExport> {
+  return await request(campaignPath(id, "/payslips"), {
+    parse: parsePayslipsExport,
     extraHeaders: { [DISCLOSURE_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
     ...(signal ? { signal } : {}),
   });

@@ -4,10 +4,12 @@
 // (fixtures/contract/operator, produced by scripts/capture-operator-fixtures.mjs)
 // and from the serde types in crates/drop-operator and crates/drop-core. Every
 // object is `.strict()`: a field the schema does not know about is an error,
-// never silently dropped. In particular there is NO field anywhere here for a
-// recipient's address, amount or memo, so none can be accepted or rendered
-// (REQ-PRIV-001, REQ-PRIV-002). The operator's own responses carry counts,
-// batch totals, txids, warnings and the commitment only.
+// never silently dropped. In particular there is no field for a recipient's
+// address, amount or memo (REQ-PRIV-001, REQ-PRIV-002): the operator's own
+// responses carry counts, batch totals, txids, warnings and the commitment only.
+// Two answers are the deliberate exceptions, each asked for with a disclosure
+// header and kept out of the query cache: the viewing-key export, and the
+// payslips of a settled campaign (REQ-PAY-005), which name every payout.
 //
 // Wire is snake_case; the exported view types are camelCase.
 
@@ -24,6 +26,7 @@ import {
   type OutPointView,
   type ReceiptPool,
 } from "@/api/types";
+import { readPayslip, type Payslip } from "@/api/payslip-input";
 import type { PhaseState } from "@/lib/phase";
 
 // ---- small pieces ----------------------------------------------------------
@@ -227,6 +230,7 @@ export const KNOWN_ERROR_CODES = [
   "not_applicable",
   "not_available",
   "confirmation_required",
+  "not_settled",
   "account_registry_error",
   "host_not_allowed",
   "store_corrupt",
@@ -552,6 +556,73 @@ const viewingKeyWire = z
 
 export function parseViewingKeyExport(input: unknown): ViewingKeyExport {
   return viewingKeyWire.parse(input);
+}
+
+// ---- the payslips of a settled campaign (REQ-PAY-005) ----------------------------------------
+// Every payout of the campaign as the payer listed it (address, amount, note) with its payslip, so the payer's page
+// can give each person theirs. Only the operator's own page asks, after showing the warning, and it keeps the answer in
+// its memory only (usePayslips). A payslip is read by the same strict reader as one pasted on the payslip page.
+
+export interface PayslipRow {
+  /** The payout's place in the list, from 1: the number the payslips command puts in its file names. */
+  number: number;
+  address: string;
+  /** Zatoshi. */
+  amount: bigint;
+  memo: string | null;
+  /** Null when the transaction holds no output for this payout (the audit says why). */
+  payslip: Payslip | null;
+}
+
+export interface PayslipsExport {
+  /** The operator's warning about what a payslip discloses. Shown to the person. */
+  warning: string;
+  campaignId: string;
+  network: "testnet" | "mainnet";
+  payslips: PayslipRow[];
+  /** Outputs the campaign's key opened that match no payout: should be 0. */
+  unmatchedOutputs: number;
+}
+
+const payslipWire = z.unknown().transform((value, ctx): Payslip => {
+  const read = readPayslip(JSON.stringify(value) ?? "");
+  if (read.ok) return read.payslip;
+  ctx.addIssue({ code: "custom", message: `not a payslip (${read.problem})` });
+  return z.NEVER;
+});
+
+const payslipRowWire = z
+  .object({
+    number: z.number().int().min(1).max(1_000_000),
+    address: z.string().min(1).max(1_024),
+    amount: zatoshiWire,
+    memo: z.string().max(2_048).nullable(),
+    payslip: payslipWire.nullable(),
+  })
+  .strict()
+  .transform((r): PayslipRow => ({ number: r.number, address: r.address, amount: BigInt(r.amount), memo: r.memo, payslip: r.payslip }));
+
+const payslipsWire = z
+  .object({
+    warning: z.string().min(1).max(2_000),
+    campaign_id: campaignId,
+    network,
+    payslips: z.array(payslipRowWire).max(1_000_000),
+    unmatched_outputs: smallCount,
+  })
+  .strict()
+  .transform(
+    (p): PayslipsExport => ({
+      warning: p.warning,
+      campaignId: p.campaign_id,
+      network: p.network,
+      payslips: p.payslips,
+      unmatchedOutputs: p.unmatched_outputs,
+    }),
+  );
+
+export function parsePayslipsExport(input: unknown): PayslipsExport {
+  return payslipsWire.parse(input);
 }
 
 // ---- starting a run ------------------------------------------------------------

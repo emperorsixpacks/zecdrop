@@ -361,6 +361,13 @@
       "note": "no token needed"
     },
     {
+      "file": "payslips-mock.json",
+      "method": "GET",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 409,
+      "note": "the mock chain has no real transactions to prove (a settled campaign on a real chain answers with warning, campaign_id, network, payslips, unmatched_outputs)"
+    },
+    {
       "file": "receipt-funded.json",
       "method": "GET",
       "path": "/api/campaigns/{id}/receipt",

@@ -240,11 +240,14 @@ describe("what every call needs, and what is not there", () => {
     expect((await fund("practice-000000", "1")).status).toBe(404);
   });
 
-  it("has no viewing key and no funding address to look at, as the practice chain says", async () => {
+  it("has no viewing key, no payslips and no funding address to look at, as the practice chain says", async () => {
     const made = await create("x", csv("csv/valid.csv"));
     const key = await call("GET", `/campaigns/${idOf(made)}/audit-ufvk-export`);
     expect(key.status).toBe(409);
     expect(key.json).toEqual(real("export-ufvk-mock.json"));
+    const payslips = await call("GET", `/campaigns/${idOf(made)}/payslips`);
+    expect(payslips.status).toBe(409);
+    expect(payslips.json).toEqual(real("payslips-mock.json"));
     const check = await call("POST", `/campaigns/${idOf(made)}/check-funding`);
     expect(check.status).toBe(409);
     expect(check.json).toEqual(real("check-funding-mock.json"));

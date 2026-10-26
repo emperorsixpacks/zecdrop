@@ -69,6 +69,13 @@ pub const DISCLOSURE_WARNING: &str =
 recipient address, amount and memo. Giving it away cannot be undone, and anyone it reaches \
 can keep it forever. Share it only with the auditor you intend, over a channel you trust.";
 
+/// What handing out a payslip means. Part of the contract wherever the payer's page is given the
+/// payslips: the API returns it in a `warning` field, with them and in the refusal that asks for
+/// the acknowledgement, and the UI must show it before any payslip leaves the screen.
+pub const PAYSLIPS_WARNING: &str =
+    "Each payslip shows one payout's receiver, amount and memo key to whoever holds it, and lets \
+them present it as their own. Send each payslip only to the person it pays.";
+
 /// A campaign belongs to one network, and a tool must be started for that network. Without this a
 /// mainnet campaign's viewing key could be exported with no mainnet flag at all, because the gate
 /// only looks at the network the tool was told (REQ-OPS-004).

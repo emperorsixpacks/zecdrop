@@ -392,6 +392,7 @@ async function main() {
     await capture("check-funding-mock", "POST", "/api/campaigns/{id}/check-funding", { id }, "the mock chain has no funding address to look at (a real chain answers with the campaign)");
     await capture("export-ufvk-mock", "GET", "/api/campaigns/{id}/audit-ufvk-export", { id, headers: { "X-Zecdrop-Confirm-Disclosure": "I-UNDERSTAND" } }, "the mock chain has no real viewing keys (a real chain answers with warning, campaign_id, network, ufvk)");
     await capture("export-ufvk-mock-unconfirmed", "GET", "/api/campaigns/{id}/audit-ufvk-export", { id }, "without the disclosure header; the mock chain answers not_available first (a real chain answers 400 confirmation_required)");
+    await capture("payslips-mock", "GET", "/api/campaigns/{id}/payslips", { id, headers: { "X-Zecdrop-Confirm-Disclosure": "I-UNDERSTAND" } }, "the mock chain has no real transactions to prove (a settled campaign on a real chain answers with warning, campaign_id, network, payslips, unmatched_outputs)");
     await capture("fund-insufficient", "POST", "/api/campaigns/{id}/fund-observed", { id, body: { outpoint: OUTPOINT(0), amount: "1000" } }, "a deposit that is too small; reports required and observed");
     await capture("fund-invalid-body", "POST", "/api/campaigns/{id}/fund-observed", { id, body: { outpoint: "not-an-outpoint", amount: required } }, "a malformed outpoint");
     await capture("fund-ok", "POST", "/api/campaigns/{id}/fund-observed", { id, body: { outpoint: OUTPOINT(0), amount: required } }, "enough funding: the campaign becomes funded");

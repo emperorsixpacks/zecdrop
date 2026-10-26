@@ -130,6 +130,7 @@ describe("error codes and statuses", () => {
     "fund-conflict.json": [409, "funding_conflict"],
     "check-funding-mock.json": [409, "not_applicable"],
     "export-ufvk-mock.json": [409, "not_available"],
+    "payslips-mock.json": [409, "not_available"],
     "export-ufvk-mock-unconfirmed.json": [409, "not_available"],
   };
 

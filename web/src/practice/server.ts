@@ -123,6 +123,7 @@ export class PracticeServer {
         if (method === "GET" && action === "receipt") return this.#withCampaign(second, (campaign) => this.#receipt(campaign));
         if (method === "GET" && action === "events") return this.#events(second, init);
         if (method === "GET" && action === "audit-ufvk-export") return failure(409, "not_available", "the mock chain has no real viewing keys");
+        if (method === "GET" && action === "payslips") return failure(409, "not_available", "the mock chain has no real transactions to prove");
         if (method === "POST" && action === "fund-observed") return this.#withCampaign(second, (campaign) => this.#fund(campaign, init));
         if (method === "POST" && action === "check-funding") {
           return CAMPAIGN_ID.test(decode(second)) ? failure(409, "not_applicable", "this chain backend has no funding addresses; declare the deposit with fund-observed") : notFound("campaign");

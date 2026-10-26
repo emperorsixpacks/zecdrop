@@ -1,10 +1,16 @@
-//! `payslips` and `verify-payslip` (REQ-PAY-002, REQ-PAY-003).
+//! `payslips` and `verify-payslip` (REQ-PAY-002, REQ-PAY-003), and the payslips the operator's
+//! own page is given (REQ-PAY-005).
 //!
 //! `payslips` writes one payslip per payout of a settled campaign, from the campaign's own key,
 //! on this machine: it needs the passphrase-protected store and a node to fetch the batch
 //! transactions, and it prints no address, amount, memo or key. Each file names its recipient's
 //! receiver and amount, and its `rseed` also opens that output's memo, so it goes only to its
 //! recipient (`docs/PRIVACY_BOUNDARY.md`, "Payslips").
+//!
+//! The page gets the same payslips with no node ([`issue_stored_payslips`]): they are issued from
+//! the transaction bytes the ledger stored before broadcast, which are the bytes that were mined
+//! (invariant 3), once the campaign is settled. Both paths match payout rows to opened outputs
+//! with the same code ([`issue_from_transactions`]).
 //!
 //! `verify-payslip` is the key-less check (`drop_verify::payslip`) as a command. With a
 //! transaction file it needs no store, no key and no node, so a payslip can be checked without
@@ -13,7 +19,10 @@
 use std::io::Write;
 use std::path::Path;
 
-use drop_core::{plan_batches, BatchStatus, Network};
+use drop_core::{
+    derive_phase, plan_batches, BatchStatus, CampaignPhase, FundingState, Ledger, LedgerError,
+    Network,
+};
 use drop_verify::payslip::{check_payslip, verify_payslip, Payslip, NOT_PROVEN};
 use drop_verify::{confirmations, ChainSource, ParsedTx, SourceError};
 use drop_zcash::payslip::{issue_payslips, IssueError};
@@ -43,6 +52,13 @@ pub enum PayslipsError {
     /// The campaign's key did not open the transactions.
     #[error(transparent)]
     Issue(#[from] IssueError),
+    /// The ledger could not be read.
+    #[error(transparent)]
+    Ledger(#[from] LedgerError),
+    /// A settled batch has no stored transaction, or its stored bytes are not the transaction
+    /// the ledger names.
+    #[error("a settled batch's stored transaction is missing or is not the one its ledger names")]
+    NotStored,
     /// The output directory exists already; payslips are never written over anything.
     #[error("the output directory already exists; choose a new one")]
     OutDirExists,
@@ -75,9 +91,9 @@ pub struct Issued {
     pub unmatched_outputs: usize,
 }
 
-/// Issues the payslips of a campaign: for every batch, fetches its transaction, requires it to be
-/// final, opens its outputs with the campaign key and matches each to a payout row by receiver
-/// and amount (a payslip does not carry the memo, so the memo is not compared).
+/// Issues the payslips of a campaign from the chain: for every batch, fetches its transaction,
+/// requires it to be final and to be the transaction the ledger names, then issues them with
+/// [`issue_from_transactions`].
 pub async fn issue_campaign_payslips<S: ChainSource>(
     source: &S,
     record: &CampaignRecord,
@@ -85,14 +101,9 @@ pub async fn issue_campaign_payslips<S: ChainSource>(
     ufvk: &str,
     required_depth: u32,
 ) -> Result<Issued, PayslipsError> {
-    let network = record.network;
-    let batches = plan_batches(record.manifest.rows(), record.max_outputs_per_batch)
-        .map_err(|_| PayslipsError::Plan)?;
     let tip = source.tip_height().await?;
-
-    let mut rows = Vec::with_capacity(record.manifest.rows().len());
-    let mut unmatched_outputs = 0usize;
-    for (batch, status) in batches.iter().zip(statuses) {
+    let mut transactions = Vec::with_capacity(statuses.len());
+    for status in statuses {
         let txid = status.txid().ok_or(PayslipsError::NotSettled)?;
         let fetched = source
             .transaction(&txid)
@@ -106,7 +117,67 @@ pub async fn issue_campaign_payslips<S: ChainSource>(
         if parsed.txid() != txid {
             return Err(SourceError::Inconsistent.into());
         }
-        let issued = issue_payslips(&fetched.raw, zcash_network(network), ufvk)?;
+        transactions.push(fetched.raw);
+    }
+    issue_from_transactions(record, &transactions, ufvk)
+}
+
+/// Issues the payslips of a settled campaign from the transaction bytes its ledger stored before
+/// broadcast, with no chain. The campaign must be settled by the rule its phase and its receipt
+/// follow ([`derive_phase`]: every batch confirmed at `required_depth`), and each batch's stored
+/// bytes must be the transaction its ledger names. Then as [`issue_from_transactions`].
+pub fn issue_stored_payslips<L: Ledger>(
+    ledger: &L,
+    record: &CampaignRecord,
+    statuses: &[BatchStatus],
+    ufvk: &str,
+    required_depth: u32,
+) -> Result<Issued, PayslipsError> {
+    let funding = if record.funding.is_some() {
+        FundingState::Funded
+    } else {
+        FundingState::Awaiting
+    };
+    if derive_phase(funding, statuses, required_depth) != CampaignPhase::Settled {
+        return Err(PayslipsError::NotSettled);
+    }
+    let mut transactions = Vec::with_capacity(statuses.len());
+    for (index, status) in (0u32..).zip(statuses) {
+        let txid = status.txid().ok_or(PayslipsError::NotSettled)?;
+        let (stored, raw) = ledger
+            .built_tx(&record.id, index)?
+            .ok_or(PayslipsError::NotStored)?;
+        // The bytes must be the transaction the ledger confirmed.
+        let parsed = ParsedTx::parse(&raw).map_err(|_| PayslipsError::NotStored)?;
+        if stored != txid || parsed.txid() != txid {
+            return Err(PayslipsError::NotStored);
+        }
+        transactions.push(raw);
+    }
+    issue_from_transactions(record, &transactions, ufvk)
+}
+
+/// Issues the payslips of a campaign from its batch transactions, one per batch in batch order,
+/// each already checked by the caller to be its batch's and final: opens each one's outputs with
+/// the campaign key and matches each to a payout row of its batch by receiver and amount (a
+/// payslip does not carry the memo, so the memo is not compared). Every payslip has been checked
+/// against its own transaction before it is returned (`issue_payslips`).
+pub fn issue_from_transactions(
+    record: &CampaignRecord,
+    transactions: &[Vec<u8>],
+    ufvk: &str,
+) -> Result<Issued, PayslipsError> {
+    let network = record.network;
+    let batches = plan_batches(record.manifest.rows(), record.max_outputs_per_batch)
+        .map_err(|_| PayslipsError::Plan)?;
+    if transactions.len() != batches.len() {
+        return Err(PayslipsError::Plan);
+    }
+
+    let mut rows = Vec::with_capacity(record.manifest.rows().len());
+    let mut unmatched_outputs = 0usize;
+    for (batch, raw) in batches.iter().zip(transactions) {
+        let issued = issue_payslips(raw, zcash_network(network), ufvk)?;
 
         let mut used = vec![false; issued.len()];
         for row in batch.recipients() {
@@ -133,10 +204,15 @@ pub async fn issue_campaign_payslips<S: ChainSource>(
     })
 }
 
-/// The name of the file for payout row `index` (0-based): the row's position in the payout
-/// list, which is the order of the CSV it was imported from.
+/// The number of payout row `index` (0-based): its 1-based position in the payout list, which is
+/// the order of the CSV it was imported from.
+pub fn row_number(index: usize) -> usize {
+    index + 1
+}
+
+/// The name of the file for payout row `index` (0-based), by its [`row_number`].
 pub fn file_name(index: usize) -> String {
-    format!("payslip-{:03}.json", index + 1)
+    format!("payslip-{:03}.json", row_number(index))
 }
 
 /// Writes one owner-only file per row that has a payslip into the new directory `dir`. Returns

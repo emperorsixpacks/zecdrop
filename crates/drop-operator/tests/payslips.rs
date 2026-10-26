@@ -1,23 +1,25 @@
 //! `payslips` and `verify-payslip`: one recipient's proof of payment, issued from the campaign's
-//! own key on the operator's machine and checked with no key. The batch is a genuine
-//! librustzcash transaction built by the operator over an in-memory node, with TEST-ONLY keys.
+//! own key on the operator's machine and checked with no key; and the route that gives every
+//! payslip of a settled campaign to the payer's own page. The batch is a genuine librustzcash
+//! transaction built by the operator over an in-memory node, with TEST-ONLY keys.
 
 mod common;
 
+use std::collections::BTreeSet;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use axum::http::StatusCode;
+use axum::http::{header, Method, StatusCode};
 use common::zcash::*;
 use common::*;
-use drop_core::{CampaignId, Zatoshi};
-use drop_operator::commands::{run_payslips, CommandError};
+use drop_core::{BatchStatus, CampaignId, Ledger, OutPoint, Zatoshi};
+use drop_operator::commands::{run_payslips, CommandError, PAYSLIPS_WARNING};
 use drop_operator::config::PayslipsArgs;
 use drop_operator::payslips::{
     file_name, read_payslip, run_verify_payslip_offline, run_verify_payslip_on_chain, PayslipsError,
 };
-use drop_operator::state::RunState;
-use drop_verify::payslip::verify_payslip;
+use drop_operator::state::{Options, RunState};
+use drop_verify::payslip::{verify_payslip, Payslip};
 use drop_verify::{FetchedTx, ParsedTx, PayslipError};
 use serde_json::{json, Value};
 
@@ -67,7 +69,16 @@ struct Settled {
     funding_raw: Vec<u8>,
 }
 
-async fn settled() -> Settled {
+/// A campaign whose deposit is on an in-memory node at the required depth, not started.
+struct Funded {
+    h: Harness,
+    node: SharedNode,
+    id: CampaignId,
+    deposit: OutPoint,
+    funding_raw: Vec<u8>,
+}
+
+async fn funded() -> Funded {
     let node = SharedNode::default();
     let tip = u32::from(ironwood_height());
     node.lock().tip = tip;
@@ -83,6 +94,23 @@ async fn settled() -> Settled {
         .post_empty(&format!("/api/campaigns/{id}/check-funding"))
         .await;
     assert_eq!(funded.json()["phase"]["phase"], "funded");
+    Funded {
+        h,
+        node,
+        id,
+        deposit,
+        funding_raw,
+    }
+}
+
+async fn settled() -> Settled {
+    let Funded {
+        h,
+        node,
+        id,
+        deposit,
+        funding_raw,
+    } = funded().await;
     let start = h.post_empty(&format!("/api/campaigns/{id}/start")).await;
     assert_eq!(start.status, StatusCode::ACCEPTED, "{}", start.text());
     assert_eq!(h.state.wait_for_run(&id).await, RunState::Settled);
@@ -438,4 +466,256 @@ async fn the_payslips_command_refuses_a_campaign_of_another_network_before_it_as
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("testnet campaign"), "{stderr}");
     assert!(!dir.exists(), "nothing was written");
+}
+
+// ---------------------------------------------------------------------------
+// The payer's page: GET /api/campaigns/{id}/payslips
+// ---------------------------------------------------------------------------
+
+const CONFIRM: (&str, &str) = ("X-Zecdrop-Confirm-Disclosure", "I-UNDERSTAND");
+
+fn payslips_path(id: &CampaignId) -> String {
+    format!("/api/campaigns/{id}/payslips")
+}
+
+/// Asks for a campaign's payslips as the page does once the person has read the warning.
+async fn export(h: &Harness, id: &CampaignId) -> Reply {
+    h.call_with(
+        Method::GET,
+        &payslips_path(id),
+        Auth::Token,
+        None,
+        &[CONFIRM],
+    )
+    .await
+}
+
+/// The Orchard receiver inside a row's unified address: what the row's payslip must name.
+fn receiver_of(address: &str) -> [u8; 43] {
+    match zcash_keys::address::Address::decode(&NETWORK, address) {
+        Some(zcash_keys::address::Address::Unified(ua)) => {
+            ua.orchard().unwrap().to_raw_address_bytes()
+        }
+        _ => panic!("not a unified address"),
+    }
+}
+
+/// Each row's address, memo and amount: in no log line, refusal or store file.
+fn row_needles() -> Vec<String> {
+    let mut needles: Vec<String> = rows().iter().map(|r| r.address.clone()).collect();
+    needles.extend(
+        [
+            "payslip zero",
+            "payslip two",
+            "150000000",
+            "75000000",
+            "225000000",
+        ]
+        .map(String::from),
+    );
+    needles
+}
+
+/// The store file and its journals, as text.
+fn store_text(h: &Harness) -> String {
+    let mut bytes = std::fs::read(&h.db).unwrap();
+    for suffix in ["-journal", "-wal", "-shm"] {
+        let mut sibling = h.db.as_os_str().to_owned();
+        sibling.push(suffix);
+        if let Ok(extra) = std::fs::read(sibling) {
+            bytes.extend(extra);
+        }
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+fn depth(required_depth: u32) -> Options {
+    Options {
+        required_depth,
+        ..Builder::default().options
+    }
+}
+
+// covers: REQ-PAY-005
+#[tokio::test]
+async fn a_settled_campaign_gives_the_payers_page_every_payslip_in_payout_order() {
+    let s = settled().await;
+    let logged_before = s.h.logs.lines().len();
+    let reply = export(&s.h, &s.id).await;
+    let logged: Vec<String> = s.h.logs.lines()[logged_before..].to_vec();
+    assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
+    assert_eq!(reply.headers[header::CACHE_CONTROL], "no-store");
+    let view = reply.json();
+    assert_eq!(view["warning"], PAYSLIPS_WARNING);
+    assert_eq!(view["campaign_id"], s.id.to_string());
+    assert_eq!(view["network"], "testnet");
+    assert_eq!(view["unmatched_outputs"], 0);
+
+    // One entry per payout, in the payout list's order, each with its own row as it was imported
+    // and a payslip for that row's output that verifies, with no key, against the transaction the
+    // node mined.
+    let entries = view["payslips"].as_array().unwrap();
+    assert_eq!(entries.len(), rows().len());
+    let mut actions = BTreeSet::new();
+    for (i, (entry, row)) in entries.iter().zip(rows()).enumerate() {
+        assert_eq!(entry["number"], i + 1);
+        assert_eq!(entry["address"], row.address.as_str(), "row {i}");
+        assert_eq!(entry["amount"], row.zat.to_string(), "row {i}");
+        assert_eq!(entry["memo"], json!(row.memo), "row {i}");
+        let payslip: Payslip = serde_json::from_value(entry["payslip"].clone()).unwrap();
+        assert_eq!(
+            payslip.value.as_u64(),
+            row.zat,
+            "row {i} has its own payslip"
+        );
+        assert_eq!(
+            payslip.receiver,
+            receiver_of(&row.address),
+            "row {i} has its own payslip"
+        );
+        let proof = verify_payslip(&s.batch_raw, &payslip).unwrap();
+        assert_eq!(proof.ironwood_actions, 3);
+        actions.insert(payslip.action);
+    }
+    assert_eq!(actions.len(), 3, "each payslip opens an output of its own");
+
+    // They are the payslips the `payslips` command writes from the node's copy of the batch.
+    let work = tempfile::tempdir().unwrap();
+    let dir = work.path().join("payslips");
+    let (complete, _) = issue(&s, &dir).await.unwrap();
+    assert!(complete);
+    for (i, entry) in entries.iter().enumerate() {
+        let written: Value =
+            serde_json::from_slice(&std::fs::read(dir.join(file_name(i))).unwrap()).unwrap();
+        assert_eq!(entry["payslip"], written, "row {i}");
+    }
+
+    // Negative: the request logged its route and nothing else, and neither the log nor the store
+    // file holds a row's address, memo or amount, or a payslip's receiver or rseed.
+    assert_eq!(logged, ["[info] GET /api/campaigns/{id}/payslips -> 200"]);
+    let mut needles = row_needles();
+    for entry in entries {
+        for field in ["receiver", "rseed"] {
+            needles.push(entry["payslip"][field].as_str().unwrap().to_owned());
+        }
+    }
+    assert_clean("the operator's log", &s.h.logs.lines().join("\n"), &needles);
+    assert_clean("the store file", &store_text(&s.h), &needles);
+}
+
+// covers: REQ-PAY-005, REQ-OPS-002
+#[tokio::test]
+async fn the_payslips_are_refused_without_the_acknowledgement_the_token_the_campaign_or_its_wallet()
+{
+    let s = settled().await;
+    let path = payslips_path(&s.id);
+    let needles = row_needles();
+
+    // Without the acknowledgement, or with anything but exactly it: 400, with the warning for the
+    // page to show, and nothing of any row.
+    let plain = s.h.get(&path).await;
+    assert_eq!(plain.status, StatusCode::BAD_REQUEST, "{}", plain.text());
+    let error = plain.json()["error"].clone();
+    assert_eq!(error["code"], "confirmation_required");
+    assert_eq!(error["warning"], PAYSLIPS_WARNING);
+    assert_clean("the refusal", &plain.text(), &needles);
+    for near_miss in [
+        (CONFIRM.0, ""),
+        (CONFIRM.0, "i-understand"),
+        (CONFIRM.0, "yes"),
+        (CONFIRM.0, "I-UNDERSTAND "),
+        ("X-Zecdrop-Confirm-Near", CONFIRM.1),
+    ] {
+        let reply =
+            s.h.call_with(Method::GET, &path, Auth::Token, None, &[near_miss])
+                .await;
+        assert_eq!(reply.status, StatusCode::BAD_REQUEST, "{near_miss:?}");
+        assert_eq!(reply.json()["error"]["code"], "confirmation_required");
+        assert_eq!(reply.json()["error"]["warning"], PAYSLIPS_WARNING);
+        assert_clean("the refusal", &reply.text(), &needles);
+    }
+
+    // No token, or a wrong one, even with the acknowledgement.
+    for auth in [Auth::None, Auth::Wrong] {
+        let reply =
+            s.h.call_with(Method::GET, &path, auth, None, &[CONFIRM])
+                .await;
+        assert_eq!(reply.status, StatusCode::UNAUTHORIZED, "{auth:?}");
+        assert_clean("the refusal", &reply.text(), &needles);
+    }
+
+    // A campaign this store does not hold.
+    let ghost = CampaignId::new("c-000000000000").unwrap();
+    let reply = export(&s.h, &ghost).await;
+    assert_eq!(reply.status, StatusCode::NOT_FOUND, "{}", reply.text());
+    assert_eq!(reply.json()["error"]["code"], "not_found");
+    assert_clean("the operator's log", &s.h.logs.lines().join("\n"), &needles);
+
+    // The same store opened by an operator holding another wallet seed.
+    let other = s.h.restart_as([0x99; 32], depth(DEPTH));
+    let reply = export(&other, &s.id).await;
+    assert_eq!(reply.status, StatusCode::CONFLICT, "{}", reply.text());
+    assert_eq!(reply.json()["error"]["code"], "wrong_wallet_seed");
+    assert_clean("the refusal", &reply.text(), &needles);
+}
+
+// covers: REQ-PAY-005
+#[tokio::test]
+async fn payslips_wait_until_every_batch_is_confirmed_at_the_required_depth() {
+    let needles = row_needles();
+    let refused = |reply: &Reply| {
+        assert_eq!(reply.status, StatusCode::CONFLICT, "{}", reply.text());
+        assert_eq!(reply.json()["error"]["code"], "not_settled");
+        assert_clean("the refusal", &reply.text(), &needles);
+    };
+
+    // Funded and never started: no batch has a transaction.
+    let f = funded().await;
+    refused(&export(&f.h, &f.id).await);
+
+    // A batch that failed: the campaign is not settled, and never will be by itself.
+    let mut ledger = f.h.state.store().ledger();
+    ledger.record(&f.id, 0, BatchStatus::Planned).unwrap();
+    ledger
+        .record(
+            &f.id,
+            0,
+            BatchStatus::Failed {
+                reason: "the node rejected the transaction".into(),
+                txid: None,
+            },
+        )
+        .unwrap();
+    refused(&export(&f.h, &f.id).await);
+
+    // Sent and confirmed, but not as deep as this operator now requires: its bytes are in the
+    // store and still nothing is issued, while the campaign's own phase says it is not complete.
+    let s = settled().await;
+    let deeper = s.h.restart(depth(10));
+    refused(&export(&deeper, &s.id).await);
+    let view = deeper.get(&format!("/api/campaigns/{}", s.id)).await.json();
+    assert_eq!(view["phase"]["phase"], "sending", "{view}");
+
+    // At the depth it was confirmed to, the same campaign is settled and gets its payslips.
+    let again = deeper.restart(depth(DEPTH));
+    let reply = export(&again, &s.id).await;
+    assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
+    assert_eq!(reply.json()["payslips"].as_array().unwrap().len(), 3);
+}
+
+// covers: REQ-PAY-005
+#[tokio::test]
+async fn the_mock_chain_has_no_payslips_to_give() {
+    let h = Harness::new();
+    let (id, end) = h.run_to_end().await;
+    assert_eq!(end, RunState::Settled);
+    for headers in [&[CONFIRM][..], &[]] {
+        let reply = h
+            .call_with(Method::GET, &payslips_path(&id), Auth::Token, None, headers)
+            .await;
+        assert_eq!(reply.status, StatusCode::CONFLICT, "{}", reply.text());
+        assert_eq!(reply.json()["error"]["code"], "not_available");
+        assert_clean("the refusal", &reply.text(), &recipient_needles());
+    }
+    assert_clean("the log", &h.logs.lines().join("\n"), &recipient_needles());
 }

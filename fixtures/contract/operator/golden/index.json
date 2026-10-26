@@ -356,6 +356,34 @@
       "note": "a real swap is mainnet money: the operator must be started with --allow-mainnet",
       "path": "/api/campaigns/{id}/funding/near/live-quote",
       "status": 403
+    },
+    {
+      "file": "error-not-settled.json",
+      "method": "GET",
+      "note": "payslips are issued once every batch is confirmed at the required depth; here the campaign is funded and not started",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 409
+    },
+    {
+      "file": "error-payslips-confirmation-required.json",
+      "method": "GET",
+      "note": "the payslips are never released without X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND; the payslip warning is in the error",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 400
+    },
+    {
+      "file": "payslips.json",
+      "method": "GET",
+      "note": "every payslip of a settled campaign, one per payout row in payout-list order with the row's number, address (a placeholder here), amount and memo, and the warning the UI must show; a payslip is null if no output matched its row; receiver, rseed and action are placeholders",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 200
+    },
+    {
+      "file": "error-payslips-not-available.json",
+      "method": "GET",
+      "note": "the mock chain has no real transactions to prove",
+      "path": "/api/campaigns/{id}/payslips",
+      "status": 409
     }
   ],
   "generated_by": "crates/drop-operator/tests/api_contract.rs"

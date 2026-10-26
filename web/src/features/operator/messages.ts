@@ -248,12 +248,17 @@ function explainApi(error: OperatorApiError, unit: CoinUnit): Explained {
     case "not_available":
       return {
         title: "Not available on the mock chain",
-        detail: "The mock chain has no real viewing keys.",
+        detail: "The mock chain has no real transactions, so it has no viewing keys or payslips.",
       };
     case "confirmation_required":
       return {
         title: "Confirm first",
-        detail: "The viewing key is released only after you confirm that it shows every payout, for good.",
+        detail: "The operator gives this only after you confirm what it shows about the payouts.",
+      };
+    case "not_settled":
+      return {
+        title: "Not settled yet",
+        detail: "Payslips are made once every batch is confirmed. Try again then.",
       };
     case "dev_only":
       return { title: "Only available on the mock chain", detail: "On a real chain, funding is observed from the chain itself." };
