@@ -10,6 +10,7 @@ import { useCoinUnit } from "@/lib/units";
 import { formatZec } from "@/lib/zec";
 
 import { samplePayoutRows } from "./sample";
+import { Tour } from "./Tour";
 
 // Wording follows README.md and docs/PRIVACY_BOUNDARY.md. It claims only what a
 // key-less verifier can compute, and the status line names the limit: a real run
@@ -128,6 +129,8 @@ export default function HomePage() {
             ))}
           </ol>
         </section>
+
+        <Tour />
       </div>
     </UnitProvider>
   );

@@ -8,6 +8,7 @@
 //   - the security headers are on the page (a Content-Security-Policy that lets it
 //     talk to this verifier, nosniff, no referrer, no framing)
 //   - a built asset is cached as immutable
+//   - a picture of the home page tour answers as an image (/tour is files, not a client route)
 //   - the verifier answers /v1/health, and answers the real 8-output batch's receipt
 //     to this site's origin (CORS), as settled, with no findings and the funding address
 //   - with --mainnet-tx, that the verifier serves mainnet: it answers a receipt request for
@@ -80,6 +81,16 @@ else {
   await response.arrayBuffer();
   report(response.status === 200 && (response.headers.get("cache-control") ?? "").includes("immutable"), `${asset} is cached as immutable`, response.headers.get("cache-control") ?? "");
 }
+
+// The home page tour's pictures are files in /tour (web/public/tour), not client routes: one answers as a WebP image.
+const picture = "/tour/receipt-light.webp";
+const tourPicture = await get(`${site}${picture}`);
+const tourBytes = Buffer.from(await tourPicture.arrayBuffer());
+report(
+  tourPicture.status === 200 && tourPicture.headers.get("content-type") === "image/webp" && tourBytes.subarray(0, 4).toString("ascii") === "RIFF",
+  `${picture} is served as an image`,
+  `${String(tourPicture.status)} ${tourPicture.headers.get("content-type") ?? ""}`,
+);
 
 // ---- the verifier -----------------------------------------------------------------
 const health = await get(`${verifier}/v1/health`);

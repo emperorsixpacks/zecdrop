@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Response } from "@playwright/test";
 
 import { operatorUrl, seeded } from "./env.js";
 
@@ -74,4 +74,38 @@ test("a request that names another host is refused by the operator", async ({ re
   // The operator is reachable only by its own loopback names (a defence against DNS rebinding).
   const response = await request.get(operatorUrl("/api/health"), { headers: { Host: "evil.example" } });
   expect([403, 421]).toContain(response.status());
+});
+
+// The home page is served by the operator too (its public routes), with the tour's pictures in /tour. They are
+// the page's own files, so the policy ('self' only) lets them in; the operator serves them as images.
+test("the home page's tour pictures load under the operator's policy, with no violation", async ({ page }) => {
+  const console_: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warning") console_.push(`${m.type()}: ${m.text()}`);
+  });
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { __spv: string[] }).__spv = seen;
+    document.addEventListener("securitypolicyviolation", (e) => {
+      seen.push(`${e.violatedDirective} blocked ${e.blockedURI || "(inline)"} from ${e.sourceFile || "the page"}`);
+    });
+  });
+
+  // Listen before the page loads: a picture near the first screen is asked for at once.
+  const answers: Response[] = [];
+  page.on("response", (answer) => answers.push(answer));
+  await page.goto(operatorUrl("/"));
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const first = page.locator("section[aria-labelledby='tour-heading'] img").first();
+  await first.scrollIntoViewIfNeeded();
+  await expect.poll(() => answers.some((answer) => new URL(answer.url()).pathname.startsWith("/tour/"))).toBe(true);
+  const response = answers.find((answer) => new URL(answer.url()).pathname.startsWith("/tour/")) as Response;
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toBe("image/webp");
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["content-security-policy"]).toContain("default-src 'self'");
+  await expect.poll(() => first.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+  expect(await page.evaluate(() => (window as unknown as { __spv: string[] }).__spv), "securitypolicyviolation events").toEqual([]);
+  expect(console_).toEqual([]);
 });

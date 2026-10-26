@@ -5,8 +5,9 @@ import type { AddressInfo } from "node:net";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 
+import { TOUR_LOOKS, TOUR_SHOTS, TOUR_WIDTH, tourImageSrc } from "../../src/features/home/tour-steps.js";
 import { axeViolations, overflowReport, THEMES, useTheme, VIEWPORTS } from "../helpers.js";
 
 // A public copy of the app, built the way a deployment is built and served WITH
@@ -101,6 +102,20 @@ test("a built asset is cached as immutable, and client routes are rewritten to t
   expect((await request.get("/nope")).status()).toBe(404);
 });
 
+test("every picture of the home page tour is served as an image, not rewritten to the page", async ({ request }) => {
+  for (const shot of TOUR_SHOTS) {
+    for (const look of TOUR_LOOKS) {
+      const path = tourImageSrc(shot, look);
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(200);
+      expect(response.headers()["content-type"], path).toBe("image/webp");
+      expect(response.headers()["x-content-type-options"], path).toBe("nosniff");
+      expect(response.headers()["cache-control"], path).toBe("public, max-age=0, must-revalidate");
+      expect((await response.body()).subarray(0, 4).toString("ascii"), path).toBe("RIFF");
+    }
+  }
+});
+
 test.describe("the policy breaks nothing", () => {
   const PAGES: [string, string, RegExp][] = [
     ["the home page", "/", /Pay many people\. Keep who got what private\. Prove the total\./u],
@@ -185,6 +200,42 @@ test.describe("the policy breaks nothing", () => {
     expect(seen.problems()).toEqual([]);
   });
 
+  test("the home page's tour pictures load under the policy, with no violation", async ({ page }) => {
+    const seen = await watch(page);
+    // Listen before the page loads: a picture near the first screen is asked for at once.
+    const answers: Response[] = [];
+    page.on("response", (answer) => answers.push(answer));
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const first = page.locator("section[aria-labelledby='tour-heading'] img").first();
+    const expected = tourImageSrc(TOUR_SHOTS[0] ?? { id: "never" }, "light");
+    await first.scrollIntoViewIfNeeded();
+    await expect.poll(() => answers.some((answer) => new URL(answer.url()).pathname === expected)).toBe(true);
+    const response = answers.find((answer) => new URL(answer.url()).pathname === expected) as Response;
+    // From the page's own origin, as an image, under a policy that names no img-src (default-src 'self' rules).
+    expect(new URL(response.url()).origin).toBe(SITE);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe("image/webp");
+    const csp = response.headers()["content-security-policy"] ?? "";
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).not.toContain("img-src");
+    await expect.poll(() => first.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth)).toBe(TOUR_WIDTH);
+    expect(await seen.violations(), "securitypolicyviolation events").toEqual([]);
+    expect(seen.problems()).toEqual([]);
+  });
+
+  test("(control) the policy covers pictures too: one from any other origin is blocked and reported", async ({ page }) => {
+    const seen = await watch(page);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.evaluate(() => {
+      const image = new Image();
+      image.src = "http://127.0.0.1:4176/elsewhere.webp";
+      document.body.append(image);
+    });
+    await expect.poll(async () => (await seen.violations()).some((v) => v.startsWith("img-src blocked http://127.0.0.1:4176"))).toBe(true);
+  });
+
   test("(control) the policy is really in force: a request to any other origin is blocked and reported", async ({ page }) => {
     const seen = await watch(page);
     await page.goto("/");
@@ -257,6 +308,7 @@ test("the post-deploy check passes against this deployment and its verifier", ()
   });
   expect(output).not.toMatch(/^FAIL/mu);
   expect(output).toContain("ok   the verifier answers the real batch's receipt");
+  expect(output).toContain("ok   /tour/receipt-light.webp is served as an image: 200 image/webp");
   expect(output).toContain(`shareable link: ${SITE}/r/real-8?network=testnet&tx=${sample.batches[0]?.txid ?? ""}`);
   // Without --mainnet-tx it asks nothing about mainnet.
   expect(output).not.toContain("serves mainnet");

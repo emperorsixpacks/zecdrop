@@ -17,6 +17,7 @@ import "@/test/dom";
 import { OperatorApiError } from "@/api/operator/client";
 import { parseCampaign, parseOperatorError, type ProgressEvent } from "@/api/operator/schemas";
 import { clearSession } from "@/api/operator/session";
+import { TOUR_SHOTS } from "@/features/home/tour-steps";
 import { describeEvent, describeRun, explainFailure } from "@/features/operator/messages";
 import { useWizardDraft } from "@/features/wizard/draft";
 import { lensRowsFrom } from "@/features/wizard/list";
@@ -72,6 +73,17 @@ describe.each(PAGES)("%s", (_name, path) => {
     expect(text.length).toBeGreaterThan(40);
     for (const [label, pattern] of BANNED) {
       expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);
+    }
+  });
+});
+
+describe("the home page's tour", () => {
+  it("is read in full by the guard: its text and what each picture says it shows", async () => {
+    const text = await textOf("/");
+    expect(text).toContain("A payout, screen by screen");
+    for (const shot of TOUR_SHOTS) {
+      expect(text, shot.id).toContain(shot.alt);
+      expect(text, shot.id).toContain(shot.caption);
     }
   });
 });
