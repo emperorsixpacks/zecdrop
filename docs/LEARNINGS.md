@@ -2,6 +2,29 @@
 
 Pitfalls and measured facts. Format: symptom → cause → fix → prevention. Newest first.
 
+## 2026-10-24 — The shielded deposit address on public testnet: two bugs only the real run showed, and a link we published
+
+- **Observed (live, `testnet.zec.rocks:443`):** the 8-person demo payout `c-6207fac6674f` was funded through its inbox with
+  nothing done by hand. The payer paid the inbox from a shielded wallet; the engine moved exactly 545,000 (`6e677bc5…70f3`);
+  the poller funded the payout (`shielded`); the batch `af8adf80…4a12` settled. A freshly started verifier, the eight payslips
+  and the audit all agreed, and the payout's viewing key opened none of the inbox's actions (`audit-tx`).
+- **Bug 1, on the page for ten minutes:** once the payout was funded, its screen said the whole deposit (0.0056 TAZ) was still
+  in the shielded address. **Cause:** `pczt extract` does not record the transaction in zcash-devtool's wallet, so the wallet
+  learns of the move only when it scans its block. The engine took the move as done as soon as the *node* had it mined, from a
+  wallet snapshot taken just before that block; and a funded payout's inbox is looked at only every ten minutes, so that
+  snapshot stayed. **Fix:** an inbox transaction is done only once the wallet has scanned the block it was mined in (until
+  then it is in flight, and a send-back is refused), and the ten-minute rest starts only once the view is final. The test fake
+  now sees a mined transaction only from its block on, as the real wallet does; the new test fails on the old engine.
+- **Bug 2, found by looking at the disk:** the wallet directories were 0755, though the spec says 0700. zcash-devtool makes
+  its `-w` directory with the default mode, and the rename into place kept it; only the 0700 directory above protected them.
+  **Fix:** 0700 before the rename, on every re-check and at start-up.
+- **A link we published ourselves:** the first move's fixture README named the payer's deposit, which is exactly what the
+  inbox keeps off the record: which payment fed which payout. Removed; the new fixture says why it is not there.
+- **Prevention:** run the real thing and read everything it touches, not only the result: the page in the minutes between
+  steps, the mode of every file and directory the spec names, and docs and fixtures for anything that ties a payer to a
+  payout (scanned like keys before committing). A fake that knows more than the real component, here a wallet that sees a
+  spend before scanning it, hides exactly this kind of bug.
+
 ## 2026-10-23 — Where the deposit came from: the funder could always stay off the chain, and nothing said so
 
 - **Observed (live, `testnet.zec.rocks:443`, our own `fetch_tx` example):** the first real batch's deposit (`daa6b06c…8e2e`,

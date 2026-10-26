@@ -29,6 +29,10 @@ Open <https://zecdrop-site.vercel.app>.
   batch, 3 recipients](https://zecdrop-site.vercel.app/r/first-batch?network=testnet&tx=50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3&commitment=aade9fd18f7c48dc3b04ead6a7ee2211640d0fa5948dfd14b5a356463c841491&declared_total=60000)
   says *shielded*: it was funded straight from the testnet faucet's shielded wallet. The operator's funding screen asks the
   payer to pay from a shielded balance and says which kind arrived.
+- **A payout funded through its own shielded address:** [the same 8 recipients, paid on 2026-10-24](https://zecdrop-site.vercel.app/r/c-6207fac6674f?network=testnet&tx=af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12&commitment=ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f&declared_total=500000)
+  (txid `af8adf80e3a58378…`). The payer paid the payout's own shielded address from a shielded wallet; the operator moved
+  exactly the funding to the public address and checked that move before sending it. Its deposit is that move, which spends
+  only shielded notes, so the receipt says *shielded* (a verifier running this repository's code; path 2 shows it).
 - **Check a payslip:** [the Check a payslip page](https://zecdrop-site.vercel.app/payslip) loads a real payslip of that batch (one
   recipient's proof of one payout) and checks it through the hosted verifier; a second button loads a copy with the amount changed
   so you can watch it fail. Checking here shows the verifier the payslip's receiver, amount and the key to its memo; path 4
@@ -66,6 +70,13 @@ curl -s 'http://127.0.0.1:8080/v1/receipt?network=testnet&tx=6e2359182d1dc77253e
 
 Expect `"phase":{"phase":"settled"}`, `"shielded_actions":8`, `"net_into_pool":"500000"`, `"fee":"45000"` (zatoshi) and
 `"findings":[]`. Change `declared_total` to `499999` and it answers `failed` with `declared_total_mismatch`.
+
+The payout funded through its own shielded address (2026-10-24) answers the same, with its own funding address and
+`"funding_source":"shielded"`:
+
+```bash
+curl -s 'http://127.0.0.1:8080/v1/receipt?network=testnet&tx=af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12&declared_total=500000&commitment=ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f'
+```
 
 What this proves: how much entered the shielded pool, in how many outputs, at what fee, from which funding address. What
 it cannot prove: who received what. That needs the auditor's viewing key; the real campaign's audit is in
@@ -112,5 +123,7 @@ the offline command does not. What a payslip proves and does not prove: [`PRIVAC
 ## Not available to judges
 
 - A hosted operator or sandbox (see [ADR 0002](ADR/0002-local-operator-and-keyless-verifier.md) for why).
-- A real testnet run needs a testnet seed and coins: [`runbooks/testnet-demo.md`](runbooks/testnet-demo.md).
+- A real testnet run needs a testnet seed and coins: [`runbooks/testnet-demo.md`](runbooks/testnet-demo.md). Funding through a
+  payout's shielded address also needs zcash-devtool (built by `scripts/zcash-devtool/build.sh`) and a shielded wallet that
+  can send on current testnet; the same runbook, "Funding through the shielded deposit address", has both real runs.
 - Mainnet: the code is ready and tested offline, but no real mainnet payout has been run yet ([`runbooks/mainnet-run.md`](runbooks/mainnet-run.md)).

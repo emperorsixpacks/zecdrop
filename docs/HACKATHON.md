@@ -43,7 +43,7 @@ Track text: "Point of sale, payroll, remittance, subscriptions. Money that moves
 
 - [x] No seeds, mnemonics, UFVKs, JWTs or `.env` in any commit (full history scanned 2026-10-15: only placeholder test keys and "TEST ONLY" test seeds; the only tracked dotfile is `web/.env.example`). Re-scan after any new commit.
 - [x] README says all code was written in the build window.
-- [ ] `PROVENANCE.md` present for generated code (present in `web/` and `crates/drop-chain/`); no file copied from another project (the owner confirms this one).
+- [ ] `PROVENANCE.md` present for generated code and for what is built from upstream (present in `web/`, `crates/drop-chain/` and `scripts/zcash-devtool/`); no file copied from another project (the owner confirms this one).
 - [x] LICENSE-MIT and LICENSE-APACHE present.
 - [x] README commands work from a clean clone (2026-10-16, a fresh clone of `main` at `9714d8a`: fmt, clippy, 642 Rust tests, spec drift 29 of 29, web install, lint, typecheck, 1882 unit tests and build all passed; the Playwright e2e suite was not part of this run).
 

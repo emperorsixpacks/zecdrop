@@ -1,6 +1,6 @@
 # Submission description (draft)
 
-**Status: DRAFT, refreshed 2026-10-23.** The testnet run below was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-23 on the branch that adds what the deposit spent (`feat/shielded-funding`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
+**Status: DRAFT, refreshed 2026-10-24.** The shielded deposit address ran on public testnet on 2026-10-24 (below). The first testnet run was done on 2026-10-08; the requirement and test counts were re-checked on 2026-10-24 on the branch that adds the shielded deposit address (`feat/shielded-inbox`), and the live site and the hosted verifier after the redeploy on 2026-10-20 (every check of `check-hosted.mjs` passed: the real receipt settled, the real payslip verified, a changed copy refused). Remaining [brackets] are links; delete a sentence rather than overclaim. Project name: **ZecDrop** (64 characters maximum). Track: **Shielded Payments**.
 
 ## One-line
 
@@ -12,8 +12,9 @@ auditor you choose sees the list.
 ZecDrop pays many people in one shielded Zcash transaction, then gives each party its own view of it. Everyone can check
 the total, the fee and the count from chain data, with a verifier that holds no key, and can see whether the deposit came
 out of the shielded pool. Each person paid can prove their own payout with a payslip, and nobody else's. An auditor you
-choose gets that payout's viewing key and reconciles the whole list. Only the payer's own computer holds the keys. Built in
-Rust on librustzcash with a React interface; runs end to end on public testnet.
+choose gets that payout's viewing key and reconciles the whole list. A payer can fund it from a shielded wallet through the
+payout's own shielded address. Only the payer's own computer holds the keys. Built in Rust on librustzcash with a React
+interface; runs end to end on public testnet.
 
 ## Long
 
@@ -40,8 +41,8 @@ singleton batches and the review step warns. The recipient count of a batch is p
 **How it is built.** Rust workspace on librustzcash: a chain-agnostic domain core with a resumable, crash-safe
 engine; a local operator service with an encrypted store; a transaction builder using the Ironwood pool; a key-less
 verifier whose dependency closure is checked by a test to contain no key-decoding or storage crate. Requirements
-carry IDs and are tied to tests by a drift check: all 45 are implemented and each has a covering test (722 Rust tests; 2,933
-web unit tests and 568 tests in a real browser). The web app (React, Tailwind) has no wallet connection on purpose: the operator
+carry IDs and are tied to tests by a drift check: all 50 are implemented and each has a covering test (773 Rust tests; 2,963
+web unit tests and 579 tests in a real browser). The web app (React, Tailwind) has no wallet connection on purpose: the operator
 holds the keys on the user's own machine, and the public site holds none: it checks receipts and payslips, helps a recipient
 share an address, and simulates a payout (below). Funding from another coin through NEAR Intents is an optional stretch, wired into the operator.
 
@@ -49,8 +50,12 @@ share an address, and simulates a payout (below). Funding from another coin thro
 chain, proof (about 20 s), broadcast, three confirmations, settled in about two minutes. Transaction `6e2359182d1dc772…` (height
 4,478,289). A separate key-less verifier recomputed the public totals from chain data (0.005 TAZ into the shielded pool in 8
 outputs, 0.00045 TAZ fee, one funding address) and rejects a wrong declared total. The local audit reconciled all 8 outputs
-against the payout list and the salted commitment, and each recipient's key decrypted exactly its own payout. A mainnet run has
-not been done.
+against the payout list and the salted commitment, and each recipient's key decrypted exactly its own payout. On 2026-10-24 the
+same 8 recipients were paid by a payout funded through its own shielded address, with nothing done by hand: the payer paid that
+address shielded to shielded, the operator moved exactly the funding (`6e677bc5…`), and the batch `af8adf80…` settled. A freshly
+started verifier answers it settled, *shielded*, with no findings; its 8 payslips verify; the audit reconciles 8 of 8; and the
+payout's viewing key opens none of the transactions into or out of the shielded address. A send-back of what was left over, on a
+second payout, reached the payer's shielded wallet. A mainnet run has not been done.
 
 **Payslips.** A recipient can prove one output of a public batch to a third party without a viewing key and without revealing any
 other recipient. A payslip carries the transaction id, the output's position, the recipient's receiver, the amount and the note's
@@ -67,6 +72,15 @@ deposit and says which kind arrived, and the public receipt says it too (`fundin
 deposit transaction itself and stated by kind only, never the address. The amount and the time stay public either way. On our real
 testnet runs the verifier answers *shielded* for the first batch, funded straight from the testnet faucet's shielded wallet, and
 *transparent* for the 8-recipient batch, funded from a sweep of the first batch's change.
+
+**A shielded address for each payout.** On testnet the operator can also give each payout a shielded address of its own (a
+zcash-devtool wallet per payout, run as a separate process and built from upstream with our own patch). The payer pays it from a
+shielded wallet, in one payment or several. Once the payment is confirmed, after a random wait, the operator moves exactly the
+funding to the payout's public address, in one transaction it checks from its raw bytes before storing and sending it: its shape,
+its fee, and that what it spends equals what it pays plus the fee and any change. The payer's wallet never pays a public address,
+the public step is made by ZecDrop rather than by their wallet, and anything left over can be sent back to a shielded address.
+The payout's viewing key, the auditor's, sees none of it. What it does not hide: the total is public by design, so a payer who
+shields exactly that amount just before paying can still be matched by amount and time; the random wait helps, it does not hide.
 
 **Everyday use.** Two ways in: *Personal* (money home to family, gifts, a shared pot) and *Organisation* (payroll, grants,
 airdrops), each showing only what that payer needs. A personal payer needs no spreadsheet: they type the people they pay one at a
@@ -92,7 +106,9 @@ the network fee is 0.01655 ZEC (`docs/BENCHMARKS.md`).
 sent to mainnet. The code can run there behind an explicit gate, a 0.1 ZEC cap per campaign and start-up checks of the node, and is
 tested offline at mainnet parameters and read-only against the real mainnet node's data, but that is not a payout. Campaigns larger than one batch need a funding-split step that is not built. NEAR Intents funding shows a
 live price preview on testnet and creates nothing; its mainnet quote and status paths have only run against a fake service.
-Released wallets probably cannot sync current testnet, so the recipient side is shown with our own tool. The hosted
+Released wallets probably cannot sync current testnet, so the recipient side is shown with our own tool, and the shielded
+address was paid from a zcash-devtool wallet of our own. The shielded address runs on testnet only; its wallet database (its
+viewing keys, notes and amounts) is protected by file permissions, not encrypted like the operator's store. The hosted
 verifier runs on a single teammate's server, so live receipt links and hosted payslip checks depend on that server and on the
 public testnet node it reads; the same verifier is in the repository and runs from one Docker command.
 
@@ -100,4 +116,6 @@ public testnet node it reads; the same verifier is in the repository and runs fr
 real 8-recipient run live). Video: [url].
 
 **Build window.** All code in this repository was written during the ZECATHON build window; third-party
-libraries are dependencies, and generated or fetched protocol files are recorded in PROVENANCE.md files.
+libraries are dependencies, and generated or fetched protocol files are recorded in PROVENANCE.md files. zcash-devtool is not in
+the repository: a script builds it from upstream source at a pinned commit, with a patch written for ZecDrop
+(`scripts/zcash-devtool/PROVENANCE.md`).

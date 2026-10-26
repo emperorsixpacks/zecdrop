@@ -31,6 +31,13 @@
 //!   `shielded` when it had no transparent input, `transparent` otherwise (REQ-FUND-004). The
 //!   answer is public chain data, kept in memory and read again after a restart; the mock chain
 //!   reports only what `fund-observed` declares. It never refuses or delays anything.
+//! * **A shielded deposit address** (testnet, `--zcash-devtool`; [`inbox`], docs/ADR/0006-shielded-inbox.md). Each unfunded
+//!   campaign also gets an Orchard-only Unified Address of a zcash-devtool wallet of its own, set up from a phrase derived
+//!   from the operator's seed. Once a payer's notes there are spendable, and after a random delay, the operator moves exactly
+//!   the funding to the campaign's funding address in one transaction it checks from its raw bytes before storing and
+//!   sending it; the funding poller then sees it like any deposit (`funding_source: shielded`). What is left can be sent
+//!   back to a shielded address (`POST /api/campaigns/{id}/inbox/return`). The campaign answer's `inbox` says where it
+//!   stands, read from memory.
 //! * **One batch per campaign.** The deposit is the batch's funding input and the change returns
 //!   to the campaign's change address. A campaign that needs several batches is refused with
 //!   `needs_funding_split`: a funding-split transaction (a transparent transaction creating one

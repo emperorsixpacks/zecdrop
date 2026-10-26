@@ -139,6 +139,20 @@ delivers mainnet ZEC only; it creates nothing). On a mainnet campaign it takes t
 closing the row or reloading shows it again. A swap's success is "paid to the deposit address, says the service"; the campaign
 is funded only when the operator sees the coin on chain.
 
+**Stage 3 with a shielded deposit address** (a testnet operator run with zcash-devtool; REQ-FUND-008, `inbox-wording.ts`).
+*Is it funded?* leads with the payout's own shielded address instead: the same address block (copy, Open in wallet, QR code)
+for that address and exactly the funding plus the move's fee, and the ask "Send 0.0056 TAZ from your shielded wallet to this
+payout's own shielded address." Its "?" says what happens next: ZecDrop moves exactly the funding to the payout's public address
+a few minutes later, and that public step is what lets anyone check the total; the move's fee is in the amount; one payment or
+several. Under it, one live status line (a polite live region) says where the shielded address stands, in plain words: setting
+up; no deposit seen yet; a deposit confirming, *N* of 10; short by an amount ("Payments to this address add up."); enough,
+moving at a stated time, with why the wait is random; the move confirming. The public address stays one step away, in a closed
+"Pay the public address instead" row, until anything reaches the shielded one. After funding, the funded line adds "Moved here
+from this payout's shielded address.", and anything left there gets a **Send it back** form: the payer's own shielded address
+(a shape check in the page; the operator refuses a transparent or Sapling-only address, the shielded address itself and the
+payout's own), then a confirm step ("This can't be undone. Send it all to the address above?"). The page keeps asking while a
+move or a send-back is on its way; the operator answers from memory, so asking never runs zcash-devtool.
+
 **Campaigns page.** Empty: a heading, one friendly sentence, three bars that stand for rows (decoration, hidden from assistive
 technology, no text) and the drop zone as the call to action. The same bars and a primary "Start a payout" are the empty state
 of the audit page; a payout with no batches says "No batches yet" and when they appear. Non-empty: ruled rows (name, people,

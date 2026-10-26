@@ -11,6 +11,7 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 | Campaign UFVK | Given to the auditor out of band | Never sent to a hosted service (REQ-VER-002); audit runs locally (REQ-AUD-001) |
 | NEAR 1Click JWT | Operator env var | Never committed, never sent to the browser |
 | Salt for the manifest commitment | Operator store | 32 bytes from OS randomness |
+| Shielded deposit address wallets (testnet, `--zcash-devtool`) | One zcash-devtool wallet per payout under `<state-dir>/inbox/` | Its phrase and the identity it is encrypted to are derived from the operator's seed and reach zcash-devtool on stdin (the identity, for `init` alone, in a 0600 file deleted at once). Its wallet database (the inbox's viewing keys, notes and amounts) is **not encrypted**: each wallet directory is 0700, and the PCZT files a transaction is built from are deleted after use and at start-up (REQ-FUND-005, REQ-PRIV-004) |
 
 ## Actors and what they can do
 
@@ -18,7 +19,7 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 |---|---|---|
 | Public / judge | Read receipt, recompute totals | See any recipient, amount or memo |
 | Hosted verifier | Serve receipts from chain data | Hold keys; receive a UFVK; see the manifest |
-| Auditor (UFVK) | Decrypt every output of one campaign account | Spend; see other campaigns |
+| Auditor (UFVK) | Decrypt every output of one campaign account | Spend; see other campaigns; see the campaign's shielded deposit address (a different seed) |
 | Recipient | Read own amount and memo in their wallet | See other recipients |
 | Operator | Everything for their campaigns | — |
 
@@ -30,6 +31,15 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 - **Malformed or hostile import (CSV):** strict parser, all errors reported, no silent truncation (REQ-IMP-001).
 - **Verifier lies or is spoofed:** receipts are recomputable by anyone from public chain data; the page links
   txids to independent explorers.
+- **A wrong or doubled move out of a shielded deposit address:** every transaction zcash-devtool builds for an inbox is
+  checked from its raw bytes by the operator's own parser before it is stored or sent: its shape, its fee, and value
+  conservation by nullifier (and, for a send-back, where it goes, recovered with the inbox's outgoing viewing key). One move per
+  inbox, stored before broadcast and re-sent from those bytes, rebuilt only after its expiry on the scanned chain, never again
+  once mined; a fresh look at the funding address just before it; a lock on the inbox directory for the life of the process
+  (REQ-FUND-006, REQ-FUND-007).
+- **zcash-devtool changes or misbehaves:** built from a pinned upstream commit with ZecDrop's own patch, refused at start-up
+  without the patch's flags, run with a timeout and bounded output, its output never put in a log or an error; its wallet
+  database is only ever read, read-only.
 - **Secrets in git:** `.gitignore` blocks seeds and `.env`; pre-flip history scan (see `HACKATHON.md`).
 - **Hosted operator sandbox: NOT BUILT.** An earlier draft promised a hosted sandbox operator with a throwaway key and
   a spend cap. Neither exists. A hosted operator would also need a reverse proxy, which undoes the loopback-only and
@@ -39,7 +49,8 @@ Not audited. Hackathon-grade software: use testnet or small amounts. Privacy lim
 ## Open items
 
 Passphrase KDF parameters · local API auth for the embedded operator UI (bind to loopback + per-run token) ·
-Tor for chain access · rate limiting on the hosted verifier.
+Tor for chain access · rate limiting on the hosted verifier · the shielded deposit address wallets' databases are protected by
+file permissions only, not encrypted like the store.
 
 ## Independent review (2026-10-07)
 
