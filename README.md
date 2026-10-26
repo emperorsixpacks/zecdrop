@@ -76,8 +76,9 @@ No key material is in the repository.
 
 ## Build window
 
-ZecDrop was written during the ZECATHON build window; third-party libraries are used as dependencies and generated
-code is declared in `PROVENANCE.md` files.
+ZecDrop is a new implementation for Zcash,
+written during the ZECATHON build window; third-party libraries are used as dependencies and generated code is
+declared in `PROVENANCE.md` files.
 
 ## License
 
