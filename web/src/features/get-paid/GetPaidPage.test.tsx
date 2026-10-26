@@ -11,7 +11,21 @@ import { renderApp } from "@/test/render-app";
 import shapeSource from "../../lib/address-shape.ts?raw";
 import pageSource from "./GetPaidPage.tsx?raw";
 import wordingSource from "./wording.ts?raw";
-import { BUTTONS_HINT, FEEDBACK_TEXT, PROMISE, SHAPE_NOTE, shareText, WHY_TEXT, ZODL_URL } from "./wording";
+import {
+  ASSURANCE,
+  BUTTONS_HINT,
+  COPY_STEP,
+  FEEDBACK_TEXT,
+  OTHER_ADDRESSES,
+  OTHER_WALLETS_NOTE,
+  PROMISE,
+  SHAPE_NOTE,
+  SHIELDED_NOTE,
+  shareText,
+  WALLET_LINE,
+  WHY_TEXT,
+  ZODL_URL,
+} from "./wording";
 
 // ---- Harness ---------------------------------------------------------------
 
@@ -69,11 +83,26 @@ describe("the page", () => {
     });
     const promise = screen.getByText(PROMISE);
     expect(promise.tagName).toBe("P");
-    // A shielded wallet and one address; what shielded means in one line; the wallet is never seen; nothing leaves the phone.
-    expect(PROMISE).toContain("shielded wallet and one address to give the payer");
-    expect(PROMISE).toContain("Shielded means the receiver and the amount are encrypted on the public chain.");
-    expect(PROMISE).toContain("ZecDrop never sees your wallet");
-    expect(PROMISE).toContain("nothing on this page leaves your phone unless you share it yourself");
+    // One line: a shielded wallet and one address to give the payer.
+    expect(PROMISE).toContain("get a shielded wallet and give the payer one address");
+    // Under it, small: the wallet is never seen, and nothing leaves the phone.
+    expect(screen.getByText(ASSURANCE).tagName).toBe("P");
+    expect(ASSURANCE).toContain("ZecDrop never sees your wallet.");
+    expect(ASSURANCE).toContain("Nothing on this page leaves your phone unless you share it.");
+  });
+
+  // The owner found the page wordy (2026-10-19): it stays short. This is a ceiling on what the page says before anything is pasted,
+  // not a target, and a sentence cannot be added without taking one away. The page was 376 words before.
+  it("stays short: the words in the page before anything is pasted are under a ceiling", () => {
+    show();
+    const main = screen.getByRole("main");
+    const words = (main.textContent ?? "").replace(/([a-z.])([A-Z])/gu, "$1 $2").split(/\s+/u).filter(Boolean).length;
+    expect(words).toBeLessThanOrEqual(240);
+    // And no step has more than two paragraphs of its own (a link on a line of its own is not one), so none is a wall of text.
+    for (const item of Array.from(document.querySelectorAll("main ol > li"))) {
+      const paragraphs = Array.from(item.querySelectorAll(":scope > div > p")).filter((p) => p.querySelector("a") === null);
+      expect(paragraphs.length, item.querySelector("h2")?.textContent ?? "").toBeLessThanOrEqual(2);
+    }
   });
 
   it("has the four steps, in order, as a list", () => {
@@ -84,21 +113,33 @@ describe("the page", () => {
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
       "Get a wallet",
       "Copy your address",
-      "Give it to whoever is paying you",
+      "Give it to your payer",
       "When you are paid",
     ]);
     // The numbers are drawn, not read: the list already says which step is which.
     expect(Array.from(steps?.querySelectorAll(":scope > li > div > span[aria-hidden='true']") ?? [], (n) => n.textContent)).toEqual(["1", "2", "3", "4"]);
   });
 
-  it("step 1 names Zodl, links to zodl.com and nowhere else, and says what has and has not been checked", () => {
+  it("step 1 names Zodl, links to zodl.com and nowhere else, and says where its claim comes from", async () => {
+    const user = userEvent.setup();
     show();
     const main = screen.getByRole("main");
     const text = main.textContent ?? "";
-    expect(text).toContain("Zodl is one example: a Zcash wallet for phones.");
-    expect(text).toContain("Version 3.8.0 or newer supports the shielded pool that payouts use.");
-    expect(text).toContain("Other wallets may work, but we have only checked Zodl's release notes.");
-    expect(text).toContain("A wallet that cannot receive in the current pool will not show the payout.");
+    expect(text).toContain("Zodl is a Zcash wallet for phones.");
+    // What the page says of the wallet is said to come from its release notes, the only thing that has been read.
+    expect(text).toContain("By its release notes, version 3.8.0 or newer supports the shielded pool that payouts use.");
+    expect(WALLET_LINE).toContain("release notes");
+    // The rest is one tap away, so the step stays short: what shielded means, and what has and has not been checked.
+    expect(text).not.toContain(SHIELDED_NOTE);
+    const more = screen.getByRole("button", { name: "More about wallets" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await user.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    const opened = main.textContent ?? "";
+    expect(opened).toContain("Shielded means the receiver and the amount are encrypted on the public chain.");
+    expect(opened).toContain("Other wallets may work, but we have only checked Zodl's release notes.");
+    expect(opened).toContain("A wallet that cannot receive in the current pool will not show the payout.");
+    expect(OTHER_WALLETS_NOTE).toContain("only checked Zodl's release notes");
 
     const link = within(main).getByRole("link", { name: /Zodl at zodl\.com/u });
     expect(link).toHaveAttribute("href", ZODL_URL);
@@ -119,11 +160,16 @@ describe("the page", () => {
   it("step 2 says which address to copy, and what to do with each of the others", () => {
     show();
     const text = screen.getByRole("main").textContent ?? "";
-    expect(text).toContain("In your wallet, open Receive and copy the address that starts with u1. That is a real-money address.");
-    expect(text).toContain("An address that starts with utest1 is a testnet address: play money, for practice only.");
-    expect(text).toContain("Do not use an address that starts with t1 or t3.");
-    expect(text).toContain("A transparent address shows every payment publicly, and ZecDrop payouts are for shielded wallets.");
-    expect(text).toContain("An address that starts with zs1 is a Sapling address, an older kind. The payout tool asks for the u1 one.");
+    expect(text).toContain("In your wallet, open Receive and copy the address that starts with u1.");
+    expect(COPY_STEP).toBe("In your wallet, open Receive and copy the address that starts with u1.");
+    // The others are one short row each: how it starts, and what to do about it.
+    const rows = Array.from(document.querySelectorAll("main ol > li:nth-child(2) ul > li"), (row) => row.textContent);
+    expect(rows).toEqual([
+      "utest1A testnet address: play money, for practice only.",
+      "t1 or t3Not for payouts: it shows every payment publicly.",
+      "zs1An older kind (Sapling). The payout tool asks for the u1 one.",
+    ]);
+    expect(OTHER_ADDRESSES.map((kind) => kind.starts)).toEqual(["utest1", "t1 or t3", "zs1"]);
   });
 
   it("step 4 says when the payout shows, what a payslip is, and that it shows the memo, with a link to check one", () => {
@@ -132,8 +178,8 @@ describe("the page", () => {
     const text = main.textContent ?? "";
     expect(text).toContain("Your wallet shows the payout after a few confirmations, about 4 minutes on mainnet today.");
     expect(text).toContain("If there is a memo, it shows with the payout.");
-    expect(text).toContain("a small file that proves one payout to you to someone else");
-    expect(text).toContain("A payslip also shows what the memo says, so share it only with who you mean to.");
+    expect(text).toContain("a small file that proves one payout to you");
+    expect(text).toContain("It shows the memo too, so share it with care.");
     const link = within(main).getByRole("link", { name: "Check a payslip" });
     expect(link).toHaveAttribute("href", "/payslip");
     expect(link).not.toHaveAttribute("target");
@@ -179,9 +225,9 @@ describe("what a pasted address looks like", () => {
     show();
     expect(result()).toBeEmptyDOMElement();
     expect(screen.getByText(SHAPE_NOTE)).toBeInTheDocument();
-    expect(SHAPE_NOTE).toContain("This checks the shape only");
-    expect(SHAPE_NOTE).toContain("It cannot tell whether the address is valid or yours.");
-    expect(SHAPE_NOTE).toContain("The payer's tool checks it fully.");
+    expect(SHAPE_NOTE).toContain("This checks the shape only.");
+    expect(SHAPE_NOTE).toContain("It cannot tell whether the address is valid or yours");
+    expect(SHAPE_NOTE).toContain("the payer's tool checks it fully.");
     expect(field()).toHaveAttribute("aria-describedby", expect.stringContaining(screen.getByText(SHAPE_NOTE).id));
   });
 

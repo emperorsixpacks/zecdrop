@@ -4,9 +4,9 @@ Owner feedback (2026-10-08): the current UI is ugly, wordy, hard to navigate and
 interactive, with better screens. This plan replaces the presentation layer. API clients, schemas, stores, the
 privacy rules and the tests of behaviour stay; page layouts, copy and their copy-pinned tests are rewritten.
 
-Owner feedback (2026-10-19): the UI is "just okay": make it more pleasing and more responsive to touch, and let "the edges of the screen"
-be curved "so the notch can be felt". Answered by "The screen" (below) and the header's new offset. The identity is unchanged: paper, ink,
-the marker, redaction bars, the big tight grotesque.
+Owner feedback (2026-10-19): the UI is "just okay": make it more pleasing and more responsive to touch, let "the edges of the screen"
+be curved "so the notch can be felt", and the get-paid page is too wordy. Answered by "The screen" (below), the get-paid page's
+rewrite, and the header's new offset. The identity is unchanged: paper, ink, the marker, redaction bars, the big tight grotesque.
 
 Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
 default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
@@ -156,13 +156,20 @@ on focus, in the mono face and breaking anywhere, with Copy payslip link under i
 payslip came from a link and who therefore has it; the address bar is already bare by then, and the page has not checked anything.
 A link that is not a payslip is one plain sentence above the box, in the problem colour, and nothing is loaded.
 
-**Get paid.** For a recipient on a phone, so one column and thumb-sized controls (nothing under 44px) from 360px up. A promise
-in one paragraph in larger type, then four numbered steps with a plain title each (Get a wallet, Copy your address, Give it to
-whoever is paying you, When you are paid); the number is a small ink square (the marker in the dark set), drawn and not read, level
-with the top of its title. Step 3 is the one sheet: the box, a line that says the check is of shape only, the result as a ruled note
-(the ink rule for a real-money address, the marker's rule for a practice, Sapling or unrecognised one, the bad colour for the one
-that would publish every payment), Share and Copy, and the line that says when they turn on. Share is the main button where the
-phone has a share sheet, Copy where it has none. There is no picture, no third-party font and no link out but the wallet's.
+**Get paid.** For a recipient on a phone, and short (the owner found the first version wordy, 2026-10-19: it was 376 words and is now
+under 240, which `GetPaidPage.test.tsx` keeps as a ceiling). A promise in one line of larger type ("To be paid privately, get a shielded
+wallet and give the payer one address."), and under it, small, what the page does not do (ZecDrop never sees the wallet; nothing leaves the
+phone unless it is shared). Then four numbered steps, each on a **slip** (one column on a phone, two by two from 64rem up): Get a wallet,
+Copy your address, Give it to your payer, When you are paid. The number is a small ink circle (the marker in the dark set), drawn and not
+read, level with its title. Step 1 says what the page claims of the wallet and where that comes from ("By its release notes, version 3.8.0 or
+newer supports the shielded pool that payouts use"), has the one link out, and keeps the rest (what *shielded* means, that other wallets
+have not been checked, and what happens in a wallet that cannot receive in the current pool) behind one closed row, *More about wallets*,
+as the copy rules below ask of a long explanation. Step 2 says where to find the u1 address and gives the other kinds a wallet may show as
+three short rows (how it starts, what to do about it: `utest1`, `t1 or t3`, `zs1`). Step 3 is the box: a line that says the check is of
+shape only, the result as a ruled note (the ink rule for a real-money address, the marker's rule for a practice, Sapling or unrecognised
+one, the bad colour for the one that would publish every payment), Share and Copy, and the line that says when they turn on. Share is the
+main button where the phone has a share sheet, Copy where it has none. There is no picture, no third-party font and no link out but the
+wallet's.
 
 ## QR codes
 

@@ -134,8 +134,10 @@ payslip loads nothing and says so. The QR code is the same link, at the lowest e
 ## The get-paid page
 
 `/get-paid` ("Get paid in ZEC") is for someone who is going to be paid by a ZecDrop payout, on a phone, and may never have used
-Zcash. It is static: it says what a shielded wallet is, names Zodl as the example (the one wallet whose release notes have been
-read; the only link out is `https://zodl.com`, in a new tab, and no app-store link is made up), says which address to copy
+Zcash, and it is kept short (under 240 words before anything is opened; the test keeps that as a ceiling). It is static: it names
+Zodl as the example (the one wallet whose release notes have been read; the only link out is `https://zodl.com`, in a new tab, and no
+app-store link is made up), keeps what a shielded wallet is, and what has not been checked about other wallets, behind one closed row
+(*More about wallets*), says which address to copy
 (`u1…`, real money; `utest1…` is practice; `t1…`/`t3…` are transparent and do not suit payouts; `zs1…` is an older Sapling
 address) and what to expect when the payout arrives, with a link to the payslip page. The one thing it does is look at an
 address the person pastes: `src/lib/address-shape.ts` says what it **looks like** from its prefix, its characters and its

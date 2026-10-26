@@ -9,12 +9,32 @@ import type { AddressShape, UnrecognisedWhy } from "@/lib/address-shape";
 /** The only link out of the page, and the only place a wallet is named. No app-store link is made up. */
 export const ZODL_URL = "https://zodl.com";
 
-export const PROMISE =
-  "To be paid privately you need a shielded wallet and one address to give the payer. Shielded means the receiver and the amount are encrypted on the public chain. ZecDrop never sees your wallet, and nothing on this page leaves your phone unless you share it yourself.";
+export const PROMISE = "To be paid privately, get a shielded wallet and give the payer one address.";
+
+/** Under the promise, small: what the page does not do. */
+export const ASSURANCE = "ZecDrop never sees your wallet. Nothing on this page leaves your phone unless you share it.";
+
+/** In step 1: what the wallet is said to do, and where that comes from. Zodl is the one wallet whose release notes have been read. */
+export const WALLET_LINE = "Zodl is a Zcash wallet for phones. By its release notes, version 3.8.0 or newer supports the shielded pool that payouts use.";
+
+/** In step 1, behind "More about wallets": what shielded means, and what has and has not been checked. */
+export const SHIELDED_NOTE = "Shielded means the receiver and the amount are encrypted on the public chain.";
+export const OTHER_WALLETS_NOTE =
+  "Other wallets may work, but we have only checked Zodl's release notes. A wallet that cannot receive in the current pool will not show the payout.";
+
+/** Step 2: where to find the address that suits a payout. */
+export const COPY_STEP = "In your wallet, open Receive and copy the address that starts with u1.";
+
+/** Step 2: the other kinds of address a wallet may show, one short row each. */
+export const OTHER_ADDRESSES: readonly { starts: string; text: string }[] = [
+  { starts: "utest1", text: "A testnet address: play money, for practice only." },
+  { starts: "t1 or t3", text: "Not for payouts: it shows every payment publicly." },
+  { starts: "zs1", text: "An older kind (Sapling). The payout tool asks for the u1 one." },
+];
 
 /** Said next to the check, always: what it can and cannot tell. */
 export const SHAPE_NOTE =
-  "This checks the shape only: how the address starts, its letters and its length. It cannot tell whether the address is valid or yours. The payer's tool checks it fully.";
+  "This checks the shape only. It cannot tell whether the address is valid or yours; the payer's tool checks it fully.";
 
 /** Shown while Share and Copy are off, so they do not look broken. */
 export const BUTTONS_HINT = "Share and Copy turn on when the address starts with u1 or utest1.";
@@ -37,12 +57,12 @@ export interface Described {
 const RESULT: Record<"mainnet_unified" | "testnet_unified" | "transparent" | "sapling", Described> = {
   mainnet_unified: {
     title: "Looks like a real-money address",
-    text: "It starts with u1, the kind a ZecDrop payout can pay. You can share or copy it below.",
+    text: "It starts with u1, the kind a ZecDrop payout can pay.",
     tone: "default",
   },
   testnet_unified: {
     title: "Looks like a practice address",
-    text: "It starts with utest1: a testnet address, play money for practice only. Do not give it to someone paying real ZEC. You can share or copy it below.",
+    text: "It starts with utest1: a testnet address, play money for practice only. Do not give it to someone paying real ZEC.",
     tone: "warning",
   },
   transparent: {
