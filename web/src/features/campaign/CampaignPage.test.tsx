@@ -851,6 +851,63 @@ describe("a real chain", () => {
       expect(screen.getByTestId("public-instead")).toBeInTheDocument();
     });
 
+    // covers: REQ-FUND-007
+    it("sends what is left back to a shielded address, only after the person confirms, with the operator's confirmation header", async () => {
+      const user = userEvent.setup();
+      const txid = "b1".repeat(32);
+      open(
+        {
+          "GET /api/campaigns/:id": campaign("campaign-real-inbox-moved.json"),
+          "POST /api/campaigns/:id/inbox/return": () => ({ status: 202, body: { txid } }),
+        },
+        realHealth,
+      );
+      const form = await screen.findByTestId("inbox-return");
+      const button = within(form).getByRole("button", { name: INBOX_WORDING.returnButton });
+      expect(button).toBeDisabled();
+      await user.type(within(form).getByLabelText(INBOX_WORDING.returnLabel), "tmFAKEtransparentAddressNotOne0000");
+      expect(button).toBeDisabled();
+      await user.clear(within(form).getByLabelText(INBOX_WORDING.returnLabel));
+      const to = "utest1returnherefakeaddressnotarealone0000000";
+      await user.type(within(form).getByLabelText(INBOX_WORDING.returnLabel), to);
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnButton }));
+      // Nothing is sent before the person confirms.
+      expect(operator.to("POST", /\/inbox\/return$/u)).toHaveLength(0);
+      expect(within(form).getByText(INBOX_WORDING.returnConfirm)).toBeInTheDocument();
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnYes }));
+      expect(await screen.findByTestId("inbox-return-sent")).toHaveTextContent(INBOX_WORDING.returnSent);
+      const calls = operator.to("POST", /\/inbox\/return$/u);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.body).toEqual({ to });
+      expect(calls[0]?.headers.get("X-Zecdrop-Confirm-Send")).toBe("I-UNDERSTAND");
+    });
+
+    // covers: REQ-FUND-007
+    it("says plainly why the operator refused a send-back", async () => {
+      const user = userEvent.setup();
+      open(
+        {
+          "GET /api/campaigns/:id": campaign("campaign-real-inbox-moved.json"),
+          "POST /api/campaigns/:id/inbox/return": () => ({
+            status: 400,
+            body: { error: { code: "inbox_return_refused", message: "x" } },
+          }),
+        },
+        realHealth,
+      );
+      const form = await screen.findByTestId("inbox-return");
+      await user.type(within(form).getByLabelText(INBOX_WORDING.returnLabel), "utest1returnherefakeaddressnotarealone0000000");
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnButton }));
+      await user.click(within(form).getByRole("button", { name: INBOX_WORDING.returnYes }));
+      expect(await within(form).findByText("That address can't be used")).toBeInTheDocument();
+    });
+
+    it("offers no send-back while a move may still happen", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-scheduled.json") }, realHealth);
+      await screen.findByTestId("inbox-status");
+      expect(screen.queryByTestId("inbox-return")).toBeNull();
+    });
+
     it("claims nothing the privacy boundary does not", () => {
       const texts = Object.values(INBOX_WORDING).flatMap((value) => (typeof value === "string" ? [value] : [...value]));
       for (const text of texts) for (const [label, pattern] of BANNED) expect(text, label).not.toMatch(pattern);

@@ -104,6 +104,7 @@ pub fn build_router(state: AppState, web_dir: Option<PathBuf>, bound: SocketAddr
         .route("/campaigns/{id}/check-funding", post(check_funding))
         .route("/campaigns/{id}/audit-ufvk-export", get(export_ufvk))
         .route("/campaigns/{id}/payslips", get(export_payslips))
+        .route("/campaigns/{id}/inbox/return", post(inbox_return))
         .route("/near/tokens", get(api_near::near_tokens))
         .route(
             "/near/preview",
@@ -698,6 +699,75 @@ async fn check_funding(
     }
     let record = load(&state, id.as_str())?;
     Ok(Json(view(&state, &record)?))
+}
+
+/// What a send-back asks for (REQ-FUND-007): where everything spendable in the payout's shielded deposit address goes.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InboxReturnBody {
+    to: String,
+}
+
+/// The request header that must carry [`EXPORT_CONFIRMATION`] for a send-back, which moves money and cannot be undone.
+const SEND_HEADER: &str = "x-zecdrop-confirm-send";
+
+/// Sends what is in a payout's shielded deposit address back to a shielded address (REQ-FUND-007). The request must carry
+/// `X-Zecdrop-Confirm-Send: I-UNDERSTAND`: the money leaves for good. Answers 202 with the transaction id once it is
+/// stored and sent.
+async fn inbox_return(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    ApiJson(body): ApiJson<InboxReturnBody>,
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    use crate::inbox::engine::{InboxError, SendBackError};
+    let confirmed = headers
+        .get(SEND_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v == EXPORT_CONFIRMATION);
+    if !confirmed {
+        return Err(ApiError::bad_request(
+            "confirmation_required",
+            format!("send the header `X-Zecdrop-Confirm-Send: {EXPORT_CONFIRMATION}` after the person has confirmed"),
+        ));
+    }
+    let record = load(&state, &id)?;
+    let no_inbox = || {
+        ApiError::new(
+            StatusCode::NOT_FOUND,
+            "inbox_not_found",
+            "this payout has no shielded deposit address",
+        )
+    };
+    let Some(inboxes) = state.inboxes() else {
+        return Err(no_inbox());
+    };
+    match inboxes.send_back(&state, &record, body.to.trim()).await {
+        Ok(txid) => Ok((StatusCode::ACCEPTED, Json(json!({ "txid": txid })))),
+        Err(SendBackError::NoInbox) => Err(no_inbox()),
+        Err(SendBackError::Refused) => Err(ApiError::bad_request(
+            "inbox_return_refused",
+            "send it to a shielded address with an Orchard receiver that is neither this payout's shielded address nor its own",
+        )),
+        Err(SendBackError::Busy) => Err(ApiError::conflict(
+            "inbox_busy",
+            "a transaction from this shielded address is in flight, or it may still fund the payout; try again later",
+        )),
+        Err(SendBackError::Nothing) => Err(ApiError::conflict(
+            "inbox_nothing_to_return",
+            "nothing in this shielded address can be spent now",
+        )),
+        Err(SendBackError::Inbox(InboxError::Refused)) => Err(ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "inbox_check_failed",
+            "the transaction built for this did not pass ZecDrop's check, and was not sent",
+        )),
+        Err(SendBackError::Inbox(_)) => Err(ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "inbox_unavailable",
+            "the shielded address's wallet or the chain could not be reached; try again shortly",
+        )),
+    }
 }
 
 /// The request header that must carry [`EXPORT_CONFIRMATION`] for a viewing key, or a campaign's

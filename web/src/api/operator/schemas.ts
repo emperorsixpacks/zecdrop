@@ -255,6 +255,13 @@ export const KNOWN_ERROR_CODES = [
   "unknown_origin_asset",
   "zec_origin_not_allowed",
   "invalid_refund_address",
+  // The shielded deposit address's send-back (REQ-FUND-007).
+  "inbox_not_found",
+  "inbox_return_refused",
+  "inbox_busy",
+  "inbox_nothing_to_return",
+  "inbox_check_failed",
+  "inbox_unavailable",
 ] as const;
 
 const KNOWN = new Set<string>(KNOWN_ERROR_CODES);
@@ -729,6 +736,17 @@ const startWire = z
 
 export function parseStartResponse(input: unknown): StartResponse {
   return startWire.parse(input);
+}
+
+/** What a send-back answers (REQ-FUND-007): the transaction that carries it, stored and sent. */
+export interface InboxReturnResponse {
+  txid: string;
+}
+
+const inboxReturnWire = z.object({ txid: hex32Wire }).strict();
+
+export function parseInboxReturn(input: unknown): InboxReturnResponse {
+  return inboxReturnWire.parse(input);
 }
 
 // ---- progress events (the SSE stream) ------------------------------------------

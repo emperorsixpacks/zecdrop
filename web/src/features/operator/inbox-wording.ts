@@ -28,4 +28,12 @@ export const INBOX_WORDING = {
   /** After the payout is funded from the shielded address. */
   movedFrom: "Moved here from this payout's shielded address.",
   leftTail: "is left in this payout's shielded address.",
+  /** Sending what is left back (REQ-FUND-007). */
+  returnHeading: "Send it back",
+  returnWhy: "Everything in this payout's shielded address, less a small network fee, goes to a shielded address of yours.",
+  returnLabel: "Your shielded address",
+  returnButton: "Send it back",
+  returnConfirm: "This can't be undone. Send it all to the address above?",
+  returnYes: "Yes, send it back",
+  returnSent: "Sending it back, in transaction",
 } as const;

@@ -27,9 +27,11 @@ import {
   parseCampaignList,
   parseHealth,
   parseOperatorError,
+  parseInboxReturn,
   parsePayslipsExport,
   parseViewingKeyExport,
   parseStartResponse,
+  type InboxReturnResponse,
   type OperatorCampaign,
   type OperatorCampaignSummary,
   type OperatorError,
@@ -234,6 +236,21 @@ export async function exportPayslips(id: string, signal?: AbortSignal): Promise<
   return await request(campaignPath(id, "/payslips"), {
     parse: parsePayslipsExport,
     extraHeaders: { [DISCLOSURE_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/** The header that confirms a send-back, which moves money and cannot be undone (REQ-FUND-007). Sent only after the
+ * person has confirmed where it goes (see InboxReturn). */
+export const SEND_HEADER = "X-Zecdrop-Confirm-Send";
+
+/** Send everything spendable in a payout's shielded deposit address, less the fee, back to the shielded address `to`. */
+export async function returnInbox(id: string, to: string, signal?: AbortSignal): Promise<InboxReturnResponse> {
+  return await request(campaignPath(id, "/inbox/return"), {
+    method: "POST",
+    body: { to },
+    parse: parseInboxReturn,
+    extraHeaders: { [SEND_HEADER]: DISCLOSURE_ACKNOWLEDGEMENT },
     ...(signal ? { signal } : {}),
   });
 }

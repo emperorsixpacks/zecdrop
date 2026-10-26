@@ -28,6 +28,18 @@ use zip32::AccountId;
 
 use crate::{codec::orchard_receiver, inspect::candidate_ovks, keys::KeyError};
 
+/// Whose `address` is: `None` when it has no Orchard receiver (a transparent or Sapling-only address, or not a Zcash address
+/// at all); otherwise whether that receiver is one of `ufvk`'s own addresses (any diversifier, either scope).
+pub fn orchard_receiver_owned_by(
+    network: Network,
+    address: &str,
+    ufvk: &UnifiedFullViewingKey,
+) -> Option<bool> {
+    let receiver = orchard_receiver(network, address)?;
+    let fvk = ufvk.orchard()?;
+    Some(fvk.scope_for_address(&receiver).is_some())
+}
+
 /// How far past the chain tip an inbox transaction may expire: zcash-devtool sets its expiry 40 blocks after the height it
 /// targets (its scanned tip, plus one), and the operator only builds with a wallet at most 2 blocks behind the node.
 pub const EXPIRY_SLACK: u32 = 43;
@@ -553,6 +565,29 @@ mod tests {
         assert_eq!(
             keys.check_return(&real_move(), FUNDING_ADDRESS, &ok),
             Err(InboxTxProblem::WrongShieldedOutput)
+        );
+    }
+
+    #[test]
+    fn whose_address_it_is() {
+        let inbox = any_inbox();
+        let other = InboxKeys::derive(&[8u8; 64], TestNetwork).unwrap();
+        assert_eq!(
+            orchard_receiver_owned_by(TestNetwork, &inbox.address(), inbox.ufvk()),
+            Some(true)
+        );
+        assert_eq!(
+            orchard_receiver_owned_by(TestNetwork, &other.address(), inbox.ufvk()),
+            Some(false)
+        );
+        assert_eq!(
+            orchard_receiver_owned_by(TestNetwork, FUNDING_ADDRESS, inbox.ufvk()),
+            None,
+            "transparent: no Orchard receiver"
+        );
+        assert_eq!(
+            orchard_receiver_owned_by(TestNetwork, "nonsense", inbox.ufvk()),
+            None
         );
     }
 

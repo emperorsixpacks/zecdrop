@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-const PROTECTED_ROUTES: [(&str, &str); 10] = [
+const PROTECTED_ROUTES: [(&str, &str); 11] = [
     ("GET", "/api/campaigns"),
     ("POST", "/api/campaigns"),
     ("GET", "/api/campaigns/c-000000000000"),
@@ -22,6 +22,7 @@ const PROTECTED_ROUTES: [(&str, &str); 10] = [
     ("POST", "/api/campaigns/c-000000000000/check-funding"),
     ("GET", "/api/campaigns/c-000000000000/audit-ufvk-export"),
     ("GET", "/api/campaigns/c-000000000000/payslips"),
+    ("POST", "/api/campaigns/c-000000000000/inbox/return"),
 ];
 
 fn method(name: &str) -> Method {

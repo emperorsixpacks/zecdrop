@@ -414,3 +414,161 @@ async fn nothing_of_the_inbox_reaches_the_receipt_the_logs_or_the_payouts_viewin
     }
     assert_ne!(payout.unified_address(), inbox.address());
 }
+
+async fn send_back(h: &Harness, id: &CampaignId, to: &str, confirm: bool) -> Reply {
+    let headers: &[(&str, &str)] = if confirm {
+        &[("x-zecdrop-confirm-send", "I-UNDERSTAND")]
+    } else {
+        &[]
+    };
+    h.call_with(
+        axum::http::Method::POST,
+        &format!("/api/campaigns/{id}/inbox/return"),
+        Auth::Token,
+        Some(json!({ "to": to })),
+        headers,
+    )
+    .await
+}
+
+// covers: REQ-FUND-007
+#[tokio::test]
+async fn a_send_back_is_refused_while_a_move_may_happen_and_to_any_address_but_a_shielded_one_of_someone_else(
+) {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (id, _, account) = create(&h).await;
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    // Enough has arrived and is still confirming: a move will happen, so nothing goes back.
+    fake.deposit(account, REQUIRED + FEE, 995, 5);
+    let busy = send_back(&h, &id, &recipient_ua(5), true).await;
+    assert_eq!(busy.status, StatusCode::CONFLICT, "{}", busy.text());
+    assert_eq!(busy.json()["error"]["code"], "inbox_busy");
+    // It must be confirmed: money leaves for good.
+    let unconfirmed = send_back(&h, &id, &recipient_ua(5), false).await;
+    assert_eq!(unconfirmed.json()["error"]["code"], "confirmation_required");
+    // Never to a transparent address, the inbox itself, or the payout's own account.
+    let seed = SecretSeed::from_bytes(TEST_SEED);
+    let phrase = InboxPhrase::derive(&seed, Network::Testnet, account).unwrap();
+    let own_inbox = InboxKeys::derive(phrase.wallet_seed(), zcash_network(Network::Testnet))
+        .unwrap()
+        .address();
+    let own_payout =
+        CampaignKeys::derive(&TEST_SEED, zcash_network(Network::Testnet), account).unwrap();
+    for to in [
+        own_payout.funding_address(),
+        own_inbox,
+        own_payout.unified_address(),
+        "nonsense".to_owned(),
+    ] {
+        let refused = send_back(&h, &id, &to, true).await;
+        assert_eq!(
+            refused.status,
+            StatusCode::BAD_REQUEST,
+            "{to}: {}",
+            refused.text()
+        );
+        assert_eq!(refused.json()["error"]["code"], "inbox_return_refused");
+    }
+    assert!(fake.lock().returns.is_empty());
+}
+
+// covers: REQ-FUND-007
+#[tokio::test]
+async fn what_is_left_after_the_move_goes_back_stored_before_it_is_sent() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (id, created, account) = create(&h).await;
+    let funding_address = created["funding_address"].as_str().unwrap().to_owned();
+    let fake = FakeInbox::default();
+    fake.tip(1_000);
+    let inboxes = attach(&h, &fake);
+    inboxes.round(&h.state).await;
+    // More than asked: the move leaves 200,000 of change in the inbox.
+    fake.deposit(account, REQUIRED + FEE + 200_000, 990, 6);
+    inboxes.round(&h.state).await;
+    let pending = h
+        .state
+        .store()
+        .load_inbox(&id)
+        .unwrap()
+        .unwrap()
+        .pending
+        .unwrap();
+    fake.mine(&pending.txid, 1_001);
+    put_deposit_tx(
+        &node,
+        &funding_address,
+        REQUIRED,
+        Some(1_001),
+        real_deposit("testnet-ironwood-batch"),
+    );
+    node.lock().tip = 1_004;
+    fake.tip(1_004);
+    check(&h, &id).await;
+    inboxes.round(&h.state).await;
+    assert_eq!(view(&h, &id).await["inbox"]["left"], "200000");
+
+    let to = recipient_ua(5);
+    let sent = send_back(&h, &id, &to, true).await;
+    assert_eq!(sent.status, StatusCode::ACCEPTED, "{}", sent.text());
+    let txid = sent.json()["txid"].as_str().unwrap().to_owned();
+    let stored = h
+        .state
+        .store()
+        .load_inbox(&id)
+        .unwrap()
+        .unwrap()
+        .pending
+        .unwrap();
+    {
+        let fake = fake.lock();
+        assert_eq!(fake.returns.len(), 1);
+        assert_eq!(fake.returns[0].1, to);
+        assert_eq!(
+            fake.returns[0].2,
+            vec![([0xcc; 32], 200_000)],
+            "only the change, which is all that is left"
+        );
+        assert_eq!(
+            fake.broadcasts.last().map(hex::encode),
+            Some(stored.raw.clone()),
+            "stored before it was sent"
+        );
+    }
+    assert_eq!(view(&h, &id).await["inbox"]["state"], "returning");
+    // A second one while it is in flight is refused.
+    assert_eq!(
+        send_back(&h, &id, &to, true).await.json()["error"]["code"],
+        "inbox_busy"
+    );
+    // Mined: nothing is left, and nothing more can go.
+    fake.mine(&txid, 1_005);
+    fake.tip(1_006);
+    inboxes.round(&h.state).await;
+    let kept = h.state.store().load_inbox(&id).unwrap().unwrap();
+    assert!(kept.pending.is_none());
+    assert_eq!(kept.moved, Some(pending.txid));
+    assert_eq!(view(&h, &id).await["inbox"]["left"], "0");
+    assert_eq!(
+        send_back(&h, &id, &to, true).await.json()["error"]["code"],
+        "inbox_nothing_to_return"
+    );
+}
+
+// covers: REQ-FUND-007
+#[tokio::test]
+async fn a_payout_without_an_inbox_has_nothing_to_send_back() {
+    let node = SharedNode::default();
+    node.lock().tip = 1_000;
+    let h = real_harness(&node, DEPTH);
+    let (id, _, _) = create(&h).await;
+    let reply = send_back(&h, &id, &recipient_ua(5), true).await;
+    assert_eq!(reply.status, StatusCode::NOT_FOUND);
+    assert_eq!(reply.json()["error"]["code"], "inbox_not_found");
+}

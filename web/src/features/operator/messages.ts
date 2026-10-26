@@ -213,6 +213,27 @@ function explainApi(error: OperatorApiError, unit: CoinUnit): Explained {
       return { title: "That coin is not on the list", detail: "Choose one of the coins the price service offers." };
     case "zec_origin_not_allowed":
       return { title: "ZEC cannot pay for ZEC", detail: "Choose another coin to pay with." };
+    case "inbox_not_found":
+      return { title: "No shielded address here", detail: "This payout has no shielded deposit address, so there is nothing to send back." };
+    case "inbox_return_refused":
+      return {
+        title: "That address can't be used",
+        detail: "Send it to a shielded address of yours, one that starts with utest1 or u1, and not this payout's own.",
+      };
+    case "inbox_busy":
+      return {
+        title: "Not now",
+        detail: "Something is already on its way from this shielded address, or it may still fund the payout. Try again once it is done.",
+      };
+    case "inbox_nothing_to_return":
+      return { title: "Nothing to send back", detail: "Nothing in this payout's shielded address can be spent now." };
+    case "inbox_check_failed":
+      return {
+        title: "Stopped before sending",
+        detail: "The transaction built for this did not pass ZecDrop's own check, so it was not sent. Nothing left the address.",
+      };
+    case "inbox_unavailable":
+      return { title: "The shielded address can't be reached", detail: "Its wallet or the chain did not answer. Try again in a moment." };
     case "invalid_refund_address":
       return {
         title: "That refund address can't be used",

@@ -26,6 +26,9 @@ use super::Harness;
 /// A move the fake built: (account, to, value, the notes it was given).
 pub type BuiltMove = (u32, String, u64, Vec<([u8; 32], u64)>);
 
+/// A send-back the fake built: (account, to, the notes it was given, its txid).
+pub type BuiltReturn = (u32, String, Vec<([u8; 32], u64)>, String);
+
 pub const BRANCH: u32 = 0x7719_0ad9;
 pub const FEE: u64 = 15_000;
 
@@ -40,6 +43,8 @@ pub struct Fake {
     pub built: Vec<BuiltMove>,
     /// The txid of each move built, in the same order.
     pub built_txids: Vec<String>,
+    /// Every send-back built: (account, to, the notes it was given), and its txid.
+    pub returns: Vec<BuiltReturn>,
     pub broadcasts: Vec<Vec<u8>>,
     pub mined: HashMap<String, u32>,
     pub fail_setup: bool,
@@ -76,6 +81,18 @@ impl FakeInbox {
     pub fn mine(&self, txid: &str, height: u32) {
         let mut fake = self.lock();
         fake.mined.insert(txid.to_owned(), height);
+        if let Some(index) = fake.returns.iter().position(|r| r.3 == txid) {
+            let (account, _, notes, _) = fake.returns[index].clone();
+            for note in fake.notes.entry(account).or_default().iter_mut() {
+                if note
+                    .nullifier
+                    .is_some_and(|nf| notes.iter().any(|(spent_nf, _)| *spent_nf == nf))
+                {
+                    note.spend = NoteSpend::Mined;
+                }
+            }
+            return;
+        }
         let Some(index) = fake.built_txids.iter().position(|t| t == txid) else {
             return;
         };
@@ -187,11 +204,28 @@ impl InboxBackend for FakeInbox {
     fn build_return<'a>(
         &'a self,
         _seed: &'a SecretSeed,
-        _account: u32,
-        _to: &'a str,
-        _context: OwnedContext,
+        account: u32,
+        to: &'a str,
+        context: OwnedContext,
     ) -> BoxFuture<'a, Result<Built, InboxError>> {
-        Box::pin(async move { Err(InboxError::Unavailable) })
+        Box::pin(async move {
+            let mut fake = self.lock();
+            let raw = format!("return-{account}-{}", fake.returns.len()).into_bytes();
+            let txid = txid_of(&raw);
+            fake.returns
+                .push((account, to.to_owned(), context.notes.clone(), txid.clone()));
+            let spent: u64 = context.notes.iter().map(|n| n.1).sum();
+            Ok(Built {
+                facts: InboxTxFacts {
+                    txid,
+                    expiry_height: context.tip + 40,
+                    fee: 10_000,
+                    spent,
+                    change: 0,
+                },
+                raw,
+            })
+        })
     }
 
     fn broadcast<'a>(&'a self, raw: &'a [u8]) -> BoxFuture<'a, Result<Sent, InboxError>> {

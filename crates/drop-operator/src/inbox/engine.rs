@@ -18,16 +18,20 @@ use std::{
 };
 
 use drop_core::{CampaignId, Network, Txid};
-use drop_zcash::inbox::{InboxTxContext, InboxTxFacts};
+use drop_zcash::{
+    inbox::{orchard_receiver_owned_by, InboxTxContext, InboxTxFacts},
+    zcash_network, CampaignKeys, InboxKeys,
+};
 use serde::Serialize;
 use thiserror::Error;
 
 use super::{
+    keys::InboxPhrase,
     plan::{asked, holdings, plan, Held, Payout, Plan, SPENDABLE_AFTER},
     record::{InboxRecord, InboxTx, InboxTxKind},
     walletdb::{InboxNote, NoteSpend},
 };
-use crate::{funding::funding_plan, secret::SecretSeed, state::AppState};
+use crate::{funding::funding_plan, secret::SecretSeed, state::AppState, store::CampaignRecord};
 
 /// A boxed future, for the backend's object-safe methods.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -47,6 +51,28 @@ pub enum InboxError {
     /// The transaction zcash-devtool built failed ZecDrop's check, and was neither stored nor sent.
     #[error("the inbox transaction failed ZecDrop's check and was not sent")]
     Refused,
+}
+
+/// Why a send-back was refused (REQ-FUND-007).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum SendBackError {
+    /// The payout has no shielded deposit address.
+    #[error("this payout has no shielded deposit address")]
+    NoInbox,
+    /// The destination is not a shielded address with an Orchard receiver, or it is the inbox's own or the payout's own.
+    #[error("send it to a shielded address with an Orchard receiver that is neither this inbox's nor the payout's own")]
+    Refused,
+    /// A move or a send-back is in flight, or the inbox may still move the payout's funding.
+    #[error(
+        "a transaction from this inbox is in flight, or it may still move the payout's funding"
+    )]
+    Busy,
+    /// Nothing in the inbox can be spent now.
+    #[error("there is nothing spendable in this inbox to send back")]
+    Nothing,
+    /// The wallet or the chain failed.
+    #[error(transparent)]
+    Inbox(#[from] InboxError),
 }
 
 /// What an inbox wallet holds, as of its last sync.
@@ -606,6 +632,112 @@ impl Inboxes {
             sent.unwrap_or(Sent::Rejected)
         ));
         Ok(true)
+    }
+
+    /// Sends everything spendable in a payout's inbox, less the fee, to the shielded address `to` (REQ-FUND-007): only when no
+    /// move can happen (the payout is funded, or the inbox has moved, or it holds less than a move needs), never to a
+    /// transparent or Sapling-only address, never to the inbox itself or to the payout's own account (whose viewing key an
+    /// auditor holds). Checked, stored, then sent, like a move; gives its txid.
+    pub async fn send_back(
+        &self,
+        state: &AppState,
+        record: &CampaignRecord,
+        to: &str,
+    ) -> Result<String, SendBackError> {
+        let _work = self.work.lock().await;
+        let id = &record.id;
+        let mut inbox = state
+            .store()
+            .load_inbox(id)
+            .map_err(|_| InboxError::Unavailable)?
+            .ok_or(SendBackError::NoInbox)?;
+        if inbox.pending.is_some() {
+            return Err(SendBackError::Busy);
+        }
+        let network = zcash_network(record.network);
+        let phrase = InboxPhrase::derive(state.seed(), record.network, record.account)
+            .map_err(|_| InboxError::Unavailable)?;
+        let own = InboxKeys::derive(phrase.wallet_seed(), network)
+            .map_err(|_| InboxError::Unavailable)?;
+        let payout = CampaignKeys::derive(state.seed().expose_secret(), network, record.account)
+            .map_err(|_| InboxError::Unavailable)?;
+        match (
+            orchard_receiver_owned_by(network, to, own.ufvk()),
+            orchard_receiver_owned_by(network, to, payout.ufvk()),
+        ) {
+            (Some(false), Some(false)) => {}
+            _ => return Err(SendBackError::Refused),
+        }
+        let snapshot = self.backend.refresh(record.account).await?;
+        let chain = self.backend.chain_now().await?;
+        let notes: Vec<Held> = snapshot
+            .notes
+            .iter()
+            .map(|n| Held {
+                value: n.value,
+                confirmations: n.confirmations(snapshot.wallet_tip),
+                is_change: n.is_change,
+                unspent: n.spend == NoteSpend::Unspent,
+            })
+            .collect();
+        if record.funding.is_none() && inbox.moved.is_none() {
+            let batches = state.plan(record).map_err(|_| InboxError::Unavailable)?;
+            let required = funding_plan(&batches, &record.fee_policy)
+                .map_err(|_| InboxError::Unavailable)?
+                .required
+                .as_u64();
+            let payout = Payout {
+                required,
+                funded_otherwise: false,
+                busy_or_moved: false,
+            };
+            if matches!(plan(payout, &notes), Plan::Move { .. } | Plan::Confirming) {
+                return Err(SendBackError::Busy);
+            }
+        }
+        if holdings(&notes).spendable == 0 {
+            return Err(SendBackError::Nothing);
+        }
+        if chain.tip.saturating_sub(snapshot.wallet_tip) > 2 {
+            return Err(InboxError::Behind.into());
+        }
+        let context = OwnedContext {
+            branch_id: chain.branch_id,
+            tip: chain.tip,
+            notes: snapshot
+                .notes
+                .iter()
+                .filter(|n| n.spend == NoteSpend::Unspent)
+                .filter_map(|n| n.nullifier.map(|nf| (nf, n.value)))
+                .collect(),
+        };
+        let built = self
+            .backend
+            .build_return(state.seed(), record.account, to, context)
+            .await?;
+        inbox.pending = Some(InboxTx {
+            kind: InboxTxKind::Return,
+            txid: built.facts.txid.clone(),
+            raw: hex::encode(&built.raw),
+            expiry_height: built.facts.expiry_height,
+        });
+        state
+            .store()
+            .save_inbox(id, &inbox)
+            .map_err(|_| InboxError::Unavailable)?;
+        lock(&self.sent_at).insert(id.clone(), Instant::now());
+        let sent = self.backend.broadcast(&built.raw).await;
+        state.logger().info(format_args!(
+            "inbox of {id}: send-back {} sent ({:?})",
+            built.facts.txid,
+            sent.unwrap_or(Sent::Rejected)
+        ));
+        if let Some(mut view) = self.view(id) {
+            view.state = InboxState::Returning;
+            view.txid = Some(built.facts.txid.clone());
+            self.set_view(id, view);
+        }
+        Ok(built.facts.txid)
     }
 
     /// Sends a stored transaction again, at most every [`InboxSettings::resend`].

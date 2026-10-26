@@ -14,6 +14,7 @@ import {
   listCampaigns,
   OperatorApiError,
   recordFunding,
+  returnInbox,
   startCampaign,
   type CreateCampaignInput,
 } from "@/api/operator/client";
@@ -140,6 +141,15 @@ export function useCheckFunding(id: string) {
   const refresh = useRefreshCampaign();
   return useMutation({
     mutationFn: () => checkFunding(id),
+    onSettled: () => refresh(id),
+  });
+}
+
+/** Sends what is left in the payout's shielded deposit address back to a shielded address (REQ-FUND-007). */
+export function useReturnInbox(id: string) {
+  const refresh = useRefreshCampaign();
+  return useMutation({
+    mutationFn: (to: string) => returnInbox(id, to),
     onSettled: () => refresh(id),
   });
 }

@@ -19,7 +19,7 @@ import { useMediaQuery } from "@/lib/use-media";
 import { DepositSource } from "./DepositSource";
 import { FailureNotice } from "./FailureNotice";
 import { FUNDING_SOURCE_WORDING } from "./funding-source-wording";
-import { useCheckFunding, useHealth } from "./hooks";
+import { useCheckFunding, useHealth, useReturnInbox } from "./hooks";
 import { INBOX_WORDING } from "./inbox-wording";
 import { MockFunding } from "./MockFunding";
 
@@ -282,6 +282,92 @@ function InboxStatus({ inbox, campaign }: { inbox: InboxView; campaign: Operator
   );
 }
 
+/** A shielded address, roughly: the operator decides; this only keeps the button off for what cannot be one. */
+const SHIELDED_SHAPE = /^u(test)?1[0-9a-z]{20,}$/u;
+
+/** Sends what is left in the payout's shielded address back to a shielded address of the person's, after they confirm
+ * (REQ-FUND-007). */
+function InboxReturn({ campaign }: { campaign: OperatorCampaign }) {
+  const send = useReturnInbox(campaign.id);
+  const headingId = useId();
+  const inputId = useId();
+  const [to, setTo] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const valid = SHIELDED_SHAPE.test(to.trim());
+  if (send.isSuccess) {
+    return (
+      <p role="status" className="text-base" data-testid="inbox-return-sent">
+        {INBOX_WORDING.returnSent}{" "}
+        <span className="mono" title={send.data.txid}>
+          {shortId(send.data.txid)}
+        </span>
+        .
+      </p>
+    );
+  }
+  return (
+    <section aria-labelledby={headingId} className="max-w-[64ch] space-y-3" data-testid="inbox-return">
+      <h3 id={headingId} className="text-lg font-bold">
+        {INBOX_WORDING.returnHeading}
+      </h3>
+      <p className="text-base">{INBOX_WORDING.returnWhy}</p>
+      <div className="space-y-1">
+        <label htmlFor={inputId} className="block text-sm font-semibold">
+          {INBOX_WORDING.returnLabel}
+        </label>
+        <input
+          id={inputId}
+          value={to}
+          onChange={(e) => {
+            setTo(e.target.value);
+            setConfirming(false);
+          }}
+          autoComplete="off"
+          spellCheck={false}
+          className="mono h-11 w-full rounded-(--r-control) border border-input bg-card px-3 text-base"
+        />
+      </div>
+      {confirming ? (
+        <div className="space-y-3">
+          <p className="text-base font-semibold">{INBOX_WORDING.returnConfirm}</p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => {
+                send.mutate(to.trim());
+              }}
+              disabled={send.isPending}
+            >
+              {send.isPending ? "Sending…" : INBOX_WORDING.returnYes}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirming(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          disabled={!valid}
+          onClick={() => {
+            setConfirming(true);
+          }}
+        >
+          {INBOX_WORDING.returnButton}
+        </Button>
+      )}
+      {send.isError && <FailureNotice error={send.error} />}
+    </section>
+  );
+}
+
+/** The inbox states in which what it holds can go back: no move can happen from them. */
+const RETURNABLE: ReadonlySet<InboxView["state"]> = new Set<InboxView["state"]>(["short", "dust", "unused", "moved"]);
+
 /** The inbox states in which paying the public address as well could only make trouble: something is already on its way. */
 const PUBLIC_CLOSED: ReadonlySet<InboxView["state"]> = new Set<InboxView["state"]>(["scheduled", "moving", "moved", "returning"]);
 
@@ -325,6 +411,7 @@ function InboxFunding({ campaign, inbox }: { campaign: OperatorCampaign; inbox: 
           <RealChainFunding campaign={campaign} address={campaign.fundingAddress} nested />
         </Disclosure>
       )}
+      {RETURNABLE.has(inbox.state) && inbox.spendable !== "0" && <InboxReturn campaign={campaign} />}
       <UnitNote />
     </section>
   );
@@ -372,6 +459,7 @@ export function FundingPanel({ campaign }: { campaign: OperatorCampaign }) {
             <Zec zatoshi={inbox.left} /> {INBOX_WORDING.leftTail}
           </p>
         )}
+        {inbox !== null && inbox.left !== "0" && RETURNABLE.has(inbox.state) && <InboxReturn campaign={campaign} />}
       </div>
     );
   }
