@@ -902,6 +902,15 @@ describe("a real chain", () => {
       expect(await within(form).findByText("That address can't be used")).toBeInTheDocument();
     });
 
+    // covers: REQ-FUND-007, REQ-FUND-008
+    it("says a send-back is on its way once funded, and offers no second one", async () => {
+      open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-returning.json") }, realHealth);
+      expect(await screen.findByText("Funded.")).toBeInTheDocument();
+      expect(screen.getByTestId("inbox-returning")).toHaveTextContent(/^Sending what is left back, in transaction a0a0a0.*\.$/u);
+      expect(screen.queryByTestId("inbox-left")).toBeNull();
+      expect(screen.queryByTestId("inbox-return")).toBeNull();
+    });
+
     it("offers no send-back while a move may still happen", async () => {
       open({ "GET /api/campaigns/:id": campaign("campaign-real-inbox-scheduled.json") }, realHealth);
       await screen.findByTestId("inbox-status");

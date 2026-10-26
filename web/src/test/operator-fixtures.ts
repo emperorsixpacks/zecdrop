@@ -85,6 +85,7 @@ import g_campaign_real_funded from "../../../fixtures/contract/operator/golden/c
 import g_campaign_real_inbox_confirming from "../../../fixtures/contract/operator/golden/campaign-real-inbox-confirming.json?raw";
 import g_campaign_real_inbox_moved from "../../../fixtures/contract/operator/golden/campaign-real-inbox-moved.json?raw";
 import g_campaign_real_inbox_moving from "../../../fixtures/contract/operator/golden/campaign-real-inbox-moving.json?raw";
+import g_campaign_real_inbox_returning from "../../../fixtures/contract/operator/golden/campaign-real-inbox-returning.json?raw";
 import g_campaign_real_inbox_scheduled from "../../../fixtures/contract/operator/golden/campaign-real-inbox-scheduled.json?raw";
 import g_campaign_real_inbox_short from "../../../fixtures/contract/operator/golden/campaign-real-inbox-short.json?raw";
 import g_campaign_real_inbox_unavailable from "../../../fixtures/contract/operator/golden/campaign-real-inbox-unavailable.json?raw";
@@ -124,6 +125,7 @@ import g_error_payslips_not_available from "../../../fixtures/contract/operator/
 import g_error_store_corrupt from "../../../fixtures/contract/operator/golden/error-store-corrupt.json?raw";
 import g_error_wrong_wallet_seed from "../../../fixtures/contract/operator/golden/error-wrong-wallet-seed.json?raw";
 import g_health_real from "../../../fixtures/contract/operator/golden/health-real.json?raw";
+import g_inbox_return_sent from "../../../fixtures/contract/operator/golden/inbox-return-sent.json?raw";
 import g_near_dry_quote from "../../../fixtures/contract/operator/golden/near-dry-quote.json?raw";
 import g_near_live_quote from "../../../fixtures/contract/operator/golden/near-live-quote.json?raw";
 import g_near_preview from "../../../fixtures/contract/operator/golden/near-preview.json?raw";
@@ -250,6 +252,7 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "campaign-real-inbox-confirming.json": g_campaign_real_inbox_confirming,
   "campaign-real-inbox-moved.json": g_campaign_real_inbox_moved,
   "campaign-real-inbox-moving.json": g_campaign_real_inbox_moving,
+  "campaign-real-inbox-returning.json": g_campaign_real_inbox_returning,
   "campaign-real-inbox-scheduled.json": g_campaign_real_inbox_scheduled,
   "campaign-real-inbox-short.json": g_campaign_real_inbox_short,
   "campaign-real-inbox-unavailable.json": g_campaign_real_inbox_unavailable,
@@ -289,6 +292,7 @@ export const GOLDEN: Readonly<Record<string, string>> = {
   "error-store-corrupt.json": g_error_store_corrupt,
   "error-wrong-wallet-seed.json": g_error_wrong_wallet_seed,
   "health-real.json": g_health_real,
+  "inbox-return-sent.json": g_inbox_return_sent,
   "near-dry-quote.json": g_near_dry_quote,
   "near-live-quote.json": g_near_live_quote,
   "near-preview.json": g_near_preview,

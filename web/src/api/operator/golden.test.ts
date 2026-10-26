@@ -19,7 +19,7 @@ import apiSource from "../../../../crates/drop-operator/src/api.rs?raw";
 
 import { OperatorApiError } from "./client";
 import { parseNearDryQuote, parseNearLiveQuote, parseNearPreview, parseNearStatus, parseNearTokens } from "./near-schemas";
-import { parseCampaign, parseHealth, parseOperatorError, parsePayslipsExport, parseViewingKeyExport } from "./schemas";
+import { parseCampaign, parseHealth, parseInboxReturn, parseOperatorError, parsePayslipsExport, parseViewingKeyExport } from "./schemas";
 
 const names = GOLDEN_INDEX.map((e) => e.file);
 
@@ -139,6 +139,7 @@ describe("every other golden response parses with the strict schemas", () => {
       else if (entry.path.endsWith("/audit-ufvk-export")) expect(parseViewingKeyExport(body).ufvk.length).toBeGreaterThan(0);
       else if (entry.path.endsWith("/payslips")) expect(parsePayslipsExport(body).payslips.length).toBeGreaterThan(0);
       else if (entry.path.endsWith("/receipt")) expect(parsePublicReceipt(body).network).toBe("testnet");
+      else if (entry.path.endsWith("/inbox/return")) expect(parseInboxReturn(body).txid).toMatch(/^[0-9a-f]{64}$/u);
       else expect(parseCampaign(body).id).toMatch(/^c-/u);
     });
   }

@@ -428,6 +428,20 @@
       "status": 200
     },
     {
+      "file": "inbox-return-sent.json",
+      "method": "POST",
+      "note": "a send-back checked, stored and sent: its txid",
+      "path": "/api/campaigns/{id}/inbox/return",
+      "status": 202
+    },
+    {
+      "file": "campaign-real-inbox-returning.json",
+      "method": "GET",
+      "note": "a send-back on its way: its txid; nothing is said to be left while it is",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
       "file": "campaign-real-inbox-scheduled.json",
       "method": "GET",
       "note": "enough is spendable: the move is due at move_at, a random delay after it could be made",

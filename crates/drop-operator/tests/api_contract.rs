@@ -786,6 +786,34 @@ async fn inbox_scenarios(g: &mut Golden) {
     g.record("campaign-real-inbox-moved.json", "GET", "/api/campaigns/{id}", 200, &campaign_view(&h, &id).await,
         "the move is mined and the payout funded from it: shielded; what is left in the inbox is left");
 
+    // What is left goes back to a shielded address; until the wallet has scanned it, it is on its way.
+    let sent = h
+        .call_with(
+            Method::POST,
+            &campaign_path(&id, "/inbox/return"),
+            Auth::Token,
+            Some(json!({ "to": recipient_ua(5) })),
+            &[("x-zecdrop-confirm-send", "I-UNDERSTAND")],
+        )
+        .await;
+    assert_eq!(sent.status, StatusCode::ACCEPTED, "{}", sent.text());
+    g.record(
+        "inbox-return-sent.json",
+        "POST",
+        "/api/campaigns/{id}/inbox/return",
+        202,
+        &sent,
+        "a send-back checked, stored and sent: its txid",
+    );
+    g.record(
+        "campaign-real-inbox-returning.json",
+        "GET",
+        "/api/campaigns/{id}",
+        200,
+        &campaign_view(&h, &id).await,
+        "a send-back on its way: its txid; nothing is said to be left while it is",
+    );
+
     // Enough has arrived and the move waits its random delay: when it is due.
     let node = SharedNode::default();
     node.lock().tip = 1_000;

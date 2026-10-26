@@ -23,6 +23,9 @@ async function serve(page: Page, file: string) {
   const { funded } = seeded();
   await page.route(/\/api\/health$/u, (route) => route.fulfill({ json: golden("health-real.json") }));
   await page.route(new RegExp(`/api/campaigns/${funded}$`, "u"), (route) => route.fulfill({ json: golden(file) }));
+  // A fresh load each time: going to the same URL again only moves within the page, which then shows what it already has
+  // (a funded payout's page does not ask again).
+  await page.goto("about:blank");
   await page.goto(operatorUrl(`/campaign/${funded}`, { token: true }));
 }
 
@@ -75,6 +78,10 @@ for (const viewport of [
         await expect(page.getByText("Moved here from this payout's shielded address.")).toBeVisible();
         await expect(page.getByTestId("inbox-left")).toBeVisible();
         await sound(page, "moved");
+        await page.unrouteAll({ behavior: "ignoreErrors" });
+        await serve(page, "campaign-real-inbox-returning.json");
+        await expect(page.getByTestId("inbox-returning")).toContainText(/Sending what is left back, in transaction/u);
+        await sound(page, "returning");
       });
     });
   }

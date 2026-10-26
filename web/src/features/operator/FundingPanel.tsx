@@ -195,6 +195,24 @@ function clock(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+/** A send-back on its way, with its transaction (REQ-FUND-007). */
+function ReturningLine({ txid }: { txid: string | null }) {
+  return (
+    <p className="text-base">
+      Sending what is left back
+      {txid !== null && (
+        <>
+          , in transaction{" "}
+          <span className="mono" title={txid}>
+            {shortId(txid)}
+          </span>
+        </>
+      )}
+      .
+    </p>
+  );
+}
+
 /** Where the shielded address stands, in a sentence or two (REQ-FUND-008). */
 function InboxStatus({ inbox, campaign }: { inbox: InboxView; campaign: OperatorCampaign }) {
   const line = (() => {
@@ -254,20 +272,7 @@ function InboxStatus({ inbox, campaign }: { inbox: InboxView; campaign: Operator
       case "unused":
         return <p className="text-base">{INBOX_WORDING.unused}</p>;
       case "returning":
-        return (
-          <p className="text-base">
-            Sending what is left back
-            {inbox.txid !== null && (
-              <>
-                , in transaction{" "}
-                <span className="mono" title={inbox.txid}>
-                  {shortId(inbox.txid)}
-                </span>
-              </>
-            )}
-            .
-          </p>
-        );
+        return <ReturningLine txid={inbox.txid} />;
     }
   })();
   return (
@@ -460,6 +465,11 @@ export function FundingPanel({ campaign }: { campaign: OperatorCampaign }) {
           </p>
         )}
         {inbox !== null && inbox.left !== "0" && RETURNABLE.has(inbox.state) && <InboxReturn campaign={campaign} />}
+        {inbox?.state === "returning" && (
+          <div role="status" data-testid="inbox-returning">
+            <ReturningLine txid={inbox.txid} />
+          </div>
+        )}
       </div>
     );
   }

@@ -741,9 +741,11 @@ impl Inboxes {
             built.facts.txid,
             sent.unwrap_or(Sent::Rejected)
         ));
+        // As the next round will say it: on its way back, and nothing said to be left.
         if let Some(mut view) = self.view(id) {
             view.state = InboxState::Returning;
             view.txid = Some(built.facts.txid.clone());
+            view.left = "0".into();
             self.set_view(id, view);
         }
         Ok(built.facts.txid)
