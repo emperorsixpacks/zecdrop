@@ -9,7 +9,7 @@ import { OperatorGate } from "./OperatorGate";
 import { OperatorHealthNotice } from "./OperatorHealthNotice";
 
 /** Routes served by the local operator app: the operator header (with the
- * practice-mode pill when the operator is on the mock chain) and the gate that
+ * fake-chain pill when the operator is on the mock chain) and the gate that
  * asks for the operator link. The network pill shows the OPERATOR's network, not
  * the page's build default. */
 export function OperatorLayout() {

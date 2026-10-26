@@ -13,13 +13,9 @@ afterEach(() => {
 
 describe("the flow of funds", () => {
   // covers: REQ-VER-007
-  it("says what the deposit spent under the funding address, but never on a practice receipt", () => {
-    const view = render(<FundsFlow receipt={demoReceipt("real-smoke")} />);
+  it("says what the deposit spent under the funding address", () => {
+    render(<FundsFlow receipt={demoReceipt("real-smoke")} />);
     expect(screen.getByTestId("flow-source")).toHaveTextContent("Deposit out of the shielded pool");
-    view.unmount();
-    const practice = { ...demoReceipt("real-smoke"), manifestCommitment: `7072616374696365${"0".repeat(48)}` };
-    render(<FundsFlow receipt={practice} />);
-    expect(screen.queryByTestId("flow-source")).toBeNull();
   });
 
   it("is drawn at once where nothing can be watched (no IntersectionObserver), and says the same thing", () => {

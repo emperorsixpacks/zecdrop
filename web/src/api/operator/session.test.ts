@@ -5,10 +5,7 @@ import {
   adoptTokenFromLocation,
   adoptTokenFromText,
   clearSession,
-  enterPracticeSession,
   getToken,
-  leavePracticeSession,
-  PRACTICE_TOKEN,
   rejectToken,
   useSession,
 } from "./session";
@@ -154,103 +151,6 @@ describe("adoptTokenFromText (a pasted link or token)", () => {
   it("persists nothing", () => {
     const set = vi.spyOn(Storage.prototype, "setItem");
     adoptTokenFromText(TOKEN);
-    expect(set).not.toHaveBeenCalled();
-  });
-});
-
-// covers: REQ-DEMO-001
-describe("practice mode's stand-in for the operator link", () => {
-  const OTHER = "cd".repeat(32);
-
-  afterEach(() => {
-    leavePracticeSession();
-  });
-
-  it("opens the operator pages with no link, and is the token every call carries while it lasts", () => {
-    expect(useSession.getState().status).toBe("no-token");
-    enterPracticeSession();
-    expect(useSession.getState().status).toBe("ready");
-    expect(getToken()).toBe(PRACTICE_TOKEN);
-    leavePracticeSession();
-    expect(useSession.getState().status).toBe("no-token");
-    expect(getToken()).toBeNull();
-  });
-
-  it("keeps a real operator's session through it: the real token is back on leaving, and was not the token in between", () => {
-    adopt(`#token=${TOKEN}`);
-    enterPracticeSession();
-    expect(getToken()).toBe(PRACTICE_TOKEN);
-    expect(getToken()).not.toBe(TOKEN);
-    leavePracticeSession();
-    expect(getToken()).toBe(TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-  });
-
-  it("keeps a refusal through it too: a session the operator refused is a refused session again afterwards", () => {
-    adopt(`#token=${TOKEN}`);
-    rejectToken();
-    enterPracticeSession();
-    expect(useSession.getState().status).toBe("ready");
-    leavePracticeSession();
-    expect(getToken()).toBeNull();
-    expect(useSession.getState().status).toBe("rejected");
-  });
-
-  it("is still the token when the operator's link is opened while it lasts, and the new token is what is back on leaving", () => {
-    adopt(`#token=${TOKEN}`);
-    enterPracticeSession();
-    // A link opened in this tab changes only the fragment: it is adopted (and stripped), but it is not what calls carry.
-    const replaceState = adopt(`#token=${OTHER}`);
-    expect(replaceState).toHaveBeenCalledTimes(1);
-    expect(getToken()).toBe(PRACTICE_TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-    leavePracticeSession();
-    expect(getToken()).toBe(OTHER);
-    expect(useSession.getState().status).toBe("ready");
-  });
-
-  it("is not undone by a link that does not read, or a token pasted, while it lasts", () => {
-    enterPracticeSession();
-    adopt(`#token=${TOKEN.slice(1)}`);
-    expect(getToken()).toBe(PRACTICE_TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-    adoptTokenFromText(OTHER);
-    expect(getToken()).toBe(PRACTICE_TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-    leavePracticeSession();
-    expect(getToken()).toBe(OTHER);
-    expect(useSession.getState().status).toBe("ready");
-  });
-
-  it("is not a refusal of the real token when it is refused: a 401 in practice mode is the simulation's", () => {
-    adopt(`#token=${TOKEN}`);
-    enterPracticeSession();
-    rejectToken();
-    expect(getToken()).toBe(PRACTICE_TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-    leavePracticeSession();
-    expect(getToken()).toBe(TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-  });
-
-  it("is entered and left once however often it is asked", () => {
-    adopt(`#token=${TOKEN}`);
-    enterPracticeSession();
-    enterPracticeSession();
-    leavePracticeSession();
-    expect(getToken()).toBe(TOKEN);
-    leavePracticeSession();
-    expect(getToken()).toBe(TOKEN);
-    expect(useSession.getState().status).toBe("ready");
-  });
-
-  it("is never what the observable state holds, and persists nothing", () => {
-    const set = vi.spyOn(Storage.prototype, "setItem");
-    adopt(`#token=${TOKEN}`);
-    enterPracticeSession();
-    expect(Object.keys(useSession.getState())).toEqual(["status"]);
-    expect(JSON.stringify(useSession.getState())).not.toContain(TOKEN);
-    leavePracticeSession();
     expect(set).not.toHaveBeenCalled();
   });
 });

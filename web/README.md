@@ -6,11 +6,11 @@ public accountability"). The same bundle serves two roles:
 - **Operator** routes (`/campaigns`, `/new/*`, `/campaign/:id`, `/audit`),
   served by the local operator binary that holds the spend keys. They need the
   operator's bearer token (below).
-- **Public** routes (`/`, `/r/:id`, `/get-paid`, `/payslip`, `/privacy`), safe to serve from the separate,
+- **Public** routes (`/`, `/start`, `/r/:id`, `/get-paid`, `/payslip`, `/privacy`), safe to serve from the separate,
   key-less hosted verifier.
 
-**Practice mode** ("Try a practice payout" on the home page) draws the operator routes on any copy, hosted ones too, against a
-simulation inside the page (below).
+The public site cannot make a payout; `/start` ("Make a payout") gives the one command that runs the operator on your own
+computer (below).
 
 There is no wallet-connect and no EVM code in this app.
 
@@ -138,7 +138,7 @@ Zcash, and it is kept short (under 240 words before anything is opened; the test
 Zodl as the example (the one wallet whose release notes have been read; the only link out is `https://zodl.com`, in a new tab, and no
 app-store link is made up), keeps what a shielded wallet is, and what has not been checked about other wallets, behind one closed row
 (*More about wallets*), says which address to copy
-(`u1…`, real money; `utest1…` is practice; `t1…`/`t3…` are transparent and do not suit payouts; `zs1…` is an older Sapling
+(`u1…`, real money; `utest1…` is testnet, for test coins; `t1…`/`t3…` are transparent and do not suit payouts; `zs1…` is an older Sapling
 address) and what to expect when the payout arrives, with a link to the payslip page. The one thing it does is look at an
 address the person pastes: `src/lib/address-shape.ts` says what it **looks like** from its prefix, its characters and its
 length, and nothing more. It does not decode the address or test its checksum, so the page says in plain words that it checks
@@ -162,77 +162,33 @@ dependencies), loaded with `import("uqr")` into a chunk of its own (about 10 kB,
 no page that draws none pays for it. The drawing is ours: one inline SVG (a paper `rect` and one `path`), a quiet zone of four modules,
 and black on white in every theme (`--qr-ink` and `--qr-paper`; `src/colours.test.ts` holds them to that), because a scanner reads
 dark on light. There is no canvas, no data URI and no request. The funding code is drawn only where there is a wallet link to put
-in it (not on the practice chain, not for an amount that cannot be put in one); at 768px and up it sits beside the address, below that
+in it (not on the mock chain, not for an amount that cannot be put in one); at 768px and up it sits beside the address, below that
 behind a "Show QR code" button. Where there is room a module is a whole number of pixels, so that every module is as wide as every other.
 The tests read what was drawn with jsQR 1.4.0 (a devDependency that is never shipped), a decoder that did not draw it:
 `src/test/qr.ts` for the SVG, `e2e/qr.ts` for a screenshot of the page at the density of a phone.
 
-## Practice mode
+## Make a payout (`/start`)
 
-"Try a practice payout" on the home page runs the operator's own screens (add the payouts, check them, fund, send, and the receipt)
-against a simulation inside the page, so anyone can go through a whole payout, on a phone, with no install, no wallet and no
-money (openspec REQ-DEMO-001). It is a simulation and says so on every screen:
+The public site cannot make a payout: the operator holds the keys and runs on the payer's own computer
+([ADR 0002](../docs/ADR/0002-local-operator-and-keyless-verifier.md)). So the home page's buttons, the menu's first link, the footer
+and every operator page a public copy cannot serve lead to `/start`, which gives the three commands that run it (`git clone …`,
+`cd zecdrop`, `./zecdrop up`, with a copy button), what it needs (Docker) and what happens next, in under 120 words (openspec
+REQ-RUN-002; `src/features/start/StartPage.test.tsx` counts them, as `HomePage.test.tsx` keeps the home page under 400). On the
+operator's own page, which is ZecDrop running on that computer, "Make a payout" leads to its payouts instead (`makeAPayoutPath`),
+and the link the operator prints opens on them (`landOnPayouts`, both in `src/lib/mode.ts`).
 
-- A banner at the top of every screen, as part of the page's frame (`Shell`), so no screen can be drawn without it: "Practice mode:
-  everything here is simulated in your browser. No real money, nothing is sent anywhere, nothing is saved. Reloading starts over.", with "Leave
-  practice mode". It cannot be hidden.
-- "Practice" on the header capsule where a network is named, and amounts in TAZ.
-- Where the operator's own screens speak of a network, a block or a send that cannot be undone, practice mode says it is pretended:
-  the timeline ("Pretending to send: nothing leaves your browser.", "N of D confirmations (simulated)."), the activity log
-  ("Batch N: pretend-sent (practice).", and the waiting and confirmation lines marked simulated) and the send sheet ("In a real run
-  this cannot be undone.", with its own line that nothing is sent anywhere). With practice mode off those are the operator's words,
-  byte for byte (`describeEvent`, `timelineSteps` and the sheet take a `practice` flag that is false unless the store says so);
-  `src/copy.test.tsx` scans every screen of a practice payout for "to the network" and "the next block".
-- Every simulated 64-hex value (a transaction id, the list fingerprint, the pretend deposit) begins with the ASCII of "practice",
-  `7072616374696365`, which no chain's id does. A practice id gets no explorer link, and a receipt that practice mode made says so
-  and labels its id "Practice id".
-
-**What is where.** Every call the app makes to an operator or a verifier goes through one function, `sendToApi` in `src/api/client.ts`:
-`fetch` until something takes its place, and never `fetch` once something has (`installApiTransport`). `src/lib/practice-mode.ts` is
-what is always in the app: the flag, the marker, the switch (`startPractice`, `stopPractice`, `resumePractice`). The simulation,
-`src/practice/`, is a chunk of its own (`simulation-*.js`, about 20 kB, 8 kB gzipped), fetched from the page's own origin when the
-button is pressed or when a reloaded tab was in practice mode, and never otherwise; a page that never practises does not carry it.
-The flag is `zecdrop.practice` = `1` in sessionStorage, the only thing practice mode writes anywhere, and it goes with the tab. The
-banner says nothing is sent anywhere, which is what is true: the one thing practice mode fetches is its own code, a static file from the
-page's own origin, and it sends nothing. The
-simulation's state is memory, so reloading starts over, and leaving (the banner's button) removes the flag, the transport, every
-timer and every open stream, and what the screens held of the payout. Leaving waits until the start page is up, so that no screen
-is left asking for its data from a simulation that has gone. A real operator session is kept through it: practice mode is a stand-in
-token (`PRACTICE_TOKEN`, in `src/api/operator/session.ts`) that every call carries while it lasts, the operator's own token is not
-touched and is never one the simulation sees, and it is what calls carry again on leaving (a link opened meanwhile replaces it,
-as it would have, and is not what calls carry either until practice mode ends). Starting practice mode clears what the screens held
-of the operator's own answers (its payouts, its health), so that none of it is on a practice screen even for a moment; leaving clears
-what practice mode held. `e2e/operator/practice-session.spec.ts` does it against the real operator: its token comes through, none of
-its calls is made meanwhile, none of its payouts is on a practice screen, and its screens work again on leaving with no link to open.
-
-**What it answers.** `/health` (the practice chain: `mock: true`), `/campaigns` (list, create from the CSV, get), the pretend deposit
-(`fund-observed`), `start` (202), the event stream (`built`, `broadcast`, `waiting`, a confirmation at a time up to three, `settled`, a
-step of about a second and a quarter apart, as Server-Sent Events from a `ReadableStream`), the operator's receipt, and
-`/v1/receipt` as the public verifier would answer for a receipt it made. The shapes, statuses and sentences are the operator's own
-on its practice chain: the importer (`csv.ts`, with the practice chain's look-at-the-shape address check), the planner, fee and
-warnings (`plan.ts`) are ports of `drop-core`'s, and `server.test.ts` makes every request of the capture
-(`../fixtures/contract/operator`) again, of the simulation, and compares the answers, as well as reading each with the page's own strict
-parsers. What a list holds is read once, in `create`, and dropped: the simulation keeps counts, batch totals, fees and ids.
-
-**What it does not do.** There is no chain: a confirmation is a timer, not a block. No batch fails and no run halts, stalls or has to
-be resumed; there is no funding address, no check for a deposit and no viewing key (the practice chain's 409s); no funding from another
-coin; an address is checked for its shape only (as on the practice chain: no checksum), so the practice list takes addresses a real
-operator would refuse. It reads no chain, so a payslip is not checked and a receipt link it did not make is not shown: each says
-so, in its own words, instead of asking a verifier (`practice_mode`, a 409).
-
-**What proves it.** `src/practice/practice.test.tsx` was written first, and the simulation is built to pass it: a whole practice payout from the home
-page to the simulated receipt, with `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`, `WebSocket`, `EventSource`, IndexedDB and cookies
-replaced by things that record and refuse (`src/test/leaks.ts`): the payout goes through, nothing is called, nothing is written to local
-storage or a cookie, session storage holds the flag and only the flag, no list is on the console or in the page once the payout
-exists, the banner is on every screen, and leaving removes the flag and every handler. The folder's own source is scanned for the
-names of every way out. `e2e/practice.spec.ts` does the same in a browser at 360 and 1280 px in both themes with axe on every screen,
-from the keyboard, across a reload, and `e2e/hosted/hosted.spec.ts` runs a whole payout under the generated Content-Security-Policy,
-which is unchanged: the simulation makes no request, so it needs no allowance.
+On testnet the operator's screens help a first payout through (REQ-RUN-003): the payout screen and the empty payouts page offer
+*Use the example list*, the eight addresses of `../examples/demo-recipients.testnet.csv`, and say they belong to ZecDrop's own test
+wallet (`src/features/wizard/example-list.ts`); the funding screen links the testnet faucet, which pays the funding address
+directly, and, for when it cannot (it paid no one from 2026-10-23), *ask us on GitHub*: a new issue that already holds the
+address and the amount (`testCoinsRequestUrl` in `src/lib/faucet.ts`), which we answer by paying it from the project's test
+wallet. Neither appears on mainnet.
 
 ## Hosting a public copy (receipt viewer only)
 
 A public, static copy of the app serves the home page, `/privacy`, `/get-paid`, the sample receipts, live receipt links and the
-payslip check (answered by a hosted verifier), including a payslip opened from a link, and practice mode (which asks no one). Nothing is deployed from this repository by itself; the owner does that. The steps are in
+payslip check (answered by a hosted verifier), including a payslip opened from a link, and `/start`, which gives the command that runs
+the operator. Nothing is deployed from this repository by itself; the owner does that. The steps are in
 [`../docs/runbooks/hosted-demo.md`](../docs/runbooks/hosted-demo.md). In short:
 
 ```bash
@@ -273,7 +229,7 @@ shows the same screen. Progress events arrive over `fetch` with a streaming
 parser (not `EventSource`, which cannot send a header), with reconnect and
 backoff, and are aborted when the page is left.
 
-On the mock chain a line directly under the header capsule of every operator page says "Practice mode:
+On the mock chain a line directly under the header capsule of every operator page says "Fake chain:
 nothing is sent to Zcash", and the campaign page offers a form that records a pretend
 deposit. Both appear only because the operator's `/api/health` says
 `mock: true`; they never appear against a real chain. If health says nothing
@@ -314,10 +270,6 @@ The link the page makes on request is the only address it is ever in, and only a
 and `e2e/payslip-link.spec.ts` open links good and bad and fail if the payslip is in the address bar or the history afterwards, in
 storage, the console or any request, or if opening a link calls `fetch` at all.
 
-Practice mode takes the example list, or one the person gives it, through the same screens as a real payout, and every call is answered
-inside the page: nothing is sent, and what is kept after the campaign exists is counts and totals, not the list
-(`src/practice/practice.test.tsx`, "Practice mode").
-
 The viewing key (for an auditor) is the one thing that discloses everything. It
 is requested only after the person ticks "I understand ..." (a fresh tick for
 every reveal), is held in the component's state and nowhere else (not in the
@@ -356,8 +308,7 @@ its hook mention storage, navigation, logging or a cache.
   one-time `npx playwright install chromium`, and (for the operator project) a
   built `../target/debug/drop-operator` (`cargo build -p drop-operator`); it
   builds `dist/` itself.
-  - **public**: the public pages over `vite preview` (and practice mode, `practice.spec.ts`: a whole simulated payout, at both widths in both themes, every
-    screen with its banner and axe, from the keyboard, across a reload, and leaving), both themes, 360px and
+  - **public**: the public pages over `vite preview`, both themes, 360px and
     1280px: no console errors, no requests leaving the origin, no sideways
     scrolling, zero axe WCAG 2.2 A/AA violations, tab order and focus. The payslip page is
     checked in every state of its result (the browser answers for the verifier), from the keyboard, and for where the payslip goes,
@@ -369,15 +320,15 @@ its hook mention storage, navigation, logging or a cache.
     what, the scale of curves, the grain, a press, a bar's label and the lens's pill, a new page's cross-fade, and forced colours and print;
     each of these is also checked under "reduce motion", where none of it moves.
     Narrow screens (`responsive.spec.ts`, "Narrow screens" in DESIGN.md): every public page at 320, 340, 360, 375, 414, 600, 768 and 1024px,
-    and every screen of the practice payout at 320x568, in landscape (667x375) and on a tablet (768x1024), with nothing wider than the screen,
-    the capsule inside it, and the confirm sheet inside its window or scrolling.
+    with nothing wider than the screen and the capsule inside it (the operator's screens are walked the same way by
+    `operator/responsive.spec.ts`).
   - **hosted**: a production build made the way a public deployment is made, served with the headers and
     rewrites of the `vercel.json` generated for it, against a stub verifier on another origin
     (`e2e/hosted/`). It asserts that the Content-Security-Policy produces no violation on the home page, the samples and a
     live receipt link, that the policy is really in force (a request to any other origin is blocked and reported), that
     the operator pages explain themselves and call nothing, that a payslip is checked against the stub (preflight, one POST of
-    JSON, Verified for the sample, a refusal for the changed copy) with no violation, that a whole practice payout runs under the
-    unchanged policy asking no one for anything, that a page opened from a payslip link loads
+    JSON, Verified for the sample, a refusal for the changed copy) with no violation, that `/start` gives the commands under the
+    policy asking no one for anything and that no page says "practice", that a page opened from a payslip link loads
     under the policy and the stub answers its check, that the get-paid page takes, shares and
     copies an address under the policy and asks no one for anything, and that `scripts/check-hosted.mjs` passes.
   - **operator**: `e2e/operator/global-setup.ts` starts the real binary on a
@@ -421,9 +372,8 @@ src/
     wizard/     "/new/..."      three stages (Payouts, Check, Send), the in-memory draft, PrivacyWarnings
     campaign/   "/campaign/:id" status, batches, activity, "Share the receipt"
     audit/      "/audit"        what the audit checks; the viewing-key card
-  practice/     practice mode's simulation, a chunk of its own (importer, planner, server, run, events, verifier)
-  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, practice-mode (the flag and the switch), view-transition (a new page's cross-fade, where the browser has it), phase, fees, ids, explorer, theme, utils
-  test/         fake operator, fixture loader, Rust-source reader, render helper, leak watcher, the practice payout walk
+  lib/          config, zod-config, zec (money), address-shape (what a pasted address looks like), qr (the quiet zone, the path), share, mode (public or the operator's own page, and where "Make a payout" leads), faucet, view-transition (a new page's cross-fade, where the browser has it), phase, fees, ids, explorer, theme, utils
+  test/         fake operator, fixture loader, Rust-source reader, render helper, the test copy of the CSV importer
   index.css     palette (Redacted paper, light and dark), roles, the screen's frame and the scale of curves, slips, motion, Tailwind map
 tests/          guard tests that run ESLint itself
 e2e/            Playwright specs (public pages) and e2e/operator/ (real operator)

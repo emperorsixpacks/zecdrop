@@ -48,7 +48,7 @@ describe("classifyAddress: every kind", () => {
     expect(shape.suitsPayouts).toBe(suits);
   });
 
-  it("only a unified address, real or practice, suits a payout, and only that is handed back to share", () => {
+  it("only a unified address, mainnet or testnet, suits a payout, and only that is handed back to share", () => {
     for (const address of [unified(), testnetUnified()]) {
       const shape = classifyAddress(address);
       expect(shape.suitsPayouts).toBe(true);
@@ -68,7 +68,7 @@ describe("classifyAddress: every kind", () => {
     expect(classifyAddress("").why).toBeNull();
   });
 
-  it("is the real demo addresses of the sample batch: eight practice addresses that suit a payout", () => {
+  it("is the real demo addresses of the sample batch: eight testnet addresses that suit a payout", () => {
     const addresses = demoCsv
       .trim()
       .split("\n")

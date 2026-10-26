@@ -179,57 +179,10 @@ describe("elapsed time and the expectation", () => {
     expect(elapsedText(-5)).toBe("0:00");
   });
 
-  it("calls itself an estimate, scales with the people and the block time, and says nothing on the practice chain", () => {
+  it("calls itself an estimate, scales with the people and the block time, and says nothing on the fake chain", () => {
     expect(expectation(8, 3, "testnet", false)).toBe("Usually about 10 seconds to build, then about 1 minute to confirm. These are estimates.");
     expect(expectation(8, 3, "mainnet", false)).toBe("Usually about 10 seconds to build, then about 4 minutes to confirm. These are estimates.");
     expect(expectation(8, 3, "testnet", true)).toBeNull();
   });
 });
 
-// covers: REQ-DEMO-001
-describe("the sending timeline in practice mode", () => {
-  const detailOf = (input: Input, practice: boolean) => timelineSteps(input, [], practice).find((s) => s.state === "active")?.detail;
-
-  it("says the send is pretended, and that nothing leaves the browser, where the operator says it is sending to the network", () => {
-    const input = campaign([batch("built")]);
-    expect(detailOf(input, true)).toBe("Pretending to send: nothing leaves your browser.");
-    expect(detailOf(input, false)).toBe("Sending to the network.");
-  });
-
-  it("says the confirmations are simulated, and does not wait for a block", () => {
-    for (const count of [0, 1, 2]) {
-      const input = campaign([batch("broadcast", count)]);
-      expect(detailOf(input, true)).toBe(`${String(count)} of 3 confirmations (simulated).`);
-      expect(detailOf(input, false)).toBe(`${String(count)} of 3 confirmations. Waiting for the next block.`);
-    }
-  });
-
-  it("counts the depth the run waits for, as it does without practice", () => {
-    const long = timelineSteps(campaign([batch("broadcast", 4)]), [{ event: "waiting", batchIndex: 0, observedDepth: 4, requiredDepth: 12 }], true);
-    expect(long.find((s) => s.state === "active")?.detail).toBe("4 of 12 confirmations (simulated).");
-  });
-
-  it("is the operator's own wording when it is not asked for, and changes nothing but those two sentences when it is", () => {
-    const inputs = [
-      campaign([batch("planned")]),
-      campaign([batch("built")]),
-      campaign([batch("broadcast", 1)]),
-      campaign([batch("confirmed", 2), batch("broadcast", 0, 1)]),
-      campaign([batch("confirmed", 3)], { state: "settled" }),
-      campaign([batch("failed", 0)], { state: "halted" }),
-      campaign([batch("built")], { state: "stalled", error: "the node is not answering." }),
-    ];
-    for (const input of inputs) {
-      const real = timelineSteps(input, []);
-      expect(timelineSteps(input, [], false)).toEqual(real);
-      const pretend = timelineSteps(input, [], true);
-      expect(pretend.map((s) => [s.key, s.label, s.state])).toEqual(real.map((s) => [s.key, s.label, s.state]));
-      const differing = pretend.filter((s, i) => s.detail !== real[i]?.detail);
-      for (const step of differing) expect(step.detail).toMatch(/Pretending to send|\(simulated\)/u);
-    }
-    // Nothing the practice timeline says is about a network or a block.
-    for (const input of inputs) {
-      for (const step of timelineSteps(input, [], true)) expect(step.detail ?? "").not.toMatch(/to the network|next block/iu);
-    }
-  });
-});

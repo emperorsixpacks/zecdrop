@@ -23,7 +23,7 @@ test("create, fund, send, settle and share, leaving no recipient data behind", a
   expect(page.url()).not.toContain(operatorToken());
 
   // The mock chain says so, persistently.
-  const pill = page.getByRole("status").filter({ hasText: "Practice mode: nothing is sent to Zcash" });
+  const pill = page.getByRole("status").filter({ hasText: "Fake chain: nothing is sent to Zcash" });
   await expect(pill).toBeVisible();
 
   // ---- stage 1: payouts ------------------------------------------------------------

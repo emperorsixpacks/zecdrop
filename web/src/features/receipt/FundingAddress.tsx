@@ -14,8 +14,6 @@ interface FundingAddressProps {
   network: ZecNetwork;
   /** Some batches have no transaction yet, so they say nothing about the address. */
   someBatchesNotBuilt: boolean;
-  /** A receipt that practice mode made: it has no funding address, because nothing was ever sent from one. */
-  practice?: boolean;
   /** What the deposit spent; null when not established, undefined when the verifier did not say (an older build). */
   source?: FundingSource | null | undefined;
 }
@@ -48,7 +46,7 @@ function DepositSpent({ source }: { source: FundingSource | null | undefined }) 
  * When the verifier could not establish one address it says "Unknown" (never a
  * blank): an input could not be looked up, the batches did not all spend from the
  * same address, or the producer has none. */
-export function FundingAddress({ address, network, someBatchesNotBuilt, practice = false, source }: FundingAddressProps) {
+export function FundingAddress({ address, network, someBatchesNotBuilt, source }: FundingAddressProps) {
   const link = address === null ? null : explorerAddressUrl(network, address);
 
   return (
@@ -59,9 +57,8 @@ export function FundingAddress({ address, network, someBatchesNotBuilt, practice
             <Unknown />
           </p>
           <p className="text-sm text-muted-foreground">
-            {practice
-              ? "A practice payout has no funding address: nothing was sent from one, so there is nothing here to compare with an address the campaign published."
-              : "The verifier could not establish one address that every batch spends from, so there is nothing here to compare with the address the campaign published. Any problem it found is listed under what the verifier found."}
+            The verifier could not establish one address that every batch spends from, so there is nothing here to compare with the
+            address the campaign published. Any problem it found is listed under what the verifier found.
           </p>
         </>
       ) : (
@@ -89,8 +86,7 @@ export function FundingAddress({ address, network, someBatchesNotBuilt, practice
           </p>
         </>
       )}
-      {/* A practice receipt has no deposit to speak of: nothing was sent to any address. */}
-      {!practice && <DepositSpent source={source} />}
+      <DepositSpent source={source} />
       <p className="text-sm text-muted-foreground">
         The campaign name on this page is only a label from whoever made the link. The funding
         address and the list fingerprint are what tie a receipt to a campaign.

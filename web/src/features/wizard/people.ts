@@ -42,7 +42,7 @@ export function blankPerson(): Person {
   return { key: `person-${String(lastKey)}`, address: "", amount: "", memo: "" };
 }
 
-/** The people of a list written as CSV text (the practice example), amounts and notes as written. */
+/** The people of a list written as CSV text (the example list), amounts and notes as written. */
 export function peopleFromCsv(text: string): Person[] {
   const preview = previewPayouts(text);
   return preview.kind === "rows" ? preview.rows.map((row) => ({ ...blankPerson(), address: row.address, amount: row.amountText, memo: row.memo })) : [];

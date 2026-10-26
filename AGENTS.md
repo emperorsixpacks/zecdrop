@@ -38,6 +38,10 @@ node scripts/capture-operator-fixtures.mjs --check   # fixtures/contract/operato
 cd web && npm run e2e                                # builds web/dist, then Playwright (public and operator)
 # Only for the shielded deposit address (--zcash-devtool, testnet; docs/ADR/0006): zcash-devtool from upstream with our patch.
 scripts/zcash-devtool/build.sh
+# The launcher (openspec REQ-RUN-001): the operator in Docker, on testnet, on this computer. `help` lists its commands;
+# crates/drop-operator/tests/launcher.rs checks the script. Its data is in ~/.zecdrop-app (or $ZECDROP_HOME): never print it.
+shellcheck zecdrop
+./zecdrop up                                         # builds deploy/operator.Dockerfile the first time
 ```
 
 `npm run e2e` is not in the CI job yet: it needs the built operator binary and a browser. Run it before

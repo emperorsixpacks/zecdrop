@@ -15,7 +15,6 @@ import { FailureNotice } from "@/features/operator/FailureNotice";
 import { useCreateCampaign, useHealth } from "@/features/operator/hooks";
 import { useAudience, type Audience } from "@/lib/audience";
 import { previewPayouts } from "@/lib/csv-preview";
-import { usePractice } from "@/lib/practice-mode";
 import {
   DEFAULT_BATCH_SIZE,
   describeDuration,
@@ -30,6 +29,7 @@ import { useCoinUnit } from "@/lib/units";
 import { formatZec } from "@/lib/zec";
 
 import { useWizardDraft } from "./draft";
+import { EXAMPLE_LIST_NAME, EXAMPLE_LIST_NOTE, exampleListFor } from "./example-list";
 import { lensRowsFrom } from "./list";
 import { PayoutPreview } from "./PayoutPreview";
 import { PeopleList } from "./PeopleList";
@@ -40,9 +40,6 @@ import { batchSizeProblem, csvProblem } from "./validation";
 function defaultRunName(now = new Date()): string {
   return `Payout, ${String(now.getDate())} ${now.toLocaleString("en-GB", { month: "short" })}`;
 }
-
-/** What the example list is called where a file's name would be. */
-const EXAMPLE_LIST_NAME = "demo-recipients.testnet.csv";
 
 const AUDIENCES = [
   { value: "personal", label: "Personal" },
@@ -80,7 +77,7 @@ export default function PayoutsStage() {
   const splitTotal = useWizardDraft((s) => s.splitTotal);
   const { setName, setFeePolicy, setMaxOutputsPerBatch, setCsv, setPeople, campaignCreated, reset } = useWizardDraft.getState();
 
-  const exampleList = usePractice((s) => s.exampleList);
+  const exampleList = exampleListFor(health.data?.network);
   const audience = useAudience((s) => s.audience);
   const setAudience = useAudience((s) => s.setAudience);
   const organisation = audience === "organisation";
@@ -276,6 +273,7 @@ export default function PayoutsStage() {
                       },
                     })}
               />
+              {exampleList !== null && <p className="text-sm text-muted-foreground">{EXAMPLE_LIST_NOTE}</p>}
               <Button
                 type="button"
                 variant="ghost"
@@ -303,7 +301,7 @@ export default function PayoutsStage() {
                   >
                     Use the example list
                   </Button>
-                  <p className="text-sm text-muted-foreground">Eight practice people, ready to send.</p>
+                  <p className="text-sm text-muted-foreground">{EXAMPLE_LIST_NOTE}</p>
                 </div>
               )}
               {verdict}

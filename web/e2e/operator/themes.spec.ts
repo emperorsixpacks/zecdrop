@@ -10,7 +10,7 @@ import { loadDemoCsv } from "./privacy.js";
 // The operator's screens in both modes, at phone and desktop width:
 // the three stages (with the real demo list), the sheet that asks before sending, a run
 // in progress, and a sealed campaign. No accessibility violation, no sideways scroll,
-// and the practice-mode pill on every one that is not behind the sheet.
+// and the fake-chain pill on every one that is not behind the sheet.
 
 const CAPTURED = resolve(process.cwd(), "../fixtures/contract/operator");
 const captured = (name: string): Record<string, unknown> => JSON.parse(readFileSync(join(CAPTURED, name), "utf8")) as Record<string, unknown>;
@@ -25,7 +25,7 @@ function watch(page: Page): () => string[] {
 }
 
 async function check(page: Page, label: string, problems: () => string[], sheet = false) {
-  if (!sheet) await expect(page.getByRole("status").filter({ hasText: "Practice mode: nothing is sent to Zcash" }), `${label}: pill`).toBeVisible();
+  if (!sheet) await expect(page.getByRole("status").filter({ hasText: "Fake chain: nothing is sent to Zcash" }), `${label}: pill`).toBeVisible();
   expect(problems(), `${label}: console`).toEqual([]);
   const overflow = await overflowReport(page);
   expect(overflow.wide, `${label}: elements wider than the viewport`).toEqual([]);

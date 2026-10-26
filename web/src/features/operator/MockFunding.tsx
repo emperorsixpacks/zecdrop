@@ -6,7 +6,6 @@ import { Disclosure } from "@/components/Disclosure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { practiceId, usePractice } from "@/lib/practice-mode";
 import { useCoinUnit } from "@/lib/units";
 import { parsePositiveZec, ZecParseError, zecFromZatoshi } from "@/lib/zec";
 
@@ -39,9 +38,7 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
   const unit = useCoinUnit();
   const ids = { heading: useId(), txid: useId(), vout: useId(), amount: useId(), paidFrom: useId() };
 
-  const practice = usePractice((state) => state.on);
-  // In practice mode even the pretend deposit's id says what it is: it is on no chain.
-  const [txid, setTxid] = useState(() => (practice ? practiceId() : randomTxid()));
+  const [txid, setTxid] = useState(randomTxid);
   const [vout, setVout] = useState("0");
   const [amount, setAmount] = useState(() => zecFromZatoshi(campaign.fundingRequired));
   const [source, setSource] = useState<FundingSource>("shielded");
@@ -70,7 +67,7 @@ export function MockFunding({ campaign }: { campaign: OperatorCampaign }) {
   return (
     <section aria-labelledby={ids.heading} className="space-y-5">
       <h2 id={ids.heading} className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">
-        Practice mode: record a pretend deposit
+        Fake chain: record a pretend deposit
       </h2>
       <p className="max-w-[64ch] text-base">
         No funds move. The campaign needs {zecFromZatoshi(campaign.fundingRequired)} {unit}.

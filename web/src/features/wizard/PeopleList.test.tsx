@@ -12,7 +12,7 @@ import "@/test/dom";
 import { installFakeOperator, replyWith, type FakeOperator } from "@/test/fake-operator";
 import { fixtureJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
-import { importCsv } from "@/practice/csv";
+import { importCsv } from "@/test/csv-import";
 import { parseZec } from "@/lib/zec";
 
 import { useWizardDraft } from "./draft";

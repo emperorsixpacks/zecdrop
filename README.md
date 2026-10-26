@@ -2,9 +2,9 @@
 
 **Pay many people. Keep who got what private. Prove the total.** Confidential batch payouts on Zcash.
 
-[How to test it](docs/JUDGES.md) · [How a payout works](#how-a-payout-works) · [Architecture](#architecture) ·
-[Privacy](#privacy) · [Privacy boundary](docs/PRIVACY_BOUNDARY.md) · [Security](docs/SECURITY.md) ·
-[Live site](https://zecdrop-site.vercel.app)
+[Make a payout](#make-a-payout) · [How to test it](docs/JUDGES.md) · [How a payout works](#how-a-payout-works) ·
+[Architecture](#architecture) · [Privacy](#privacy) · [Privacy boundary](docs/PRIVACY_BOUNDARY.md) ·
+[Security](docs/SECURITY.md) · [Live site](https://zecdrop-site.vercel.app)
 
 One Zcash transaction pays up to 330 people from one deposit, each in a shielded output with a memo of its own. Then each
 party sees what they should, and no more: **one payout, four views.** Everyone can check the total; each person paid can
@@ -13,8 +13,8 @@ address and amount.
 
 Built for the [Zecathon](https://thezecathon.com/) **Shielded Payments** track.
 
-> **For judges:** [docs/JUDGES.md](docs/JUDGES.md) has four ways to test ZecDrop, from no install to a whole payout on a fake
-> chain. The quickest is the [live receipt of a real payout](https://zecdrop-site.vercel.app/r/c-6207fac6674f?network=testnet&tx=af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12&commitment=ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f&declared_total=500000)
+> **For judges:** [docs/JUDGES.md](docs/JUDGES.md) has five ways to test ZecDrop, from no install to a real payout of your own
+> with one command. The quickest is the [live receipt of a real payout](https://zecdrop-site.vercel.app/r/c-6207fac6674f?network=testnet&tx=af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12&commitment=ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f&declared_total=500000)
 > (8 people on Zcash testnet, funded from a shielded wallet), then the same check on your own machine with the key-less
 > verifier. Then [what has run](#what-has-run) and the [known limits](#known-limits).
 
@@ -26,12 +26,15 @@ Built for the [Zecathon](https://thezecathon.com/) **Shielded Payments** track.
 - [Architecture](#architecture)
 - [Privacy](#privacy)
 - [What has run](#what-has-run)
+- [Make a payout](#make-a-payout)
 - [Try it](#try-it)
 - [Status and known limits](#status-and-known-limits)
 - [Documentation](#documentation)
 
 ## Highlights
 
+- **One command on your own computer.** `./zecdrop up` builds ZecDrop, starts it in Docker on testnet and opens it in your
+  browser. Your keys and your payout list never leave your computer, and there is no account and no wallet to connect.
 - **One transaction, up to 330 people.** One deposit in, one Ironwood output per person, each with its own memo. The network
   publishes the total entering the shielded pool, the fee and the number of outputs; every address and amount stays
   encrypted.
@@ -48,8 +51,8 @@ Built for the [Zecathon](https://thezecathon.com/) **Shielded Payments** track.
   public address, and the receipt says the deposit came out of the shielded pool.
 - **Crash-safe.** Every transaction is stored before it is broadcast, and after a crash it is sent again from those bytes,
   never built again.
-- **Run on public testnet.** [Five payouts](#what-has-run), each with public transactions; one of them funded through its
-  shielded address with nothing done by hand.
+- **Run on public testnet.** [Seven payouts](#what-has-run), each with public transactions: one funded through its shielded
+  address with nothing done by hand, and two started with `./zecdrop up` from an empty folder.
 
 ## Why ZecDrop
 
@@ -136,7 +139,7 @@ flowchart LR
     end
     op --> node[("Zcash<br/>light wallet server")]
     inbox --> node
-    site["Public site<br/>receipts, payslips, practice"] --> ver["drop-verifier<br/>no keys"]
+    site["Public site<br/>receipts, payslips, how to start"] --> ver["drop-verifier<br/>no keys"]
     ver --> node
     aud["Auditor's computer<br/>viewing key, local audit"] -.-> node
 ```
@@ -145,7 +148,8 @@ flowchart LR
 |---|---|
 | **drop-operator** ([crates/drop-operator](crates/drop-operator)) | Runs on the payer's computer: the screens and a loopback-only API with a per-run token, the encrypted store, funding detection, the batch engine (build, store, send, confirm), payslips, the viewing-key export, the local audit, and each payout's shielded deposit address. |
 | **drop-verifier** ([crates/drop-verifier](crates/drop-verifier)) | The key-less receipt and payslip service: it reads the named transactions from a light wallet server and recomputes the receipt. Stateless; one Docker image ([deploy/](deploy)). |
-| **The web app** ([web/](web)) | The public site (receipts, payslips, a page for people being paid, and a practice mode that simulates a whole payout in the browser) and the operator's screens, which the operator serves itself. |
+| **The web app** ([web/](web)) | The public site (receipts, payslips, a page for people being paid, and the page that gives the command to run ZecDrop) and the operator's screens, which the operator serves itself. |
+| **The launcher** ([zecdrop](zecdrop), [deploy/operator.Dockerfile](deploy/operator.Dockerfile)) | `./zecdrop up` builds the operator's image and runs it in Docker on testnet, published on the computer's loopback address only, with its data in a folder only the person can read. |
 | **zcash-devtool** ([scripts/zcash-devtool](scripts/zcash-devtool/README.md)) | Optional, testnet only: one wallet per payout, behind its shielded deposit address. Built from upstream with ZecDrop's own patch, and run as a separate process. |
 | **Zcash** | A lightwalletd or Zaino server: `testnet.zec.rocks` on testnet. |
 
@@ -165,7 +169,8 @@ flowchart LR
 | `fixtures/` | Public chain data of the real runs, and the operator API's recorded answers |
 | `docs/` | The judges' guide, privacy boundary, security model, decisions and runbooks ([Documentation](#documentation)) |
 | `scripts/` | The requirement check, the fixture capture and the zcash-devtool build |
-| `deploy/` | The verifier's container and server set-up |
+| `zecdrop` | The launcher: `./zecdrop up`, `down`, `status`, `logs`, `open`, `update` |
+| `deploy/` | The containers (the operator's and the verifier's) and the verifier's server set-up |
 
 ## Privacy
 
@@ -203,7 +208,7 @@ What ZecDrop cannot hide (a batch of one, equal amounts, the total and its timin
 
 ## What has run
 
-Five payouts on Zcash public testnet: the first built with the batch builder's test tool, the other four through ZecDrop's
+Seven payouts on Zcash public testnet: the first built with the batch builder's test tool, the other six through ZecDrop's
 operator. Each transaction is on the chain ([ZecBlock](https://testnet.zecblock.com)); the outputs are shielded. Nothing has
 run on mainnet.
 
@@ -214,19 +219,50 @@ run on mainnet.
 | 2 people, the first shielded deposit address (by hand) | 2026-10-24 | The move, made by hand through the operator's check, funded a real payout | [move](https://testnet.zecblock.com/tx/543ae84065e8767db1c91eda188bc09e2ec5b692425e7842481fad4b99b95f23), [batch](https://testnet.zecblock.com/tx/0d4301fe8b9bcd4b851dbf91255d88d7e50220fe2b51fb216f15b2d458f34813) |
 | 8 people, funded through their payout's shielded address | 2026-10-24 | Nothing done by hand; about 16 minutes from payment to settled. A fresh verifier says *shielded*, no findings; 8 of 8 payslips; the audit reconciled 8 of 8; the auditor's key opened nothing of the shielded address | [move](https://testnet.zecblock.com/tx/6e677bc50c0e17396340d40bbf5464d749c7192c6d19f914a7db5772ad5870f3), [batch](https://testnet.zecblock.com/tx/af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12) |
 | 2 people, paid more than asked | 2026-10-24 | The move left 100,000 zat in the shielded address; the send-back gave the payer's shielded wallet exactly 90,000 (the rest was its fee) | [move](https://testnet.zecblock.com/tx/1ddf0b37bba4e30aee121cc60b8a147784e5c9014ce5d64f63b6ad1b76ce2085), [send-back](https://testnet.zecblock.com/tx/2131eae86468c0cb3d1ae0080961c58d17f0756dbebf87b8b552fa73b672c4b8), [batch](https://testnet.zecblock.com/tx/4778eeaa5d071523f0db4bde1f230ec1be834b372950c080bbda0a98cd41737f) |
+| 8 people, twice, through `./zecdrop up` from an empty folder | 2026-10-25 | One command built and started the operator in Docker. The second run went through its screens in a browser: the link opened on the payouts; the example list; a deposit from a shielded wallet; sent and settled about 6 minutes after the payment; *Open public receipt* opened the public site, whose verifier says settled, *shielded*, no findings | first: [deposit](https://testnet.zecblock.com/tx/df7acb66f19764f4342256f8279e5c1e3eec2fdf0fe00f9ec7eb043ee8879804), [batch](https://testnet.zecblock.com/tx/6fd70964793963f2b1550f494ed4691298692170c791d3f73a70e89a1f9ab1c7); second: [deposit](https://testnet.zecblock.com/tx/4458060abb25eeb93b3c3ea33054d983d490f7d6631e7bd36b255207f190d55c), [batch](https://testnet.zecblock.com/tx/e4250cb61beff6867ce1520b0fb7665cb22ffa030c32a7a76909f563633be534) |
 
 The steps of each run are in [docs/runbooks/testnet-demo.md](docs/runbooks/testnet-demo.md); their public chain data,
 receipts and payslips are in [fixtures/](fixtures), each folder with a README.
+
+## Make a payout
+
+ZecDrop runs on your own computer, so your keys and your payout list never leave it. You need git and Docker: Docker Desktop
+on a Mac or on Windows (where the commands run in WSL), or Docker Engine on Linux.
+
+```bash
+git clone https://github.com/JemIIahh/zecdrop.git
+cd zecdrop
+./zecdrop up
+```
+
+The first start builds ZecDrop, which takes a few minutes to half an hour; then the operator opens in your browser, on Zcash
+testnet. Add the people you're paying, or use the example list; fund the payout from the free
+[testnet faucet](https://faucet.testnet.valargroup.dev), which pays its address directly (when it can't, the funding screen's
+*ask us on GitHub* gets you test coins from us); send it, and share the receipt. Two
+views: **Personal** (family, gifts, a shared pot: type people in, split a total evenly or at random) and **Organisation**
+(payroll, grants, airdrops: import a spreadsheet, with the auditor's tools).
+
+| Command | What it does |
+|---|---|
+| `./zecdrop up` | Builds ZecDrop the first time, starts it and opens its page |
+| `./zecdrop open` | Opens the page again (its link changes on every start) |
+| `./zecdrop status` | Says whether it runs, and where your data is |
+| `./zecdrop logs` | Follows its log |
+| `./zecdrop down` | Stops it; your wallet and payouts stay |
+| `./zecdrop update` | Gets the latest ZecDrop, rebuilds it and starts it again |
+
+Your wallet and payouts are kept in `~/.zecdrop-app`, which only you can read, with the store's passphrase in a file there that
+Docker reads (it never appears on a command line). The page is published on your computer's loopback address only, behind a token
+that changes on every start, and the launcher never runs on mainnet. Receipt and payslip links name the public site, where anyone
+can check them. Step by step: [JUDGES.md, path 3](docs/JUDGES.md#3-make-a-payout-of-your-own-docker-one-command-free-test-coins).
 
 ## Try it
 
 ### On the public site (no install)
 
 [zecdrop-site.vercel.app](https://zecdrop-site.vercel.app) checks receipts (a real one is bundled as a sample), checks a
-payslip, helps a person being paid share their address, and has a **practice mode** that runs a whole payout in the browser,
-on a phone too: no wallet, no money, nothing sent anywhere, and a banner on every screen says so. It has two ways in:
-**Personal** (family, gifts, a shared pot: type people in, split a total evenly or at random) and **Organisation** (payroll,
-grants, airdrops: import a spreadsheet, with the auditor's tools).
+payslip, helps a person being paid share their address, and gives the command above. It cannot make a payout: that needs the
+keys, which stay on your computer.
 
 ### Check a real payout yourself (Docker, no keys)
 
@@ -240,10 +276,10 @@ Expect `settled`, 8 shielded actions, 500,000 zat into the pool, a fee of 45,000
 findings. Change `declared_total` and it reports `declared_total_mismatch`. Payslips, offline:
 [JUDGES.md, path 4](docs/JUDGES.md#4-check-one-recipients-payslip-no-key-no-coins).
 
-### Run the operator
+### Run the operator from source
 
 - **On a fake chain** (no keys, no coins), to see every screen:
-  [JUDGES.md, path 3](docs/JUDGES.md#3-run-the-whole-flow-on-a-fake-chain-no-keys-no-coins).
+  [JUDGES.md, path 5](docs/JUDGES.md#5-every-screen-on-a-fake-chain-from-source-no-keys-no-coins).
 - **On public testnet** with a throwaway seed and test coins:
   [docs/runbooks/testnet-demo.md](docs/runbooks/testnet-demo.md). For the shielded deposit address, build zcash-devtool with
   `scripts/zcash-devtool/build.sh` and start the operator with `--zcash-devtool target/zcash-devtool/zcash-devtool`.
@@ -263,8 +299,9 @@ Contributor and agent rules: [AGENTS.md](AGENTS.md). Testnet by default.
 ### Demo data
 
 `examples/demo-recipients.testnet.csv` lists eight testnet addresses of the project's own throwaway dev wallet, with their
-amounts and memos. It is public on purpose, so anyone can reproduce the demo, which means those payouts' hidden amounts are
-not secret: the demo shows the mechanism, not privacy for these particular payouts. No key material is in the repository.
+amounts and memos; on testnet the payout screen offers it as the example list. It is public on purpose, so anyone can reproduce
+the demo, which means those payouts' hidden amounts are not secret: the demo shows the mechanism, not privacy for these
+particular payouts. No key material is in the repository.
 
 ## Status and known limits
 
@@ -275,8 +312,8 @@ not secret: the demo shows the mechanism, not privacy for these particular payou
   mainnet node's data, but no payout has been made there ([runbook](docs/runbooks/mainnet-run.md)).
 - **Not audited.** Two independent reviews: one of the code (2026-10-07) and one of the shielded deposit address
   (2026-10-24). Their findings are fixed, or listed as open in [SECURITY.md](docs/SECURITY.md).
-- **Every requirement has a test.** 50 requirements in [openspec/](openspec), each named by a covering test
-  (`scripts/spec_drift.py`). At the last full run (2026-10-24): 779 Rust tests, 2,967 web unit tests and 579 tests in a real
+- **Every requirement has a test.** 52 requirements in [openspec/](openspec), each named by a covering test
+  (`scripts/spec_drift.py`). At the last full run (2026-10-25): 787 Rust tests, 2,800 web unit tests and 568 tests in a real
   browser.
 - **The live receipt check** asks the hosted verifier, on a teammate's server ([deploy/vps](deploy/vps/README.md)), which reads
   the public testnet node; the same verifier runs from the Docker command above.
@@ -305,7 +342,7 @@ The full list, with what ZecDrop does about each, is in [PRIVACY_BOUNDARY.md](do
 
 | Document | What's in it |
 |---|---|
-| [JUDGES.md](docs/JUDGES.md) | Four ways to test ZecDrop, from no install to a whole payout on a fake chain |
+| [JUDGES.md](docs/JUDGES.md) | Five ways to test ZecDrop, from no install to a real payout of your own with one command |
 | [PRIVACY_BOUNDARY.md](docs/PRIVACY_BOUNDARY.md) | What is public, what is hidden, and every limit |
 | [SECURITY.md](docs/SECURITY.md) | Assets, threats, the reviews and what is still open |
 | [runbooks/testnet-demo.md](docs/runbooks/testnet-demo.md) | The real testnet runs, step by step, including the shielded deposit address |

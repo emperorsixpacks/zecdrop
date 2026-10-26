@@ -11,8 +11,10 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./index.css";
 import { initAppearance } from "./lib/appearance";
-import { resumePractice } from "./lib/practice-mode";
+import { landOnPayouts } from "./lib/mode";
 
+// The operator's own link opens on its payouts, not on the home page.
+landOnPayouts(window.location, window.history);
 // Take the operator token out of the URL fragment and the address bar BEFORE
 // anything renders or any router reads the location. It is kept in memory only.
 adoptTokenFromLocation(window.location, window.history);
@@ -27,12 +29,8 @@ initAppearance();
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("missing #root element");
 
-const root = createRoot(rootElement);
-// A tab that was in practice mode carries on in it, and nothing is drawn until the simulation is there to answer for it.
-void resumePractice().then(() => {
-  root.render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-});
+createRoot(rootElement).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

@@ -4,7 +4,8 @@ import { island, watchProblems } from "./helpers.js";
 
 // A page that is opened by a link or a button starts at its top. The router does not do that for an app like this one: without it a
 // link at the foot of a page opened the next page at the same depth, with its heading far above the window (the owner found it on
-// 2026-10-19, while looking at the practice payout: the capsule was over the title of the funding screen). Going back or forward
+// 2026-10-19, while looking at a payout: the capsule was over the title of the funding screen). The operator's own stages are
+// checked the same way in operator/responsive.spec.ts. Going back or forward
 // is the browser's, and a change that leaves the path alone (a choice in the address) moves nothing.
 
 for (const width of [360, 1280]) {
@@ -30,28 +31,6 @@ for (const width of [360, 1280]) {
       expect(capsule).not.toBeNull();
       expect((title as { y: number }).y, "the heading is below the capsule").toBeGreaterThanOrEqual((capsule as { y: number; height: number }).y + (capsule as { height: number }).height);
       expect(problems()).toEqual([]);
-    });
-
-    test("the stages of a practice payout open at their top: the page after 'Looks right, continue'", async ({ page }) => {
-      await page.addInitScript(() => {
-        sessionStorage.setItem("zecdrop.practice", "1");
-      });
-      await page.goto("/new");
-      await page.getByRole("button", { name: "Use the example list" }).click();
-      await page.getByRole("button", { name: "Continue" }).click();
-      await expect(page.getByRole("heading", { level: 1, name: "Check the payouts" })).toBeVisible();
-      const next = page.getByRole("link", { name: "Looks right, continue" });
-      await next.scrollIntoViewIfNeeded();
-      await page.evaluate(() => {
-        window.scrollTo(0, document.documentElement.scrollHeight);
-      });
-      await next.click();
-      const heading = page.getByRole("heading", { level: 1, name: "Fund and send" });
-      await expect(heading).toBeVisible();
-      expect(await page.evaluate(() => window.scrollY), "the funding screen is at its top").toBe(0);
-      const title = await heading.boundingBox();
-      const capsule = await island(page).boundingBox();
-      expect((title as { y: number }).y, "its heading is below the capsule").toBeGreaterThanOrEqual((capsule as { y: number; height: number }).y + (capsule as { height: number }).height);
     });
   });
 }

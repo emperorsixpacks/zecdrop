@@ -5,8 +5,8 @@ import { SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import { AppearanceMenu } from "@/components/AppearanceMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { config, type ZecNetwork } from "@/lib/config";
+import { makeAPayoutPath } from "@/lib/mode";
 import { pageName } from "@/lib/page-name";
-import { usePractice } from "@/lib/practice-mode";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -21,7 +21,9 @@ const OPERATOR_LINKS: readonly NavItem[] = [
   { to: "/audit", label: "Audit" },
 ];
 
-const PUBLIC_LINKS: readonly NavItem[] = [
+/** The public menu. "Make a payout" leads where the page runs from: how to run ZecDrop, or its payouts (lib/mode.ts). */
+const publicLinks = (): readonly NavItem[] => [
+  { to: makeAPayoutPath(), label: "Make a payout" },
   { to: "/", label: "Home", end: true },
   { to: SAMPLE_RECEIPT_HREF, label: "Sample receipt" },
   { to: "/get-paid", label: "Get paid" },
@@ -36,7 +38,7 @@ interface TopBarProps {
   /** Defaults to the network this page was built for. Operator pages pass the
    * operator's own, which is the one that matters. */
   network?: ZecNetwork;
-  /** The operator is on the practice (mock) chain. */
+  /** The operator is on the fake (mock) chain. */
   mock?: boolean;
   /** The operator did not say which chain it is on. */
   modeUnknown?: boolean;
@@ -47,21 +49,13 @@ interface TopBarProps {
  * about the capsule is animated, so a page name that changes its width does not tween, and nothing moves on load. */
 const MORPH_MS = 450;
 
-type NetworkKind = "practice" | "mainnet" | "testnet";
+type NetworkKind = "mainnet" | "testnet";
 
 const chip = "inline-flex h-7 shrink-0 items-center rounded-full border px-2.5 text-sm font-semibold";
 
-/** The network, in a word, on the capsule itself, so it is seen without opening anything. In practice mode there is no
- * network to name: the chip says what this is. Otherwise quiet on testnet, which is the default, and loud on mainnet,
- * where the coins are real. */
+/** The network, in a word, on the capsule itself, so it is seen without opening anything: quiet on testnet, which is the
+ * default, and loud on mainnet, where the coins are real. */
 function NetworkChip({ kind }: { kind: NetworkKind }) {
-  if (kind === "practice") {
-    return (
-      <span data-network="practice" className={cn(chip, "island-chip hatched border-island-ink/55 text-island-ink")}>
-        Practice
-      </span>
-    );
-  }
   if (kind === "mainnet") {
     return (
       <span data-network="mainnet" className={cn(chip, "island-chip border-island-ink/50 bg-marker text-marker-ink")}>
@@ -78,9 +72,6 @@ function NetworkChip({ kind }: { kind: NetworkKind }) {
 
 /** The same, in full, in the open panel. */
 function NetworkLabel({ kind }: { kind: NetworkKind }) {
-  if (kind === "practice") {
-    return <span className={cn(chip, "island-chip hatched border-island-ink/55 font-medium text-island-ink")}>Practice, nothing is real</span>;
-  }
   if (kind === "mainnet") {
     return <span className={cn(chip, "island-chip border-island-ink/50 bg-marker text-marker-ink")}>Zcash mainnet</span>;
   }
@@ -100,7 +91,6 @@ function isInside(root: HTMLElement | null, target: EventTarget | null): boolean
 export function TopBar({ showOperatorNav, network = config.network, mock = false, modeUnknown = false }: TopBarProps) {
   const location = useLocation();
   const { pathname } = location;
-  const practice = usePractice((state) => state.on);
   const panelId = useId();
   const root = useRef<HTMLDivElement>(null);
   const row = useRef<HTMLDivElement>(null);
@@ -169,8 +159,8 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
     };
   }, [open]);
 
-  const kind: NetworkKind = practice ? "practice" : network === "mainnet" ? "mainnet" : "testnet";
-  const links = showOperatorNav ? OPERATOR_LINKS : PUBLIC_LINKS;
+  const kind: NetworkKind = network === "mainnet" ? "mainnet" : "testnet";
+  const links = showOperatorNav ? OPERATOR_LINKS : publicLinks();
   const name = pageName(pathname, showOperatorNav);
   // The name of the site is the page's name on a page that has none of its own: say it once.
   const showBrand = name !== "ZecDrop";
@@ -287,16 +277,16 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
       </header>
 
       {/* The state of the chain: a quiet line of its own, directly under the capsule. */}
-      {showOperatorNav && ((mock && !practice) || modeUnknown) && (
+      {showOperatorNav && (mock || modeUnknown) && (
         <div className="mx-auto flex w-full max-w-[68rem] flex-wrap items-center justify-center gap-x-3 gap-y-1 px-5 pt-2">
-          {mock && !practice && (
+          {mock && (
             <span role="status" className="hatched inline-flex min-h-7 items-center rounded-full border border-foreground/50 px-3 text-xs font-medium sm:text-sm">
-              Practice mode: nothing is sent to Zcash
+              Fake chain: nothing is sent to Zcash
             </span>
           )}
           {modeUnknown && (
             <span role="status" className="inline-flex min-h-8 items-center rounded-full border border-foreground/50 px-3 text-sm font-medium">
-              Chain mode unknown: practice controls hidden
+              Chain mode unknown: fake-chain controls hidden
             </span>
           )}
         </div>

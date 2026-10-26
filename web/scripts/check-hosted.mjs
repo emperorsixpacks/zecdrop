@@ -8,7 +8,7 @@
 //   - the security headers are on the page (a Content-Security-Policy that lets it
 //     talk to this verifier, nosniff, no referrer, no framing)
 //   - a built asset is cached as immutable
-//   - a picture of the home page tour answers as an image (/tour is files, not a client route)
+//   - the page's own picture (the paper texture) answers as an image (a file, not a client route)
 //   - the verifier answers /v1/health, and answers the real 8-output batch's receipt
 //     to this site's origin (CORS), as settled, with no findings and the funding address,
 //     and says what its deposit spent as the fixture does (only a note from an older verifier)
@@ -65,7 +65,7 @@ const home = await get(`${site}/`);
 const html = await home.text();
 report(home.status === 200 && (home.headers.get("content-type") ?? "").includes("text/html"), "the page answers", `${String(home.status)} ${home.headers.get("content-type") ?? ""}`);
 
-for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/get-paid", "/campaigns", "/new/basics", "/campaign/c-1", "/audit"]) {
+for (const path of ["/r/demo?demo=real", "/privacy", "/payslip", "/get-paid", "/start", "/campaigns", "/new/basics", "/campaign/c-1", "/audit"]) {
   const response = await get(`${site}${path}`);
   const body = await response.text();
   report(response.status === 200 && body.includes('<div id="root">'), `client route ${path}`, String(response.status));
@@ -88,14 +88,14 @@ else {
   report(response.status === 200 && (response.headers.get("cache-control") ?? "").includes("immutable"), `${asset} is cached as immutable`, response.headers.get("cache-control") ?? "");
 }
 
-// The home page tour's pictures are files in /tour (web/public/tour), not client routes: one answers as a WebP image.
-const picture = "/tour/receipt-light.webp";
-const tourPicture = await get(`${site}${picture}`);
-const tourBytes = Buffer.from(await tourPicture.arrayBuffer());
+// The page's own picture (the paper texture, web/public/grain.png) is a file, not a client route: it answers as a PNG image.
+const picture = "/grain.png";
+const pictureAnswer = await get(`${site}${picture}`);
+const pictureBytes = Buffer.from(await pictureAnswer.arrayBuffer());
 report(
-  tourPicture.status === 200 && tourPicture.headers.get("content-type") === "image/webp" && tourBytes.subarray(0, 4).toString("ascii") === "RIFF",
+  pictureAnswer.status === 200 && pictureAnswer.headers.get("content-type") === "image/png" && pictureBytes.subarray(1, 4).toString("ascii") === "PNG",
   `${picture} is served as an image`,
-  `${String(tourPicture.status)} ${tourPicture.headers.get("content-type") ?? ""}`,
+  `${String(pictureAnswer.status)} ${pictureAnswer.headers.get("content-type") ?? ""}`,
 );
 
 // ---- the verifier -----------------------------------------------------------------

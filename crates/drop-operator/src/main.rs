@@ -39,7 +39,7 @@ use drop_operator::payslips::{
 use drop_operator::real::{LightwalletdConnector, ZcashBackend};
 use drop_operator::secret::SecretSeed;
 use drop_operator::seedfile::read_seed_file;
-use drop_operator::serve::{serve, startup_banner};
+use drop_operator::serve::{link_address, serve, startup_banner};
 use drop_operator::state::{AppParts, AppState, Options};
 use drop_operator::store::Store;
 use drop_operator::txaudit::{audit_transaction, read_prevouts, read_tx_hex};
@@ -422,7 +422,12 @@ async fn serve_operator(cli: Cli, confirm: Option<&str>) -> Result<ExitCode, Box
     logger.info(format_args!("store checked: {checked} campaign(s)"));
     println!(
         "{}",
-        startup_banner(listener.local_addr()?, state.token(), config.network, mock)
+        startup_banner(
+            link_address(listener.local_addr()?, config.container),
+            state.token(),
+            config.network,
+            mock
+        )
     );
     let resumed = state.resume_started()?;
     if resumed > 0 {

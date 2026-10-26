@@ -28,7 +28,7 @@ interface Kind {
 
 const KINDS: Kind[] = [
   { name: "a real-money address", text: MAINNET, kind: "mainnet_unified", title: "Looks like a real-money address", suits: true },
-  { name: "a practice address", text: TESTNET, kind: "testnet_unified", title: "Looks like a practice address", suits: true },
+  { name: "a testnet address", text: TESTNET, kind: "testnet_unified", title: "Looks like a testnet address", suits: true },
   { name: "a transparent address", text: TRANSPARENT, kind: "transparent", title: "Looks like a transparent address", suits: false },
   { name: "a Sapling address", text: SAPLING, kind: "sapling", title: "Looks like a Sapling address", suits: false },
   { name: "something that is not an address", text: "hello there", kind: "unrecognised", title: "Not recognised", suits: false },

@@ -26,34 +26,10 @@ export function apiUrl(path: string, base: string = config.apiBaseUrl): string {
   return `${base}${path}`;
 }
 
-/** Answers an API call in place of the network. `path` is the API path with its query string, as given to {@link apiUrl}
- * ("/campaigns/c-1", "/v1/receipt?network=testnet&..."). */
-export type ApiTransport = (path: string, init: RequestInit) => Promise<Response>;
-
-let installed: ApiTransport | null = null;
-
-/** Practice mode answers every API call from inside the page (src/practice). While a transport is installed, no call
- * reaches the network: {@link sendToApi} never falls back to `fetch`. Returns the function that takes it out again. */
-export function installApiTransport(transport: ApiTransport): () => void {
-  installed = transport;
-  return () => {
-    if (installed === transport) installed = null;
-  };
-}
-
-/** The error code practice mode answers with when it is asked to read a chain it has not got (a receipt that is not its own, a
- * payslip): the pages that make such a call turn it into a sentence of their own. */
-export const PRACTICE_REFUSAL = "practice_mode";
-
-/** Whether something other than the network is answering the API. */
-export function hasApiTransport(): boolean {
-  return installed !== null;
-}
-
 /** The one place the app's API calls leave the page: the operator's, the receipt's and the payslip's, the event stream's.
  * `fetch` is looked up when called, so a test that replaces it after this module has loaded still takes effect. */
 export function sendToApi(path: string, init: RequestInit): Promise<Response> {
-  return installed !== null ? installed(path, init) : fetch(apiUrl(path), init);
+  return fetch(apiUrl(path), init);
 }
 
 export async function fetchJson<T>(

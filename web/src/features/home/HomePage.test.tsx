@@ -24,90 +24,90 @@ const amount = (...values: string[]) => new RegExp(`(?<![\\d.])(${values.map((v)
 
 const rows = () => screen.getAllByRole("listitem").filter((li) => li.hasAttribute("data-revealed"));
 
+/** Every word in the page as rendered, text node by text node, so that a heading and the paragraph after it are not run
+ * together into one word. Words a screen reader alone hears count too. */
+function pageWords(): string[] {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const words: string[] = [];
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    if (node.parentElement?.closest("title, script, style") != null) continue;
+    words.push(...(node.textContent ?? "").split(/\s+/u).filter((word) => /[\p{L}\p{N}]/u.test(word)));
+  }
+  return words;
+}
+
 describe("the home page", () => {
-  it("says what it does in one headline", () => {
+  it("says what it does in one headline and one sentence", () => {
     renderHome();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Pay many people. Keep who got what private. Prove the total.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Pay many people. Keep it private. Prove the total.");
+    expect(
+      screen.getByText("One Zcash transaction pays everyone on your list. The amounts stay private, and anyone can check the total."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("On Zcash testnet. Your keys stay on your computer.")).toBeInTheDocument();
   });
 
-  it("gives two ways on: the real receipt and how privacy works", () => {
+  // covers: REQ-RUN-002
+  it("says it all in under 400 words", () => {
+    renderHome();
+    const words = pageWords();
+    expect(words.length, words.join(" ")).toBeLessThan(400);
+  });
+
+  // covers: REQ-RUN-002
+  it("offers Make a payout from its first screen, its steps and its end: here, on the operator's own page, its payouts", () => {
+    // On the public site the same three lead to the page that says how to run ZecDrop (HostedNotice.test.tsx).
+    expect(window.location.hostname).toBe("localhost");
+    renderHome();
+    const starts = screen.getAllByRole("link", { name: "Make a payout" });
+    expect(starts).toHaveLength(3);
+    for (const link of starts) expect(link).toHaveAttribute("href", "/campaigns");
+    // The first link on the page, before the sheet.
+    expect(screen.getAllByRole("link")[0]).toBe(starts[0]);
+  });
+
+  // covers: REQ-RUN-002
+  it("simulates nothing: no button starts a pretend payout, and 'practice' is said nowhere, not even in a label", () => {
+    renderHome();
+    expect(screen.queryByRole("button", { name: /^Try /u })).toBeNull();
+    const labels = [...document.body.querySelectorAll("[aria-label], [title], [alt], [placeholder]")].flatMap((el) =>
+      ["aria-label", "title", "alt", "placeholder"].map((name) => el.getAttribute(name) ?? ""),
+    );
+    expect([document.body.textContent ?? "", ...labels].join(" ")).not.toMatch(/practi[cs]e/iu);
+  });
+
+  it("gives the real receipt and how privacy works", () => {
     renderHome();
     expect(screen.getByRole("link", { name: "See a real receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
     expect(screen.getByRole("link", { name: "How privacy works" })).toHaveAttribute("href", "/privacy");
   });
 
-  it("states what has and has not been done, in one line", () => {
-    renderHome();
-    expect(screen.getByText("A real 8-person payout ran on public testnet. Not tried on mainnet.")).toBeInTheDocument();
-  });
-
-  it("has no eyebrow above the headline, no boxed cards, and no paragraph longer than a short sentence", () => {
+  it("has no eyebrow above the headline, no boxed cards, and no paragraph longer than two short sentences", () => {
     renderHome();
     expect(document.querySelectorAll("[data-slot='card']")).toHaveLength(0);
     expect(document.querySelector("h1")?.previousElementSibling?.tagName).not.toBe("P");
     for (const p of document.querySelectorAll("p")) {
-      expect((p.textContent ?? "").trim().split(/\s+/u).length, p.textContent ?? "").toBeLessThanOrEqual(16);
+      expect((p.textContent ?? "").trim().split(/\s+/u).length, p.textContent ?? "").toBeLessThanOrEqual(20);
     }
   });
 
-  it("makes three promises under the headline, one short line each", () => {
+  it("makes three points, each a short title and one line", () => {
     renderHome();
-    for (const line of [
-      "Anyone can check the total.",
-      "Each person can prove their own payout.",
-      "Only the auditor you choose sees the list.",
-    ]) {
-      expect(screen.getByText(line)).toBeInTheDocument();
-    }
-  });
-
-  it("says who sees what: the same four as the switch on the sheet, and how each view is opened", () => {
-    renderHome();
-    const views = screen.getByTestId("four-views");
-    const items = within(views).getAllByRole("listitem");
-    expect(items.map((li) => li.firstElementChild?.textContent)).toEqual(["Everyone", "One person", "An auditor", "You"]);
-    expect(views).toHaveTextContent("From the receipt link, with no key.");
-    expect(views).toHaveTextContent("From their payslip, which proves it to anyone.");
-    expect(views).toHaveTextContent("With this payout's viewing key, and nothing from your other payouts.");
-    expect(views).toHaveTextContent("On your own computer, where the keys stay.");
-    // What everyone sees includes what the deposit spent, never who got what.
-    expect(views).toHaveTextContent("whether the deposit came out of the shielded pool");
-  });
-
-  it("compares a public list, a private wallet and ZecDrop, question by question, in a table and on a phone", () => {
-    renderHome();
-    const table = screen.getByTestId("compare-table");
-    expect(within(table).getAllByRole("columnheader").map((th) => th.firstElementChild?.textContent)).toEqual([
-      "A public list",
-      "A private wallet",
-      "ZecDrop",
+    const points = within(screen.getByTestId("points")).getAllByRole("listitem");
+    expect(points.map((li) => li.querySelector("h2")?.textContent)).toEqual([
+      "Up to 330 people, one transaction.",
+      "A receipt anyone can check.",
+      "Your keys stay with you.",
     ]);
-    const questions = within(table).getAllByRole("rowheader").map((th) => th.textContent);
-    expect(questions).toEqual([
-      "Anyone can check the total",
-      "Who got what stays private",
-      "One person can prove their own payout",
-      "An auditor can check the list",
-      "The payer's address stays off the chain",
-    ]);
-    // The same answers, one question at a time, for a narrow screen.
-    const list = screen.getByTestId("compare-list");
-    expect(within(list).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(questions);
-    expect(list).toHaveTextContent("Yes, with a payslip");
-    expect(table).toHaveTextContent("Yes, if you pay from a shielded balance");
+    expect(points[2]).toHaveTextContent("No account, no wallet to connect.");
   });
 
-  it("says how to run a payout, in order, and that there is no wallet to connect", () => {
+  it("says how a payout is made, in three steps, the first of them the one command, and offers no wallet to connect", () => {
     renderHome();
-    const section = screen.getByRole("heading", { level: 2, name: "How to run a payout" }).closest("section") as HTMLElement;
-    expect(within(section).getByText("There is no wallet to connect: the operator on your own computer holds the keys.")).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: "How it works" });
     const steps = within(section).getAllByRole("listitem");
-    expect(steps.map((li) => li.querySelector("h3")?.textContent)).toEqual([
-      "Start the operator",
-      "Add your payout list",
-      "Fund the address",
-      "Send and share",
-    ]);
+    expect(steps.map((li) => li.querySelector("h3")?.textContent)).toEqual(["Start ZecDrop", "Add people and fund it", "Send and share"]);
+    expect(steps[0]).toHaveTextContent("./zecdrop up");
+    expect(within(section).getByRole("link", { name: "Make a payout" })).toHaveAttribute("href", "/campaigns");
     // The page offers nothing to connect: no such button or link anywhere.
     expect(screen.queryByRole("button", { name: /connect/iu })).toBeNull();
     expect(screen.queryByRole("link", { name: /connect/iu })).toBeNull();
@@ -124,15 +124,15 @@ describe("the home page", () => {
     expect(line("Mined at block")).toBe("4,478,289");
     expect(line("Most in one transaction")).toBe("330");
     expect(line("Time to prove 330")).toBe("142 s");
-    // The one thing it has not done is said on it, as on the page's status line.
+    // The one thing it has not done is said on it.
     expect(within(receipt).getByText("No mainnet payout yet.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
   });
 
-  it("says what a person being paid can do, and where", () => {
+  it("says where a person being paid goes", () => {
     renderHome();
-    const section = screen.getByRole("heading", { level: 2, name: "For the people you pay" }).closest("section") as HTMLElement;
-    expect(within(section).getByRole("link", { name: "Get ready to be paid" })).toHaveAttribute("href", "/get-paid");
+    const section = screen.getByRole("region", { name: "Being paid?" });
+    expect(within(section).getByRole("link", { name: "Share your address" })).toHaveAttribute("href", "/get-paid");
     expect(within(section).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
   });
 
@@ -303,19 +303,5 @@ describe("the first look", () => {
     document.documentElement.dataset["motion"] = "calm";
     const calm = await freshHome();
     expect(calm.container.querySelectorAll(".bar-in")).toHaveLength(0);
-  });
-});
-
-describe("who it is for", () => {
-  it("shows two doors, personal and organisation, each a way into a practice payout in its own view", () => {
-    renderHome();
-    const personal = screen.getByTestId("door-personal");
-    const organisation = screen.getByTestId("door-organisation");
-    expect(within(personal).getByRole("heading", { level: 3, name: "Personal" })).toBeInTheDocument();
-    expect(within(personal).getByText("Money home to family")).toBeInTheDocument();
-    expect(within(personal).getByRole("button", { name: "Try a personal payout" })).toBeInTheDocument();
-    expect(within(organisation).getByRole("heading", { level: 3, name: "Organisation" })).toBeInTheDocument();
-    expect(within(organisation).getByText("Payroll and contributors")).toBeInTheDocument();
-    expect(within(organisation).getByRole("button", { name: "Try an organisation payout" })).toBeInTheDocument();
   });
 });

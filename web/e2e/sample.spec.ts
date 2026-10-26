@@ -81,7 +81,8 @@ test("the header's sample receipt is the 8-output batch", async ({ page }) => {
 
 test("the home page says what was demonstrated and links to its receipt", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("A real 8-person payout ran on public testnet. Not tried on mainnet.")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "It ran on public testnet" })).toBeVisible();
+  await expect(page.getByTestId("run-receipt").getByText("No mainnet payout yet.")).toBeVisible();
   await page.getByRole("link", { name: "See a real receipt" }).click();
   await expect(page).toHaveURL(/\/r\/demo\?demo=real$/u);
 });

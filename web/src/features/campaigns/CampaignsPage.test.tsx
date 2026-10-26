@@ -4,6 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearSession } from "@/api/operator/session";
+import { useWizardDraft } from "@/features/wizard/draft";
+import { EXAMPLE_LIST_NOTE } from "@/features/wizard/example-list";
+import { useAudience } from "@/lib/audience";
 import "@/test/dom";
 import { installFakeOperator, replyWith, type RouteHandler } from "@/test/fake-operator";
 import { fixtureJson } from "@/test/operator-fixtures";
@@ -14,6 +17,8 @@ const health: RouteHandler = () => replyWith("health.json");
 afterEach(() => {
   vi.unstubAllGlobals();
   clearSession();
+  useWizardDraft.getState().reset();
+  localStorage.clear();
 });
 
 describe("the payouts list", () => {
@@ -60,6 +65,36 @@ describe("the payouts list", () => {
     await user.click(within(screen.getByTestId("payouts-empty")).getByRole("link", { name: "Start a payout" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Add the payouts" })).toBeInTheDocument();
     expect(await screen.findByTestId("people-list")).toBeInTheDocument();
+  });
+
+  describe("the example list, when there are none (testnet)", () => {
+    // covers: REQ-RUN-003
+    it("in the personal view fills the people list with its eight, saying whose they are", async () => {
+      useAudience.setState({ audience: "personal" });
+      installFakeOperator({ "GET /api/health": health, "GET /api/campaigns": () => replyWith("campaigns-empty.json") });
+      const user = userEvent.setup();
+      renderApp("/campaigns", { signedIn: true });
+      const empty = await screen.findByTestId("payouts-empty");
+      expect(await within(empty).findByText(EXAMPLE_LIST_NOTE)).toBeInTheDocument();
+      await user.click(within(empty).getByRole("button", { name: "Use the example list" }));
+      expect(await screen.findByRole("heading", { level: 1, name: "Add the payouts" })).toBeInTheDocument();
+      const list = await screen.findByTestId("people-list");
+      expect(within(list).getAllByRole("group", { name: /^Person \d+$/u })).toHaveLength(8);
+    });
+
+    // covers: REQ-RUN-003
+    it("in an organisation's view arrives as the file it is, not hidden behind the drop zone", async () => {
+      useAudience.setState({ audience: "organisation" });
+      installFakeOperator({ "GET /api/health": health, "GET /api/campaigns": () => replyWith("campaigns-empty.json") });
+      const user = userEvent.setup();
+      renderApp("/campaigns", { signedIn: true });
+      const empty = await screen.findByTestId("payouts-empty");
+      await user.click(await within(empty).findByRole("button", { name: "Use the example list" }));
+      expect(await screen.findByRole("heading", { level: 1, name: "Add the payouts" })).toBeInTheDocument();
+      expect(await screen.findByTestId("payout-table")).toBeInTheDocument();
+      expect(screen.getByText("demo-recipients.testnet.csv")).toBeInTheDocument();
+      expect(screen.queryByText("Drop a CSV here")).toBeNull();
+    });
   });
 
   it("the empty list says so in a heading, shows what a list will look like as bars, and holds no text in the picture", async () => {

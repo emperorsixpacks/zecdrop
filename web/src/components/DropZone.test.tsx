@@ -15,7 +15,7 @@ describe("the drop zone", () => {
     expect(screen.queryByRole("button", { name: "Use the example list" })).toBeNull();
   });
 
-  // covers: REQ-DEMO-001
+  // covers: REQ-RUN-003
   it("offers the example list first, when it is given one, and hands over nothing but the press", async () => {
     const onList = vi.fn();
     const onExample = vi.fn();

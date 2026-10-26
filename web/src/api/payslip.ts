@@ -12,7 +12,7 @@
 
 import { z } from "zod";
 
-import { PRACTICE_REFUSAL, sendToApi } from "./client";
+import { sendToApi } from "./client";
 import { PAYSLIP_ENDPOINT } from "./endpoints";
 import { parsePayslipAnswer, type PayslipAnswer } from "./payslip-answer";
 import { payslipBody, type Payslip } from "./payslip-input";
@@ -26,8 +26,6 @@ export type PayslipFailureKind =
   | "network_not_served"
   /** The verifier says the request is too large. */
   | "too_large"
-  /** Practice mode answered: it asks no verifier and reads no chain, so it checks no payslip. */
-  | "practice"
   /** The verifier could not read the chain, or its source of chain data contradicted itself. */
   | "chain_unavailable"
   /** It answered, but not in the format we accept, or about another payslip than the one sent. */
@@ -47,7 +45,6 @@ export class PayslipFetchError extends Error {
 
 /** Status, and the code the verifier gave with it, to failure kind. */
 export function mapFailure(status: number, code: string | null = null): PayslipFailureKind {
-  if (status === 409 && code === PRACTICE_REFUSAL) return "practice";
   if (status === 413) return "too_large";
   if (status === 400 && code === "network_not_configured") return "network_not_served";
   if (status === 400 || status === 422) return "rejected";

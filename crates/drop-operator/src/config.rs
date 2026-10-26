@@ -62,9 +62,15 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub allow_mainnet: bool,
 
-    /// Address to listen on. Must be a loopback address.
+    /// Address to listen on. Must be a loopback address (or, with --container, the container's own `0.0.0.0`).
     #[arg(long, default_value = "127.0.0.1:8787")]
     pub bind: String,
+
+    /// TESTNET ONLY: the operator runs inside a container. It may then listen on the container's own network
+    /// (`--bind 0.0.0.0:PORT`), and whoever starts the container must publish that port on the host's loopback address only,
+    /// as `./zecdrop up` does (`-p 127.0.0.1:PORT:PORT`). The Host check and the per-run token are unchanged.
+    #[arg(long)]
+    pub container: bool,
 
     /// Path of the encrypted store file (created on first run).
     #[arg(long, default_value = "zecdrop.sqlite", global = true)]
@@ -293,8 +299,10 @@ pub enum ChainMode {
 pub struct Config {
     /// The network.
     pub network: Network,
-    /// Where to listen (always a loopback address).
+    /// Where to listen: a loopback address, or with `container` the container's own unspecified address.
     pub bind: SocketAddr,
+    /// Whether the operator runs inside a container (`--container`): its link then names the host's loopback address.
+    pub container: bool,
     /// The store file.
     pub db: PathBuf,
     /// The web UI directory.
@@ -364,10 +372,11 @@ pub fn check_network_gate(
     }
 }
 
-/// REQ-OPS-002: only loopback addresses may be bound.
-pub fn check_bind(address: &str) -> Result<SocketAddr, ConfigError> {
+/// REQ-OPS-002: only loopback addresses may be bound. Inside a container (`container`, testnet only) the unspecified
+/// address may be too: that is the container's own network, whose port the host publishes on its loopback address only.
+pub fn check_bind(address: &str, container: bool) -> Result<SocketAddr, ConfigError> {
     let parsed: SocketAddr = address.parse().map_err(|_| ConfigError::BadBindAddress)?;
-    if parsed.ip().is_loopback() {
+    if parsed.ip().is_loopback() || (container && parsed.ip().is_unspecified()) {
         Ok(parsed)
     } else {
         Err(ConfigError::NonLoopbackBind)
@@ -443,7 +452,10 @@ impl Config {
     pub fn from_cli(cli: Cli, confirm_env: Option<&str>) -> Result<Config, ConfigError> {
         let network = Network::from(cli.network);
         check_network_gate(network, cli.allow_mainnet, confirm_env)?;
-        let bind = check_bind(&cli.bind)?;
+        if cli.container && network == Network::Mainnet {
+            return Err(ConfigError::BadOption("--container is for testnet only"));
+        }
+        let bind = check_bind(&cli.bind, cli.container)?;
         if cli.seed_file.is_some() && network == Network::Mainnet {
             return Err(ConfigError::SeedFileMainnet);
         }
@@ -513,6 +525,7 @@ impl Config {
         Ok(Config {
             network,
             bind,
+            container: cli.container,
             db: cli.db,
             web_dir: cli.web_dir,
             mock_chain: cli.mock_chain,
@@ -710,7 +723,7 @@ mod tests {
             "[::1]:9000",
             "127.1.2.3:80",
         ] {
-            assert!(check_bind(ok).is_ok(), "{ok}");
+            assert!(check_bind(ok, false).is_ok(), "{ok}");
         }
         for wide in [
             "0.0.0.0:8787",
@@ -721,14 +734,14 @@ mod tests {
             "[fe80::1]:80",
         ] {
             assert_eq!(
-                check_bind(wide),
+                check_bind(wide, false),
                 Err(ConfigError::NonLoopbackBind),
                 "{wide}"
             );
         }
         for junk in ["", "localhost:8787", "127.0.0.1", "8787", "not an address"] {
             assert_eq!(
-                check_bind(junk),
+                check_bind(junk, false),
                 Err(ConfigError::BadBindAddress),
                 "{junk:?}"
             );
@@ -744,6 +757,55 @@ mod tests {
         );
         let config = Config::from_cli(cli(&["--mock-chain"]), None).unwrap();
         assert_eq!(config.bind.to_string(), "127.0.0.1:8787");
+    }
+
+    // covers: REQ-OPS-002, REQ-RUN-001
+    #[test]
+    fn inside_a_container_on_testnet_the_unspecified_address_can_be_bound_and_nothing_wider() {
+        for ok in ["0.0.0.0:8787", "[::]:8787", "127.0.0.1:8787"] {
+            assert!(check_bind(ok, true).is_ok(), "{ok}");
+        }
+        // A container never makes a LAN or public address bindable.
+        for wide in [
+            "192.168.1.20:8787",
+            "10.0.0.1:80",
+            "8.8.8.8:80",
+            "[fe80::1]:80",
+        ] {
+            assert_eq!(
+                check_bind(wide, true),
+                Err(ConfigError::NonLoopbackBind),
+                "{wide}"
+            );
+        }
+        let config = Config::from_cli(
+            cli(&["--mock-chain", "--container", "--bind", "0.0.0.0:8787"]),
+            None,
+        )
+        .unwrap();
+        assert!(config.container);
+        assert_eq!(config.bind.to_string(), "0.0.0.0:8787");
+        // Without the flag nothing changes.
+        assert!(
+            !Config::from_cli(cli(&["--mock-chain"]), None)
+                .unwrap()
+                .container
+        );
+        // And never on mainnet.
+        let mainnet = [
+            "--network",
+            "mainnet",
+            "--allow-mainnet",
+            "--lightwalletd-url",
+            "https://zec.rocks:443",
+            "--container",
+            "--bind",
+            "0.0.0.0:8787",
+        ];
+        assert_eq!(
+            Config::from_cli(cli(&mainnet), Some(CONFIRM_MAINNET_VALUE)).unwrap_err(),
+            ConfigError::BadOption("--container is for testnet only")
+        );
     }
 
     // covers: REQ-SEC-002

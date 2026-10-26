@@ -5,7 +5,7 @@
 // holds recognisable addresses, amounts and memos. The list may be on screen while
 // the person works on it (the preview), but once the campaign exists none of it is
 // anywhere, and no sentence the page builds ever repeats it.
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,12 +19,15 @@ import {
   type FakeOperator,
   type RouteHandler,
 } from "@/test/fake-operator";
-import { CSV, fixtureJson } from "@/test/operator-fixtures";
+import { CSV, fixtureJson, goldenJson } from "@/test/operator-fixtures";
 import { renderApp } from "@/test/render-app";
 
 import { AUDIENCE_STORAGE_KEY, useAudience } from "@/lib/audience";
 
+import exampleCsv from "../../../../examples/demo-recipients.testnet.csv?raw";
+
 import { useWizardDraft } from "./draft";
+import { EXAMPLE_LIST_NOTE } from "./example-list";
 
 const VALID_CSV = CSV["valid.csv"] ?? "";
 const ROW_ERRORS_CSV = CSV["row-errors.csv"] ?? "";
@@ -55,6 +58,10 @@ function expectNoSentinels(html: string, where: string) {
 
 const mockHealth: RouteHandler = () => replyWith("health.json");
 const realHealth: RouteHandler = () => replyWithGolden("health-real.json");
+const mainnetHealth: RouteHandler = () => ({ body: { ...(goldenJson("health-real.json") as Record<string, unknown>), network: "mainnet" } });
+
+/** The first address of the example list (examples/demo-recipients.testnet.csv). */
+const exampleAddress = (exampleCsv.trim().split("\n")[1] ?? "").split(",")[0] ?? "";
 
 let operator: FakeOperator;
 
@@ -122,6 +129,46 @@ describe("Stage 1: Payouts", () => {
     await pasteList(user, "address,amount\nu1x,1\n");
     await screen.findByTestId("payout-table");
     expect(screen.queryByText("Add the people you're paying. Nothing is sent yet.")).toBeNull();
+  });
+
+  describe("the example list", () => {
+    // covers: REQ-RUN-003
+    it("on testnet fills the list with its eight people, and says whose addresses they are", async () => {
+      const user = userEvent.setup();
+      renderApp("/new", { signedIn: true });
+      await user.click(await screen.findByRole("button", { name: "Use the example list" }));
+      expect(screen.getByText(EXAMPLE_LIST_NOTE)).toBeInTheDocument();
+      expect(EXAMPLE_LIST_NOTE).toBe("Eight testnet addresses of ZecDrop's own test wallet, ready to send.");
+      const list = screen.getByTestId("people-list");
+      expect(within(list).getAllByRole("group", { name: /^Person \d+$/u })).toHaveLength(8);
+      expect(within(list).getAllByLabelText("Address")[0]).toHaveValue(exampleAddress);
+    });
+
+    // covers: REQ-RUN-003
+    it("in an organisation's view is the drop zone's first button, says whose they are, and arrives as its file", async () => {
+      const user = userEvent.setup();
+      renderApp("/new", { signedIn: true });
+      await openImport(user);
+      expect(await screen.findByText(EXAMPLE_LIST_NOTE)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Use the example list" }));
+      expect(await screen.findByTestId("payout-table")).toBeInTheDocument();
+      expect(screen.getByText("demo-recipients.testnet.csv")).toBeInTheDocument();
+    });
+
+    // covers: REQ-RUN-003
+    it("on mainnet is not offered", async () => {
+      operator = installFakeOperator({ "GET /api/health": mainnetHealth, "POST /api/campaigns": created });
+      const user = userEvent.setup();
+      renderApp("/new", { signedIn: true });
+      await waitFor(() => {
+        expect(operator.to("GET", "/api/health").length).toBeGreaterThan(0);
+      });
+      expect(await screen.findByRole("button", { name: /Mainnet$/u })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Use the example list" })).toBeNull();
+      await openImport(user);
+      expect(screen.queryByRole("button", { name: "Use the example list" })).toBeNull();
+      expect(screen.queryByText(EXAMPLE_LIST_NOTE)).toBeNull();
+    });
   });
 
   describe("who it is for", () => {
@@ -307,7 +354,7 @@ describe("Stage 1: Payouts", () => {
       expect(operator.to("POST", "/api/campaigns")).toHaveLength(0);
     });
 
-    it("on the practice chain, add no note about one batch per campaign", async () => {
+    it("on the fake chain, add no note about one batch per campaign", async () => {
       const user = userEvent.setup();
       renderApp("/new", { signedIn: true });
       await pasteList(user, VALID_CSV);
@@ -646,7 +693,7 @@ describe("Stage 3: Send", () => {
     return user;
   }
 
-  it("on the practice chain: records a pretend deposit, asks once, sends, and lands on the campaign page with the draft cleared", async () => {
+  it("on the fake chain: records a pretend deposit, asks once, sends, and lands on the campaign page with the draft cleared", async () => {
     let funded = false;
     const user = await toSend({
       "GET /api/campaigns/:id": () => replyWith(funded ? "campaign-funded.json" : "create-valid.json"),
@@ -679,7 +726,7 @@ describe("Stage 3: Send", () => {
     expectNoSentinels(document.body.innerHTML, "on the send stage");
   });
 
-  it("on a real chain: asks 'Is it funded?' and shows where to send the deposit instead of the practice form", async () => {
+  it("on a real chain: asks 'Is it funded?' and shows where to send the deposit instead of the pretend-deposit form", async () => {
     await toSend({ "GET /api/campaigns/:id": () => replyWithGolden("create-real.json") }, realHealth);
     expect(await screen.findByRole("heading", { name: "Is it funded?" })).toBeInTheDocument();
     expect(await screen.findByTestId("funding-address")).toHaveTextContent("tFAKEfundingAddressNotARealAddress0000");

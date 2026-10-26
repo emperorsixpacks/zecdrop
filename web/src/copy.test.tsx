@@ -22,7 +22,6 @@ import { parsePayslipAnswer, PAYSLIP_INVALID_REASONS, PAYSLIP_NOT_PROVEN } from 
 import { PAYSLIP_PROBLEM_TEXT } from "@/api/payslip-input";
 import { payslipLink } from "@/api/payslip-link";
 import { SAMPLE_PAYSLIP_TEXT, samplePayslip } from "@/api/payslip-sample";
-import { TOUR_SHOTS } from "@/features/home/tour-steps";
 import { classifyAddress } from "@/lib/address-shape";
 import { describeEvent, describeRun, explainFailure } from "@/features/operator/messages";
 import { BUTTONS_HINT, describeShape, FEEDBACK_TEXT, PROMISE, SHAPE_NOTE, shareText, WHY_TEXT } from "@/features/get-paid/wording";
@@ -30,9 +29,6 @@ import { FAILURE_TEXT, INVALID_TEXT, LINK_FEEDBACK, LINK_NOTICE, LINK_PROBLEM, L
 import { useWizardDraft } from "@/features/wizard/draft";
 import { lensRowsFrom } from "@/features/wizard/list";
 import { previewPayouts } from "@/lib/csv-preview";
-import { PRACTICE_BANNER, startPractice, stopPractice } from "@/lib/practice-mode";
-import { pace } from "@/practice/pace";
-import { practicePayout } from "@/test/practice-flow";
 import { CAMPAIGN_PHASES, phaseLabel, phaseProgress, phaseSentence, type PhaseState } from "@/lib/phase";
 import { installFakeOperator, replyWith, replyWithStream, type RouteHandler } from "@/test/fake-operator";
 import { CSV, fixtureJson, goldenJson, INDEX } from "@/test/operator-fixtures";
@@ -86,17 +82,6 @@ describe.each(PAGES)("%s", (_name, path) => {
     expect(text.length).toBeGreaterThan(40);
     for (const [label, pattern] of BANNED) {
       expect(text, `contains the banned claim: ${label}`).not.toMatch(pattern);
-    }
-  });
-});
-
-describe("the home page's tour", () => {
-  it("is read in full by the guard: its text and what each picture says it shows", async () => {
-    const text = await textOf("/");
-    expect(text).toContain("A payout, screen by screen");
-    for (const shot of TOUR_SHOTS) {
-      expect(text, shot.id).toContain(shot.alt);
-      expect(text, shot.id).toContain(shot.caption);
     }
   });
 });
@@ -254,7 +239,7 @@ describe("the get-paid page, after an address is pasted", () => {
   const BECH32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
   const addresses: [name: string, text: string][] = [
     ["a real-money unified address", `u1${BECH32.repeat(4).slice(0, 104)}`],
-    ["a practice testnet address", `utest1${BECH32.repeat(4).slice(0, 104)}`],
+    ["a testnet address", `utest1${BECH32.repeat(4).slice(0, 104)}`],
     ["a transparent address", "t1cFrgk2qsbNHgNSmV8DNauWTCe6EKRLW9L"],
     ["a Sapling address", `zs1${BECH32.repeat(3).slice(0, 75)}`],
     ["something that is not an address", "hello there"],
@@ -431,82 +416,6 @@ describe("every status sentence a campaign can show", () => {
     for (const [label, pattern] of BANNED) {
       expect(words, `contains the banned claim: ${label}`).not.toMatch(pattern);
     }
-  });
-});
-
-// Practice mode adds words to the screens that already exist (the banner, a pill, a note on the receipt, what a payslip or a
-// receipt it did not make gets), and the whole flow is read the way every page is: with everything opened.
-describe("practice mode", () => {
-  afterEach(() => {
-    stopPractice();
-  });
-
-  const claimsNothingUntrue = (text: string, where: string) => {
-    expect(text.length, where).toBeGreaterThan(40);
-    for (const [label, pattern] of BANNED) {
-      expect(text, `${where}: contains the banned claim: ${label}`).not.toMatch(pattern);
-    }
-  };
-
-  it("says what it is, in words that claim nothing the public cannot back up", () => {
-    claimsNothingUntrue(PRACTICE_BANNER, "the banner");
-    expect(PRACTICE_BANNER).toContain("simulated");
-  });
-
-  /** What a practice screen must never say, because nothing happens: that something was sent to the network, that a block is
-   * waited for, that the pretended send cannot be undone. The operator's own screens say them for a real run. */
-  const PRETENDS_NOTHING_REAL: [label: string, pattern: RegExp][] = [
-    ["sent to the network", /\b(sent|sends|send|sending)\b[^.]{0,30}\bto the network\b/iu],
-    ["to the network", /to the network/iu],
-    ["the next block", /next block/iu],
-    ["It cannot be undone.", /\bIt cannot be undone\b/u],
-  ];
-
-  it("is read in full on every screen of a practice payout, and says nothing was sent to a network", async () => {
-    pace.stepMs = 5;
-    const user = userEvent.setup();
-    renderApp("/");
-    const read: string[] = [];
-    await practicePayout(user, async (where) => {
-      // The sheet is read with the funded campaign, which opens and reads it; reading it again here would close it.
-      if (where === "the send sheet" || where === "the payouts screen with the example list") return;
-      const text = await readEverything();
-      claimsNothingUntrue(text, where);
-      for (const [label, pattern] of PRETENDS_NOTHING_REAL) expect(text, `${where}: says "${label}"`).not.toMatch(pattern);
-      read.push(where);
-    });
-    expect(read).toEqual([
-      "the payouts screen",
-      "the check screen",
-      "the funding screen",
-      "the funded campaign",
-      "the sending timeline",
-      "the settled campaign",
-      "the simulated receipt",
-    ]);
-  }, 60_000);
-
-  it("holds the guard to account: the real run's screens do say these things, so the scan is not blind", () => {
-    // Without practice mode, the same sentences are the operator's own words, and the scan finds them.
-    const text = [describeEvent({ event: "broadcast", batchIndex: 0, txid: "a".repeat(64) }), "It cannot be undone.", "Waiting for the next block."].join(" ");
-    for (const [label, pattern] of PRETENDS_NOTHING_REAL) expect(text, label).toMatch(pattern);
-  });
-
-  it("says in plain words why a payslip is not checked, and why a receipt it did not make is not shown", async () => {
-    await startPractice();
-    const user = userEvent.setup();
-    renderApp("/payslip");
-    await user.click(await screen.findByRole("button", { name: "Load a sample" }));
-    await user.click(screen.getByRole("button", { name: "Check payslip" }));
-    await screen.findByRole("heading", { name: "Practice mode does not check payslips" });
-    claimsNothingUntrue(await readEverything(), "the payslip page");
-  });
-
-  it("says why a receipt link from somewhere else is not shown", async () => {
-    await startPractice();
-    renderApp(`/r/x?network=testnet&tx=${"a".repeat(64)}&commitment=${"e".repeat(64)}&declared_total=1`);
-    await screen.findByRole("heading", { name: "Practice mode does not read the chain" });
-    claimsNothingUntrue(await readEverything(), "a receipt practice mode did not make");
   });
 });
 

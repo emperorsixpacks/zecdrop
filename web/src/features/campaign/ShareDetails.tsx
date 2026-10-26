@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { FailureNotice } from "@/features/operator/FailureNotice";
 import type { OperatorCampaign } from "@/api/operator/schemas";
 import type { FundingSource } from "@/api/types";
-import { usePractice } from "@/lib/practice-mode";
 
 import { useReceiptShare } from "./useReceiptShare";
 
@@ -15,7 +14,7 @@ const REVEALS: readonly string[] = [
 ];
 
 /** The last limit depends on what the deposit spent (docs/PRIVACY_BOUNDARY.md, "Where the deposit came from"); a pretend deposit
- * (the mock chain, practice mode: no funding address) is said to be one. */
+ * (the mock chain: no funding address) is said to be one. */
 function hidden(source: FundingSource | null, pretend: boolean): readonly string[] {
   return [
     "Recipient addresses, per-recipient amounts and memos are not in the link and cannot be derived from it.",
@@ -34,7 +33,6 @@ function hidden(source: FundingSource | null, pretend: boolean): readonly string
  * "Share the receipt" section. The buttons that open and copy it are in the done panel. */
 export function ShareDetails({ campaign }: { campaign: OperatorCampaign }) {
   const { everyBatchBuilt, receipt, link, shown } = useReceiptShare(campaign);
-  const practice = usePractice((state) => state.on);
 
   return (
     <div className="max-w-[64ch] space-y-5">
@@ -58,12 +56,7 @@ export function ShareDetails({ campaign }: { campaign: OperatorCampaign }) {
           <p className="mono text-xs break-all" data-testid="receipt-link">
             {shown.text}
           </p>
-          {!shown.complete && practice && (
-            <p className="text-sm text-muted-foreground">
-              This is a practice receipt: it exists only in this tab, so its link opens here while practice mode is on and nowhere else.
-            </p>
-          )}
-          {!shown.complete && !practice && (
+          {!shown.complete && (
             <p className="text-sm text-muted-foreground">
               This is the path only: put the address of the public verifier in front of it. To have the full link shown here, build
               the page with the verifier&apos;s address set (see the README).
@@ -83,7 +76,7 @@ export function ShareDetails({ campaign }: { campaign: OperatorCampaign }) {
         </ul>
         <h3 className="pt-2 text-base font-bold">What it does not show, and the limits</h3>
         <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-          {/* No funding address with the right wallet is the mock chain or practice mode; another wallet has none either. */}
+          {/* No funding address with the right wallet is the mock chain; another wallet has none either. */}
           {hidden(campaign.fundingSource, campaign.fundingAddress === null && campaign.walletMatches).map((item) => (
             <li key={item}>{item}</li>
           ))}

@@ -1,5 +1,5 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import type { Locator, Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export interface PageUnderTest {
   name: string;
@@ -11,7 +11,8 @@ export interface PageUnderTest {
 }
 
 export const PAGES: readonly PageUnderTest[] = [
-  { name: "home", path: "/", h1: "Pay many people. Keep who got what private. Prove the total." },
+  { name: "home", path: "/", h1: "Pay many people. Keep it private. Prove the total." },
+  { name: "make a payout", path: "/start", h1: "Make a payout" },
   { name: "real testnet sample receipt", path: "/r/demo?demo=real", h1: "Payout receipt", ready: "Status" },
   { name: "first real testnet batch", path: "/r/demo?demo=real-smoke", h1: "Payout receipt", ready: "Status" },
   { name: "sample receipt", path: "/r/demo?demo=1", h1: "Payout receipt", ready: "Status" },
@@ -189,4 +190,40 @@ export async function recordTexts(page: Page): Promise<() => Promise<string[]>> 
     }).observe(document, { childList: true, subtree: true, characterData: true });
   });
   return async () => await page.evaluate(() => [...((window as unknown as { __said?: Set<string> }).__said ?? [])]);
+}
+
+/** What is wider than the screen, from the width the layout has (not `innerWidth`, which a phone widens to fit a wide page, and so
+ * never says a page is too wide). Empty when nothing is. */
+export async function widerThanTheScreen(page: Page): Promise<string[]> {
+  return await page.evaluate(() => {
+    const width = document.documentElement.clientWidth;
+    const found: string[] = [];
+    if (document.documentElement.scrollWidth > width) found.push(`the page scrolls sideways: ${String(document.documentElement.scrollWidth)} in ${String(width)}`);
+    for (const el of document.body.querySelectorAll("*")) {
+      if (el.closest(".screen-frame, .sr-only") !== null) continue;
+      const style = getComputedStyle(el);
+      if (style.position === "fixed" || style.visibility === "hidden" || style.display === "none") continue;
+      const box = el.getBoundingClientRect();
+      if (box.width < 1) continue;
+      let clipped = false;
+      for (let parent = el.parentElement; parent !== null && parent !== document.body; parent = parent.parentElement) {
+        const overflow = getComputedStyle(parent).overflowX;
+        if (overflow === "hidden" || overflow === "auto" || overflow === "scroll" || overflow === "clip") {
+          clipped = true;
+          break;
+        }
+      }
+      if (!clipped && box.right > width + 0.5) found.push(`${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 30)}" ends at ${String(Math.round(box.right))} in ${String(width)}`);
+    }
+    return found.slice(0, 4);
+  });
+}
+
+/** The capsule is whole and inside the screen. */
+export async function capsuleInside(page: Page, width: number): Promise<void> {
+  const box = await page.locator(".island").boundingBox();
+  expect(box, "the capsule is drawn").not.toBeNull();
+  const { x, width: w } = box as { x: number; width: number };
+  expect(x, "the capsule starts inside the screen").toBeGreaterThanOrEqual(0);
+  expect(x + w, "the capsule ends inside the screen").toBeLessThanOrEqual(width + 0.5);
 }

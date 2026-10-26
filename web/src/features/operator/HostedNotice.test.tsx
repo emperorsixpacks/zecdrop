@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import { clearSession } from "@/api/operator/session";
 import "@/test/dom";
+import { openIsland } from "@/test/island";
 import { renderApp } from "@/test/render-app";
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -32,10 +33,12 @@ describe("the page is served from a hosted name", () => {
     expect(window.location.hostname).toBe("demo.example.org");
   });
 
-  it.each(OPERATOR_PATHS)("%s explains that the operator runs on your own machine, instead of failing", (path) => {
+  // covers: REQ-RUN-002
+  it.each(OPERATOR_PATHS)("%s explains that payouts are made on your own computer, instead of failing", (path) => {
     renderApp(path);
-    expect(screen.getByRole("heading", { level: 1, name: "Run the operator on your own machine" })).toBeInTheDocument();
-    expect(screen.getByText(/This hosted page is the public receipt viewer/u)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Payouts are made on your own computer" })).toBeInTheDocument();
+    expect(screen.getByText("ZecDrop holds your keys and your list, so it runs on your computer, never on this site.")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByRole("link", { name: "Make a payout" })).toHaveAttribute("href", "/start");
     // Not the token screen, and not an error.
     expect(screen.queryByRole("heading", { name: "Open the operator link" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -58,20 +61,41 @@ describe("the page is served from a hosted name", () => {
     expect(within(nav).getByRole("link", { name: "How privacy works" })).toBeInTheDocument();
   });
 
-  it("says what is here instead, with working links", async () => {
+  it("leads to the page that says how to make a payout", async () => {
     const user = userEvent.setup();
     renderApp("/audit");
-    expect(screen.getByText(/Nothing on this hosted page can create, fund or send a payout/u)).toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: "See a sample receipt" }));
+    await user.click(within(screen.getByRole("main")).getByRole("link", { name: "Make a payout" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Make a payout" })).toBeInTheDocument();
+    expect(screen.getByTestId("start-command")).toHaveTextContent("./zecdrop up");
+  });
+
+  it("says what is here instead, with a working link to a real receipt", async () => {
+    const user = userEvent.setup();
+    renderApp("/audit");
+    await user.click(screen.getByRole("link", { name: "see a real receipt" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Payout receipt" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 2, name: "Status" })).toBeInTheDocument();
+  });
+
+  // covers: REQ-RUN-002
+  it("leads every Make a payout of the public pages to the page that gives the command: the home page's, the menu's, the footer's", async () => {
+    const user = userEvent.setup();
+    renderApp("/");
+    const onHome = within(screen.getByRole("main")).getAllByRole("link", { name: "Make a payout" });
+    expect(onHome).toHaveLength(3);
+    for (const link of onHome) expect(link).toHaveAttribute("href", "/start");
+    expect(within(screen.getByRole("contentinfo")).getByRole("link", { name: "Make a payout" })).toHaveAttribute("href", "/start");
+    const nav = await openIsland(user);
+    const first = within(nav).getAllByRole("link")[0];
+    expect(first).toHaveTextContent("Make a payout");
+    expect(first).toHaveAttribute("href", "/start");
   });
 
   it("leaves the public pages alone", () => {
     renderApp("/privacy");
     expect(screen.getByRole("heading", { level: 1, name: "How privacy works" })).toBeInTheDocument();
     renderApp("/");
-    expect(screen.getAllByRole("heading", { level: 1, name: "Pay many people. Keep who got what private. Prove the total." }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { level: 1, name: "Pay many people. Keep it private. Prove the total." }).length).toBeGreaterThan(0);
   });
 
   it("does not claim anything it cannot back up", () => {

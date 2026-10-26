@@ -193,11 +193,11 @@ describe("there is no code", () => {
     expect(screen.queryByRole("link", { name: "Open in wallet" })).toBeNull();
   });
 
-  it("on the practice chain, where nothing real can be paid", async () => {
+  it("on the fake chain, where nothing real can be paid", async () => {
     screenIs(true);
     installFakeOperator({ "GET /api/health": mockHealth, "GET /api/campaigns/:id": () => replyWith("campaign-awaiting-funding.json") });
     renderApp(PATH, { signedIn: true });
-    await screen.findByRole("heading", { name: "Practice mode: record a pretend deposit" });
+    await screen.findByRole("heading", { name: "Fake chain: record a pretend deposit" });
     expect(screen.queryByTestId("funding-qr")).toBeNull();
     expect(screen.queryByRole("img", { name: /QR code/u })).toBeNull();
     expect(screen.queryByRole("button", { name: /QR code/u })).toBeNull();

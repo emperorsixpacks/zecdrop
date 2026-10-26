@@ -16,7 +16,8 @@ import { renderApp } from "@/test/render-app";
 import { AppRoutes } from "./routes";
 
 const PAGES: [name: string, path: string, h1: string][] = [
-  ["the home page", "/", "Pay many people. Keep who got what private. Prove the total."],
+  ["the home page", "/", "Pay many people. Keep it private. Prove the total."],
+  ["the page that says how to make a payout", "/start", "Make a payout"],
   ["the real testnet sample receipt", "/r/demo?demo=real", "Payout receipt"],
   ["the first real testnet batch", "/r/demo?demo=real-smoke", "Payout receipt"],
   ["the sample receipt", "/r/demo?demo=1", "Payout receipt"],

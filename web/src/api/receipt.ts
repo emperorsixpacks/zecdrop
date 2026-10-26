@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { PRACTICE_REFUSAL, sendToApi } from "./client";
+import { sendToApi } from "./client";
 import { RECEIPT_ENDPOINT } from "./endpoints";
 import { receiptSearchParams, type ReceiptQuery } from "./receipt-query";
 import { parsePublicReceipt, type PublicReceipt } from "./types";
@@ -23,8 +23,6 @@ export type ReceiptFailureKind =
   | "rejected"
   /** The verifier answered that it does not serve the network the link names. */
   | "network_not_served"
-  /** Practice mode answered: it reads no chain, so it cannot check a receipt that is not its own. */
-  | "practice"
   /** It answered, but not in the receipt format we accept. */
   | "invalid_response";
 
@@ -51,14 +49,13 @@ export function mapFailure(status: number): ReceiptFailureKind {
 const refusalWire = z.looseObject({ error: z.looseObject({ code: z.string() }) });
 
 /** What a refused request means. A 400 is "malformed" unless the verifier says, by its code,
- * that it is not set up for the link's network; a 409 is practice mode's own refusal. Its words are never read or kept. */
+ * that it is not set up for the link's network. Its words are never read or kept. */
 async function refusalKind(response: Response): Promise<ReceiptFailureKind> {
   const kind = mapFailure(response.status);
-  if (response.status !== 400 && response.status !== 409) return kind;
+  if (response.status !== 400) return kind;
   try {
     const refusal = refusalWire.safeParse(await response.json());
     const code = refusal.success ? refusal.data.error.code : null;
-    if (response.status === 409) return code === PRACTICE_REFUSAL ? "practice" : kind;
     return code === "network_not_configured" ? "network_not_served" : kind;
   } catch {
     return kind;

@@ -18,4 +18,6 @@ mainnet.
 
 ### REQ-OPS-002 — Local API is not exposed
 Status: implemented
-The operator API SHALL bind to loopback and require a per-run bearer token; requests without it SHALL be refused.
+The operator API SHALL bind to loopback and require a per-run bearer token; requests without it SHALL be refused. Inside a
+container, and only when told it runs in one (`--container`, testnet only), it MAY bind the container's own unspecified address,
+for a port published on the host's loopback address only (REQ-RUN-001, amended by `run-it-yourself`).
