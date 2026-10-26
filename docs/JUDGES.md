@@ -1,6 +1,6 @@
 # How to test ZecDrop
 
-Three ways, from least to most effort. Everything is on **Zcash testnet**; nothing here moves real money.
+Four ways, from least to most effort. Everything is on **Zcash testnet**; nothing here moves real money.
 
 ## 1. Look (no install)
 
@@ -51,6 +51,29 @@ ZECDROP_PASSPHRASE='any passphrase of 12 or more characters' \
 Open the `open:` link it prints (the token is in the link and changes on every start). Then: add payouts (paste
 `examples/demo-recipients.testnet.csv`), check them, fund the campaign ("Practice mode: record a pretend deposit",
 then "Record mock deposit"), send, and open the public receipt.
+
+## 4. Check one recipient's payslip (no key, no coins)
+
+A **payslip** is a small file one recipient can show a third party: it proves that one output of a public transaction paid them
+an amount, without revealing any other recipient and without a viewing key. This repository holds the payslips of the real
+8-recipient testnet batch, issued with the demo campaign's throwaway key. With the operator built (`cargo build -p drop-operator`):
+
+```bash
+F=fixtures/testnet-ironwood-batch-8/6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955
+target/debug/drop-operator verify-payslip --payslip $F/payslips/payslip-3.json --tx $F/tx.hex
+```
+
+Expect `OK: action 5 of transaction 6e2359182d1d… creates a note with the payslip's receiver and amount`, followed by what that
+does not prove. Change one digit of `value` in the file and it fails (`the payslip does not match the transaction's output`).
+Against a verifier that reads the chain (path 2's container), a payslip travels in a POST body:
+
+```bash
+curl -s -X POST -H 'content-type: application/json' --data-binary @$F/payslips/payslip-3.json http://127.0.0.1:8080/v1/payslip
+```
+
+Expect `"verdict":"verified"` with the confirmations. A payslip is a bearer document and its `rseed` also opens that output's
+memo, so a hosted check shows the verifier the receiver, the amount and the memo's key for the length of the request;
+the offline command does not. What a payslip proves and does not prove: [`PRIVACY_BOUNDARY.md`](PRIVACY_BOUNDARY.md), "Payslips".
 
 ## Not available to judges
 

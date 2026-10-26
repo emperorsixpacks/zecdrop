@@ -100,6 +100,22 @@ after about 50 minutes, and a stopped campaign does not rebuild it (a restart re
    ```
    Expect every output recovered, the total equal to the public figure, and `RESULT: reconciled`.
 
+## 7. Issue the payslips (optional; good for the video)
+
+Once the campaign is settled, the operator can give each recipient a **payslip**: a small file that proves one payout to them,
+checkable by anyone without a key. Each file names its recipient's receiver and amount, and also opens that output's memo, so it
+goes only to its recipient.
+
+```bash
+$OP payslips --campaign <id> --out-dir "$HOME/zecdrop-payslips-mainnet"       # one owner-only file per payout
+target/release/drop-operator verify-payslip --payslip "$HOME/zecdrop-payslips-mainnet/payslip-001.json" \
+  --lightwalletd-url https://zec.rocks:443                                    # a recipient or a third party checks one
+```
+
+Expect `OK` with the confirmations. The public site's "Check a payslip" page checks the same file through the hosted verifier,
+which then sees the receiver, the amount and the memo's key for the length of the request (`docs/PRIVACY_BOUNDARY.md`,
+"Payslips").
+
 ## If something goes wrong
 
 - **A refusal at start-up:** read the message, do not fund, and tell whoever is helping.
