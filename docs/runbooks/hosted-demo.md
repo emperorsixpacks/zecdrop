@@ -1,8 +1,12 @@
 # Runbook — hosted public demo (receipt viewer)
 
-**Status: prepared, not deployed.** Everything below was checked locally (a production build served with the
-generated headers and rewrites, against a stub verifier; `web/e2e/hosted/`). Nothing was deployed and no hosting API
-was called. Deploying is the owner's step.
+**Status (2026-10-15): the static site is deployed, the verifier is not.** The site is live at
+<https://zecdrop-site.vercel.app> (uploaded with the Vercel CLI from `web/dist`, built with `npm run build:hosted`; it was
+checked from outside: every route answers, the headers are present, no console errors, the bundled real receipt renders). It
+was built for a verifier at `https://zecdrop-verifier.fly.dev`, which does not exist yet: `deploy/fly.toml` is ready, but
+Fly.io needs a payment method before it will create the app. Until the verifier is up, live receipt links say it is
+unreachable; the bundled samples work. Before that, everything below was also checked locally against a stub verifier
+(`web/e2e/hosted/`).
 
 ## What this is, and what it is not
 
