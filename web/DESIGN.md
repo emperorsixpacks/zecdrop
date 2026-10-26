@@ -8,6 +8,11 @@ Owner feedback (2026-10-19): the UI is "just okay": make it more pleasing and mo
 be curved "so the notch can be felt", and the get-paid page is too wordy. Answered by "The screen" (below), the get-paid page's
 rewrite, and the header's new offset. The identity is unchanged: paper, ink, the marker, redaction bars, the big tight grotesque.
 
+Owner feedback (2026-10-20): "the UI is fine but we need a cool landing page"; the home page read as documentation, not as a
+landing page. Answered by "Home" (below): the headline beside the sheet, with one first look on it (the bars are drawn, then the
+marker runs over the three public figures), a band across the screen in the bar's own colours, the real run printed as a till
+receipt, a section for the people being paid, and the steps, practice mode and tour kept. No new colour, font or claim.
+
 Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
 default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
 operator screens inherit the tokens and get their own pass after. The structure, flow, copy rules and tests below are unchanged.
@@ -64,7 +69,8 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
   itself, the sending timeline advancing, the sealed stamp with a short confetti burst, button press feedback, a sliding thumb
   on every segmented control, toasts, the header capsule's morph when it is opened or closed, the press response of everything
   that can be pressed, a redaction bar's label on touch, and a new page's cross-fade. Not allowed: entrance fades on every
-  section, a background glow, anything that moves while the page loads or scrolls, anything that moves by itself.
+  section, a background glow, anything that moves while the page loads or scrolls, anything that moves by itself. One exception
+  (2026-10-20): the home page's **first look**, Lively only and once a visit, about two seconds, then still (see "Home").
 
 ## Self-critique of the plan (done before building)
 
@@ -117,15 +123,30 @@ in screenshots). It is a `role="status"`, as is "Chain mode unknown: practice co
 
 ## Public pages
 
-**Home.** Headline "Pay many people. Keep who got what private. Prove the total." in large heavy type, three lines on a wide
-screen. Below it, on the left the status line, the two buttons and three short lines; on the right one white sheet holding the
-lens demo (stacked, sheet before the lines, on a phone). The lens demo is on the real
-8-payout sample list (rows labelled Person 1..8; amounts from the public sample CSV), with the lens switch as the hero
-interaction. Three buttons: *See a real receipt* (the one that is filled), *How privacy works* and *Try a practice payout*, which
-turns practice mode on and opens the first screen of a payout. Three short lines (what is public / hidden / checkable)
-and the one-sentence testnet status. No paragraphs of explanation above the fold. Between the four steps and the tour a calm
-section, *Try it yourself*, two short lines and one outline button (*Try it yourself in practice mode*): rather than read the
-tour, do it. Neither button is the highlighted one, and neither changes a pinned sentence.
+**Home** is the landing page (owner, 2026-10-20). In order:
+
+1. **The headline and the sheet**, side by side on a wide screen so the first look is seen without a scroll (stacked on a phone).
+   Left: "Pay many people. Keep who got what private. Prove the total." in the big grotesque pushed further (weight 800, width
+   72%, up to 92px), the one-sentence testnet status, two buttons (*See a real receipt*, filled; *Try a practice payout*, outline)
+   and two text links (*How privacy works*, *Being paid? Start here*). Right: the one white sheet, *Same payout, three views*,
+   with the real transaction's short id, the count, total and fee **marked with the highlighter** (the marker is what anyone can
+   read, the bars what they cannot), and the lens on the real 8-payout sample list (Person 1..8), its switch under the list so
+   that the tab order runs down the page (the buttons beside the sheet come first; `e2e/keyboard.spec.ts` holds it).
+2. **The first look** (Lively, once a visit): the sixteen bars wipe in row after row over cells that never held any text, then
+   the marker runs over the three public figures in turn, while the total counts up; about two seconds, then still. In Calm,
+   under reduced motion and on a return to the page it is not played: the sheet is simply there. It is the page's one
+   unprompted motion; nothing else on the page moves by itself.
+3. **The band**: the redaction bar itself across the whole screen (the header capsule's fill and ink, so black with light text,
+   and in the dark set the light-grey bar with dark text), headed "Private amounts, public accountability.", with *Public*,
+   *Hidden* and *Checkable* in very large type over their short lines.
+4. **It ran on public testnet**: three short lines and *Open the receipt*, beside the real run printed as a till receipt (the
+   torn sheet, mono, dotted leaders, tilted a degree on a wide screen): payouts, transaction, total, fee, block, time to settle;
+   then the limits measured offline (330 in one transaction, 142 s to prove it, 0.52 s to check it); ending "No mainnet payout
+   yet." Every figure is the real receipt's or is named in `src/features/home/run-facts.ts` with its source.
+5. **How to run a payout** (the four steps, unchanged), then **Try it yourself** on a slip (the button beside the text on a wide
+   screen), then **For the people you pay** (the get-paid page and payslips, one line each), then the tour.
+
+No paragraph is longer than a short sentence (a test holds them to 16 words), and no part claims more than the status line.
 
 **Receipt.** One white **sheet** with an ink rule on top and a torn bottom edge (`.receipt-sheet`, a mask). On the left a
 verdict line first ("Settled. 8 payouts, 0.005 TAZ, fee 0.00045"), then what the verifier found, then the funds flow as three
@@ -411,5 +432,5 @@ would be no help. The same sizes, so the page holds the same space.
 ### Not done here (stage 2)
 
 The capsule's live activity (the progress of a running payout, on every page): the capsule is one button with a name made of its parts, so a
-fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. A hero moment on the home page, and richer practice-mode
-guidance, are untouched.
+fourth part ("Sending, 1 of 3") has room, and its width is measured, so it grows. Richer practice-mode guidance is untouched. (The hero
+moment on the home page was done on 2026-10-20: "Home", above.)

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { demoReceipt, SAMPLE_RECEIPT_HREF } from "@/api/demo";
 import "@/test/dom";
@@ -72,6 +72,29 @@ describe("the home page", () => {
     // The page offers nothing to connect: no such button or link anywhere.
     expect(screen.queryByRole("button", { name: /connect/iu })).toBeNull();
     expect(screen.queryByRole("link", { name: /connect/iu })).toBeNull();
+  });
+
+  it("prints the real run as a receipt, with the receipt's own figures and the limits as measured", () => {
+    renderHome();
+    const receipt = screen.getByTestId("run-receipt");
+    const line = (name: string) => within(receipt).getByText(name).closest("div")?.querySelector("dd")?.textContent;
+    expect(line("Payouts")).toBe("8");
+    expect(line("Transaction")).toBe("6e23…7955");
+    expect(line("Total")).toBe("0.005 TAZ");
+    expect(line("Network fee")).toBe("0.00045 TAZ");
+    expect(line("Mined at block")).toBe("4,478,289");
+    expect(line("Most in one transaction")).toBe("330");
+    expect(line("Time to prove 330")).toBe("142 s");
+    // The one thing it has not done is said on it, as on the page's status line.
+    expect(within(receipt).getByText("No mainnet payout yet.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the receipt" })).toHaveAttribute("href", SAMPLE_RECEIPT_HREF);
+  });
+
+  it("says what a person being paid can do, and where", () => {
+    renderHome();
+    const section = screen.getByRole("heading", { level: 2, name: "For the people you pay" }).closest("section") as HTMLElement;
+    expect(within(section).getByRole("link", { name: "Get ready to be paid" })).toHaveAttribute("href", "/get-paid");
+    expect(within(section).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
   });
 
   it("keeps the count, the total and the fee readable, from the real receipt", () => {
@@ -149,5 +172,88 @@ describe("the lens on the home page", () => {
   it("says the testnet coin has no value", () => {
     renderHome();
     expect(screen.getByText("Amounts are in TAZ, the testnet coin. It has no value.")).toBeInTheDocument();
+  });
+});
+
+describe("the first look", () => {
+  // The page plays it once a visit, so each test loads the page afresh.
+  async function freshHome() {
+    vi.resetModules();
+    const { default: Fresh } = await import("./HomePage");
+    return render(
+      <MemoryRouter>
+        <Fresh />
+      </MemoryRouter>,
+    );
+  }
+
+  function lively() {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    document.documentElement.dataset["motion"] = "lively";
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    delete document.documentElement.dataset["motion"];
+  });
+
+  // covers: REQ-PRIV-002
+  it("draws the bars over cells that hold nothing, then marks the three public figures, and is then still", async () => {
+    lively();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { container } = await freshHome();
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(16);
+    const marks = container.querySelectorAll(".marked");
+    expect(marks).toHaveLength(3);
+    for (const mark of marks) expect(mark).toHaveAttribute("data-intro", "true");
+    // While the bars are being drawn the page is as private as it is after: no address, memo or amount of the list.
+    const html = document.body.innerHTML;
+    for (const row of samplePayoutRows()) {
+      expect(html).not.toContain((row.address ?? "never").slice(0, 20));
+      expect(html).not.toContain(row.memo ?? "never");
+    }
+    expect(document.body.textContent).not.toMatch(amount("0.0006", "0.0004", "0.0009", "0.0005", "0.0007", "0.0003", "0.0010"));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+    for (const mark of container.querySelectorAll(".marked")) expect(mark).toHaveAttribute("data-intro", "false");
+  });
+
+  it("plays once a visit: coming back to the page draws nothing", async () => {
+    lively();
+    const first = await freshHome();
+    first.unmount();
+    const { default: Again } = await import("./HomePage");
+    const { container } = render(
+      <MemoryRouter>
+        <Again />
+      </MemoryRouter>,
+    );
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+    for (const mark of container.querySelectorAll(".marked")) expect(mark).toHaveAttribute("data-intro", "false");
+  });
+
+  it("does not play in Calm, or when the system asks for reduced motion", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    const { container } = await freshHome();
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+    cleanup();
+
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    document.documentElement.dataset["motion"] = "calm";
+    const calm = await freshHome();
+    expect(calm.container.querySelectorAll(".bar-in")).toHaveLength(0);
   });
 });

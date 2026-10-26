@@ -428,6 +428,67 @@ html[data-motion="calm"] { --motion: 0.35; }
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--p-ink) 13%, transparent);
 }
 
+/* ---- The home page ---------------------------------------------------------------------------
+ * What is public on the home page's sheet is marked with the highlighter, as on a printed page: the marker is what anyone can
+ * read, the bars what they cannot. On the first look (Lively, src/features/home/HomePage.tsx) the bars are drawn first, then
+ * the marker runs across each public figure in turn (--i), drawn under the text while it runs; once it has run, the page takes
+ * `data-intro` away and the marker is the figure's own background again (which an accessibility checker can measure). */
+.marked {
+  position: relative;
+  isolation: isolate;
+  display: inline-block;
+  padding-inline: 0.1em;
+  border-radius: 2px;
+  background-color: var(--highlighter);
+  color: var(--p-marker-ink);
+}
+.marked[data-intro="true"] {
+  background-color: transparent;
+  animation: ink-on-marker calc(300ms * var(--motion)) both;
+  animation-delay: calc((850ms + var(--i, 0) * 170ms) * var(--motion));
+}
+.marked[data-intro="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--highlighter);
+  animation: bar-in calc(420ms * var(--motion)) cubic-bezier(0.7, 0, 0.2, 1) both;
+  animation-delay: calc((850ms + var(--i, 0) * 170ms) * var(--motion));
+}
+@keyframes ink-on-marker {
+  from { color: var(--foreground); }
+  to { color: var(--p-marker-ink); }
+}
+
+/* A band across the whole screen in the redaction bar's own colours (the header capsule's pair, held to contrast by
+ * src/colours.test.ts). The colour reaches the screen's edges by a shadow clipped to the band's height, so the page is no wider. */
+.band {
+  background-color: var(--island);
+  color: var(--island-ink);
+  box-shadow: 0 0 0 100vmax var(--island);
+  clip-path: inset(0 -100vmax);
+}
+
+/* A line of a printed receipt: the name, a dotted leader, the figure. */
+.leader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5ch;
+}
+.leader::after {
+  content: "";
+  order: 1;
+  flex: 1;
+  min-width: 2ch;
+  border-bottom: 1px dotted var(--p-control);
+  transform: translateY(-0.3em);
+}
+.leader > :last-child {
+  order: 2;
+}
+
 /* The screen: a fixed frame on top of the page, drawn as a ring of the bezel colour around a window with rounded corners. It
  * takes no press and no scroll (pointer-events: none), and the page scrolls under it as it always did. It is above the page and
  * the practice banner, and below the capsule, the popovers, the toast and the dialogs (which the browser draws in its top

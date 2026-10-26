@@ -34,6 +34,13 @@ describe("the redaction lens", () => {
     expect(screen.getByText("Person 2")).toBeInTheDocument();
   });
 
+  it("puts the switch under the list when asked, so it comes after the list in the tab order", () => {
+    render(<RedactionLens rows={ROWS} mode="public" onModeChange={() => {}} selectedId={null} onSelect={() => {}} unit="TAZ" controls="below" />);
+    const list = screen.getAllByRole("list")[0] as HTMLElement;
+    const radio = screen.getByRole("radio", { name: "Public" });
+    expect(list.compareDocumentPosition(radio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("a hidden bar answers a touch with a picture only: it is named once, and no word of it is in the page", () => {
     render(<Harness />);
     const bars = screen.getAllByRole("img", { name: "hidden" });
@@ -150,6 +157,33 @@ describe("the wipes", () => {
     lively();
     const { container } = render(<Harness />);
     expect(container.querySelectorAll(".bar-in, .bar-out, .reveal-in")).toHaveLength(0);
+  });
+
+  // covers: REQ-PRIV-002
+  it("a list drawn with intro wipes its bars in once, over cells that never held any text", async () => {
+    lively();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { container } = render(<LensList rows={ROWS} mode="public" selectedId={null} unit="TAZ" intro />);
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(ROWS.length * 2);
+    for (const secret of SECRETS) expect(document.body.innerHTML, String(secret)).not.toMatch(secret);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
+    expect(screen.getAllByRole("img", { name: "hidden" })).toHaveLength(ROWS.length * 2);
+  });
+
+  it("intro moves nothing that is revealed, and nothing at all when motion is reduced", () => {
+    lively();
+    const { container, unmount } = render(<LensList rows={ROWS} mode="auditor" selectedId={null} unit="TAZ" intro />);
+    expect(container.querySelectorAll(".bar-in, .bar-out, .reveal-in")).toHaveLength(0);
+    unmount();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })),
+    );
+    const reduced = render(<LensList rows={ROWS} mode="public" selectedId={null} unit="TAZ" intro />);
+    expect(reduced.container.querySelectorAll(".bar-in")).toHaveLength(0);
   });
 
   it("nothing moves, and no bar is left over the text, when motion is reduced", async () => {

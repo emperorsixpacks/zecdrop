@@ -17,7 +17,9 @@ import { formatZec } from "@/lib/zec";
 // CSS, absent. So the public lens of a real list is as private in the markup as it
 // looks, and a bar is a fixed width, so its width tells nothing about what it hides.
 // When a cell is lifted, its text is drawn at once and a bar wipes away over it; when it
-// is put back, the text is removed at once and a bar wipes in. Nothing lingers.
+// is put back, the text is removed at once and a bar wipes in. Nothing lingers. A list drawn
+// with `intro` (the home page's first look) wipes its bars in once, row after row, over cells
+// that never held any text.
 
 export type LensMode = "public" | "recipient" | "auditor";
 
@@ -71,11 +73,24 @@ function wipeMs(index: number): number {
 }
 
 /** One cell of one row: a bar, or what is under it. It watches for a change of its own, so
- * only cells that change move, and nothing moves the first time the list is drawn. */
-function Cell({ revealed, index, width, children }: { revealed: boolean; index: number; width: string; children: ReactNode }) {
+ * only cells that change move, and nothing moves the first time the list is drawn unless it is
+ * asked to (`intro`), and then only a bar. */
+function Cell({
+  revealed,
+  index,
+  width,
+  intro = false,
+  children,
+}: {
+  revealed: boolean;
+  index: number;
+  width: string;
+  intro?: boolean;
+  children: ReactNode;
+}) {
   const [was, setWas] = useState(revealed);
   // "out": the bar is lifting over text just drawn. "in": a bar is being put back.
-  const [moving, setMoving] = useState<"in" | "out" | null>(null);
+  const [moving, setMoving] = useState<"in" | "out" | null>(() => (intro && !revealed && motionScale() > 0 ? "in" : null));
   if (revealed !== was) {
     setWas(revealed);
     setMoving(motionScale() > 0 ? (revealed ? "out" : "in") : null);
@@ -123,12 +138,14 @@ interface LensListProps {
   onSelect?: (id: string) => void;
   /** The coin's name; defaults to the page's. */
   unit?: string;
+  /** Wipe the bars in once when the list is first drawn (only where motion is on). */
+  intro?: boolean;
   className?: string;
 }
 
 /** The list itself, in the chosen lens. A list, not a table, so it folds to a
  * phone's width without sideways scrolling. */
-export function LensList({ rows, mode, selectedId, onSelect, unit, className }: LensListProps) {
+export function LensList({ rows, mode, selectedId, onSelect, unit, intro = false, className }: LensListProps) {
   const pageUnit = useCoinUnit();
   const coin = unit ?? pageUnit;
   return (
@@ -153,12 +170,12 @@ export function LensList({ rows, mode, selectedId, onSelect, unit, className }: 
           >
             <span className="font-semibold">{row.label}</span>
             <span className={cn("mono min-w-0 text-sm break-all", open && "order-3 col-span-2 sm:order-none sm:col-span-1")}>
-              <Cell revealed={address !== undefined} index={index} width="w-[18ch] max-w-full">
+              <Cell revealed={address !== undefined} index={index} width="w-[18ch] max-w-full" intro={intro}>
                 {address !== undefined ? shortId(address, 10) : ""}
               </Cell>
             </span>
             <span className={cn("mono text-right text-base", open && "order-2 sm:order-none")}>
-              <Cell revealed={amount !== undefined} index={index} width="w-[9ch]">
+              <Cell revealed={amount !== undefined} index={index} width="w-[9ch]" intro={intro}>
                 {amount !== undefined ? `${amount} ${coin}` : ""}
               </Cell>
             </span>
@@ -185,16 +202,36 @@ interface RedactionLensProps {
   limit?: number;
   /** Said under the list, for what the lens cannot show (e.g. the receipt). */
   note?: ReactNode;
+  /** Wipe the bars in once when the list is first drawn (LensList). */
+  intro?: boolean;
+  /** Where the switch sits: over the list, or under it (where the page's tab order needs it after what is beside the sheet). */
+  controls?: "above" | "below";
   className?: string;
 }
 
 /** The switch, the "who" control, and the list: the whole lens. */
-export function RedactionLens({ rows: all, mode, onModeChange, selectedId, onSelect, unit, limit, note, className }: RedactionLensProps) {
+export function RedactionLens({
+  rows: all,
+  mode,
+  onModeChange,
+  selectedId,
+  onSelect,
+  unit,
+  limit,
+  note,
+  intro = false,
+  controls = "above",
+  className,
+}: RedactionLensProps) {
   const rows = limit === undefined ? all : all.slice(0, limit);
   const more = all.length - rows.length;
   const whoId = useId();
+  const list = (
+    <LensList rows={rows} mode={mode} selectedId={selectedId} onSelect={onSelect} intro={intro} {...(unit === undefined ? {} : { unit })} />
+  );
   return (
     <div className={cn("space-y-4", className)}>
+      {controls === "below" && list}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <LensSwitch mode={mode} onChange={onModeChange} />
         {mode === "recipient" && (
@@ -219,7 +256,7 @@ export function RedactionLens({ rows: all, mode, onModeChange, selectedId, onSel
           </div>
         )}
       </div>
-      <LensList rows={rows} mode={mode} selectedId={selectedId} onSelect={onSelect} {...(unit === undefined ? {} : { unit })} />
+      {controls === "above" && list}
       {more > 0 && <p className="text-sm text-muted-foreground">And {more} more, in the same view.</p>}
       {note !== undefined && <p className="text-sm text-muted-foreground">{note}</p>}
     </div>
