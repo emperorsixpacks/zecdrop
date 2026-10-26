@@ -1,0 +1,16 @@
+target
+**/target
+node_modules
+web
+spikes
+fixtures
+examples
+docs
+openspec
+.git
+.github
+.private
+*.sqlite
+*.seed
+.env
+.env.*

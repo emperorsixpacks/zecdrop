@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "store_corrupt",
+    "message": "the store failed its integrity check: its data was damaged or changed outside the operator, so nothing was done; restore the store from a backup"
+  }
+}

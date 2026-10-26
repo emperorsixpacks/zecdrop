@@ -1,0 +1,25 @@
+[package]
+name = "drop-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Chain-agnostic domain core for ZecDrop: amounts, import, planning, manifest, ledger, resumable engine, public receipt."
+
+[features]
+# Test doubles (`PermissiveCodec`) for downstream crates' tests. Never enable in production builds.
+test-util = []
+
+[dependencies]
+getrandom = "0.4.3"
+hex = "0.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.11.0"
+thiserror = "2.0.21"
+zeroize = "1.9.1"
+
+[dev-dependencies]
+proptest = "1.11.0"
+serde_json = "1.0.151"
+# Lets integration tests use the `test-util` feature under a plain `cargo test -p drop-core`.
+drop-core = { path = ".", features = ["test-util"] }

@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "not_funded",
+    "message": "record the funding deposit before starting"
+  }
+}

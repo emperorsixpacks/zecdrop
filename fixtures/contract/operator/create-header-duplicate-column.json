@@ -1,0 +1,17 @@
+{
+  "error": {
+    "code": "import_failed",
+    "error_count": 1,
+    "errors": [
+      {
+        "kind": {
+          "code": "duplicate_column",
+          "name": "amount"
+        },
+        "line": 1,
+        "message": "column `amount` appears more than once in the header"
+      }
+    ],
+    "message": "the CSV has 1 problem(s); fix them and try again"
+  }
+}

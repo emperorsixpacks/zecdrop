@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/drop-core",
+  "crates/drop-zcash",
+  "crates/drop-chain",
+  "crates/drop-verify",
+  "crates/drop-operator",
+  "crates/drop-verifier",
+  "crates/drop-near",
+]
+# Spikes are throwaway, isolated experiments with their own lockfile and target dir.
+# Results are recorded in docs/ADR + docs/LEARNINGS.md; working code is then moved into a crate.
+exclude = ["spikes", "web"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+# Shared Zcash crate set: the NU7-aware librustzcash PRE-RELEASE train, exact-pinned.
+# Chosen in the spike (spikes/single-tx-builder/RESULTS.md, ADR 0001): the stable train pins crypto-common/bip32
+# pre-releases that do not resolve beside sha2 0.11, and does not know NU7 (testnet height 4,465,026).
+# Members use `crate = { workspace = true }` so there is exactly one version set. Expect API churn before 0.31 final.
+[workspace.dependencies]
+zcash_primitives = { version = "=0.31.0-pre.1", features = ["transparent-inputs"] }
+zcash_transparent = { version = "=0.11.0-pre.1", features = ["transparent-inputs"] }
+zcash_keys = { version = "=0.17.0-pre.1", features = ["orchard", "sapling", "transparent-inputs"] }
+zcash_address = "=0.14.0-pre.1"
+zcash_protocol = "=0.11.0-pre.0"
+orchard = "=0.16.0"
+zip32 = "=0.3.0"
+sapling-crypto = { version = "=0.9.0", features = ["test-dependencies"] }
+zcash_client_backend = { version = "=0.25.0-pre.1", default-features = false, features = ["orchard", "transparent-inputs", "lightwalletd-tonic"] }
+rand_core = "0.10"
+rand_chacha = "0.10"
+secp256k1 = "0.33"
+# Blocking HTTPS client (rustls) for drop-near's NEAR Intents 1Click calls.
+ureq = "3.4.2"
+
+# Halo2 proving is unusably slow without optimisation (about 1.25 s per payout when optimised).
+[profile.dev.package."*"]
+opt-level = 3
+[profile.test]
+opt-level = 3

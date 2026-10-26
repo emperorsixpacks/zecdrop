@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "insufficient_funding",
+    "message": "the deposit does not cover the declared total plus fees",
+    "observed": "1000",
+    "required": "1162535000"
+  }
+}

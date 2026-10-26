@@ -1,0 +1,10 @@
+{
+  "error": {
+    "code": "funding_conflict",
+    "message": "different funding is already recorded for this campaign",
+    "recorded": {
+      "amount": "1162535000",
+      "outpoint": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd:0"
+    }
+  }
+}

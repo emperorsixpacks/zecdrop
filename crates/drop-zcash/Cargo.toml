@@ -1,0 +1,35 @@
+[package]
+name = "drop-zcash"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Zcash adapter for drop-core: campaign keys, ZIP-302 memos, address codec, transparent -> Ironwood batch builder, Distributor."
+
+[dependencies]
+drop-core = { path = "../drop-core" }
+# Key-less chain client (the `lightwalletd` module adapts it to `ChainBackend`). Never the reverse.
+drop-chain = { path = "../drop-chain" }
+drop-verify = { path = "../drop-verify" }
+tokio = { version = "1.53.2", features = ["rt", "net", "time"] }
+hex = "0.4.3"
+# `non-standard-fees` lets the builder follow drop-core's `FeePolicy` (ZIP-317 text 5,000 or Zebra 1,000 zat/action).
+zcash_primitives = { workspace = true, features = ["non-standard-fees"] }
+zcash_transparent = { workspace = true }
+zcash_keys = { workspace = true }
+zcash_address = { workspace = true }
+zcash_protocol = { workspace = true }
+orchard = { workspace = true }
+zip32 = { workspace = true }
+# Only `MockSpendProver`/`MockOutputProver`: `Builder::build` is generic over Sapling provers even
+# though a batch has no Sapling bundle, so they are never invoked.
+sapling-crypto = { workspace = true }
+rand_core = { workspace = true }
+rand_chacha = { workspace = true }
+secp256k1 = { workspace = true }
+getrandom = "0.4.3"
+thiserror = "2.0.21"
+zeroize = "1.9.1"
+
+[dev-dependencies]
+drop-core = { path = "../drop-core", features = ["test-util"] }

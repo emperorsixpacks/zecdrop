@@ -1,0 +1,38 @@
+{
+  "campaign_id": null,
+  "network": "testnet",
+  "funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "declared_total": "2000001",
+  "fee_total": "40000",
+  "batches": [
+    {
+      "index": 0,
+      "txid": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "funding_input": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:0",
+      "net_into_pool": "1000000",
+      "fee": "20000",
+      "shielded_actions": 3,
+      "pool": "ironwood",
+      "confirmations": 9
+    },
+    {
+      "index": 1,
+      "txid": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "funding_input": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:1",
+      "net_into_pool": "1000000",
+      "fee": "20000",
+      "shielded_actions": 3,
+      "pool": "ironwood",
+      "confirmations": 9
+    }
+  ],
+  "manifest_commitment": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "phase": {
+    "phase": "failed"
+  },
+  "findings": [
+    {
+      "code": "declared_total_mismatch"
+    }
+  ]
+}

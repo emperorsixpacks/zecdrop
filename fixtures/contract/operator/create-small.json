@@ -1,0 +1,49 @@
+{
+  "id": "c-000000000005",
+  "name": "Three recipients",
+  "network": "testnet",
+  "pool": "ironwood",
+  "created_at": 1700000004,
+  "phase": {
+    "phase": "awaiting_funding"
+  },
+  "phase_label": "Waiting for funds",
+  "recipient_count": 3,
+  "batch_count": 1,
+  "max_outputs_per_batch": 10,
+  "fee_policy": {
+    "marginal_fee": 5000,
+    "grace_actions": 2
+  },
+  "declared_total": "930000000",
+  "fee_total": "20000",
+  "funding_required": "930020000",
+  "manifest_commitment": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+  "wallet_matches": true,
+  "funding_address": null,
+  "funding": null,
+  "funding_progress": null,
+  "batches": [
+    {
+      "index": 0,
+      "recipients": 3,
+      "total": "930000000",
+      "fee": "20000",
+      "funding_required": "930020000",
+      "state": "planned",
+      "txid": null,
+      "confirmations": 0,
+      "reason": null
+    }
+  ],
+  "warnings": [
+    {
+      "code": "small_campaign",
+      "recipients": 3,
+      "message": "Only 3 recipients: the public total narrows down every amount."
+    }
+  ],
+  "run": {
+    "state": "idle"
+  }
+}

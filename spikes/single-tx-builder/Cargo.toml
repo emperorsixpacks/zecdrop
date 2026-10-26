@@ -1,0 +1,42 @@
+[package]
+name = "single-tx-builder"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "SPIKE (throwaway): one tx = transparent inputs -> N Orchard outputs + t-change. TEST-ONLY keys, offline, never broadcast."
+license = "MIT OR Apache-2.0"
+
+# Standalone workspace: keeps its own Cargo.lock + target/ and never resolves
+# against the root ZecDrop workspace (which `exclude`s spikes/).
+[workspace]
+
+[dependencies]
+# librustzcash "stable train" as of 2026-10-07 (the 0.31/0.17/0.11-pre train is pre-release).
+zcash_primitives = { version = "=0.30.1", features = ["transparent-inputs"] }
+zcash_transparent = { version = "=0.10.0", features = ["transparent-inputs"] }
+# `sapling` is enabled explicitly because zcash_client_backend turns it on anyway (feature
+# unification), and it changes signatures such as `UnifiedAddress::from_receivers`.
+zcash_keys = { version = "=0.16.1", features = ["orchard", "sapling", "transparent-inputs"] }
+zcash_address = "=0.13.0"
+zcash_protocol = "=0.10.6"
+orchard = "=0.15.5" # default features include `circuit` (Halo2 prover) + `multicore`
+zip32 = "=0.2.1"
+# `Builder::build` is generic over Sapling provers even when the tx has no Sapling bundle.
+# The mock provers are never invoked here (no Sapling spends/outputs), so no Sapling params are needed.
+sapling-crypto = { version = "=0.7.0", features = ["test-dependencies"] }
+# Not used by the code; pinned only to prove it co-resolves with the set above (task 6 reads its source).
+zcash_client_backend = { version = "=0.24.0", features = ["orchard", "transparent-inputs"] }
+
+# Deterministic RNG for reproducible builds/measurements (rand_core 0.6 is what librustzcash uses).
+rand_core = "0.6"
+rand_chacha = "0.3"
+secp256k1 = "=0.29.1"
+
+[profile.release]
+debug = false
+
+# Halo2 proving is unusably slow without optimisation; optimise deps even in `cargo test`.
+[profile.dev.package."*"]
+opt-level = 3
+[profile.test]
+opt-level = 3

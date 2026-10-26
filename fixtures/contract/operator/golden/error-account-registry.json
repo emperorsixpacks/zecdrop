@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "account_registry_error",
+    "message": "the account registry could not be read or written; no campaign was created"
+  }
+}

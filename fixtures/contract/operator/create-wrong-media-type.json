@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "unsupported_media_type",
+    "message": "send the body as application/json"
+  }
+}

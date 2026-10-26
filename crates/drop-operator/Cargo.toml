@@ -1,0 +1,45 @@
+[package]
+name = "drop-operator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+argon2 = "0.6.0"
+axum = "0.8.9"
+chacha20poly1305 = "0.11.0"
+clap = { version = "4.6.7", features = ["derive"] }
+drop-chain = { version = "0.1.0", path = "../drop-chain" }
+drop-core = { version = "0.1.0", path = "../drop-core" }
+drop-verify = { version = "0.1.0", path = "../drop-verify" }
+drop-zcash = { version = "0.1.0", path = "../drop-zcash" }
+getrandom = "0.4.3"
+hex = "0.4.3"
+rpassword = "7.5.4"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+subtle = "2.6.1"
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "sync", "time", "net", "signal"] }
+tokio-stream = { version = "0.1.19", features = ["sync"] }
+tower-http = { version = "0.7.1", features = ["fs", "set-header"] }
+zeroize = { version = "1.9.1", features = ["derive"] }
+# Network and address types for the Zcash adapter; pinned once, in the workspace.
+zcash_keys = { workspace = true }
+zcash_protocol = { workspace = true }
+zcash_transparent = { workspace = true }
+
+[dev-dependencies]
+orchard = { workspace = true }
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+zcash_primitives = { workspace = true, features = ["non-standard-fees"] }
+base64 = "0.23.1"
+http-body-util = "0.1.5"
+static_assertions = "1.1.0"
+tempfile = "3.27.0"
+tokio = { version = "1.53.2", features = ["io-util"] }
+tower = { version = "0.5.3", features = ["util"] }

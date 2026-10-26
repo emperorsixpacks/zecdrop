@@ -1,0 +1,14 @@
+{
+  "network": "testnet",
+  "txid": "50fb88e02e7f4b0f3b3b658f50b09b12ea973d8c3697f8bad4c59e41075ea3e3",
+  "mined_height": 4478065,
+  "tx_version": "V6",
+  "consensus_branch_id": "77190ad9",
+  "size_bytes": 12503,
+  "t_in_zat": 12500000,
+  "t_out_zat": 12420000,
+  "net_into_ironwood_zat": 60000,
+  "value_balance_orchard_zat": 0,
+  "fee_zat": 20000,
+  "ironwood_actions": 3
+}

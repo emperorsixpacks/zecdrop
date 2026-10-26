@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "plan_failed",
+    "message": "max outputs per batch must be at least 1"
+  }
+}

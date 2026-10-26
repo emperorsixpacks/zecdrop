@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "dev_only",
+    "message": "funding is observed from the chain; this endpoint exists for the mock chain only"
+  }
+}

@@ -1,0 +1,32 @@
+[package]
+name = "drop-verifier"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Hosted, stateless, key-less ZecDrop receipt verifier."
+
+# REQ-VER-002: no spend-key or viewing-key types anywhere in this crate's dependency closure.
+# `tests/no_keys.rs` proves it with `cargo metadata`.
+[dependencies]
+axum = "0.8"
+clap = { version = "4.6.7", features = ["derive"] }
+drop-chain = { path = "../drop-chain" }
+drop-core = { path = "../drop-core" }
+drop-verify = { path = "../drop-verify" }
+form_urlencoded = "1.2.2"
+# Our own listener: header-read timeout + connection cap (src/server.rs).
+hyper = { version = "1.12.0", features = ["server", "http1"] }
+hyper-util = { version = "0.1.21", features = ["tokio", "service"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
+tower = { version = "0.5.3", default-features = false, features = ["limit"] }
+tower-http = { version = "0.7.1", features = ["cors", "timeout", "set-header"] }
+
+[dev-dependencies]
+hex = "0.4.3"
+tokio = { version = "1.53.2", features = ["test-util", "io-util"] }
+http-body-util = "0.1.5"
+tower = { version = "0.5.3", features = ["util", "limit"] }

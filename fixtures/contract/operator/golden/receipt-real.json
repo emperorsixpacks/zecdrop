@@ -1,0 +1,24 @@
+{
+  "batches": [
+    {
+      "confirmations": 0,
+      "fee": "20000",
+      "funding_input": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd:0",
+      "index": 0,
+      "net_into_pool": "450000000",
+      "pool": "ironwood",
+      "shielded_actions": 3,
+      "txid": null
+    }
+  ],
+  "campaign_id": "c-000000000001",
+  "declared_total": "450000000",
+  "fee_total": "20000",
+  "findings": [],
+  "funding_address": "tFAKEfundingAddressNotARealAddress0000",
+  "manifest_commitment": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+  "network": "testnet",
+  "phase": {
+    "phase": "funded"
+  }
+}

@@ -1,0 +1,69 @@
+# cargo run --release  (SPIKE_ORCHARD_NU6_2=1)  2026-10-07T16:27Z  Apple M1 Pro, 10 cores (8P+2E), 16 GB, rustc 1.92.0
+=== ZecDrop SPIKE: single-tx transparent -> N shielded payouts (TEST ONLY, offline) ===
+
+crates: zcash_primitives 0.30.1, zcash_transparent 0.10.0, zcash_keys 0.16.1, zcash_address 0.13.0,
+        zcash_protocol 0.10.6, orchard 0.15.5, zip32 0.2.1, sapling-crypto 0.7.0 (mock provers only),
+        zcash_client_backend 0.24.0 (co-resolves; not called), secp256k1 0.29.1
+testnet Nu6.2 activation   4052000  branch id 0x5437f330
+testnet Nu6.3 activation   4134000  branch id 0x37a5165b
+target heights: NU6.2 epoch 4053000 | NU6.3 epoch 4135000
+
+TEST ONLY campaign keys (testnet, account 0):
+  funding t-addr : tmLu2WWzm4SGBfJwrdo6tXQztvoKY9soTyL
+  change  t-addr : tmTcGpaPMcs9wsHmdaw72MmSWvH9tk3XHpK
+  UFVK (auditor) : uviewtest1hxr9z9r3ns3889... (514 chars)
+  recipient #0 UA: utest15sw2dzzhwxkgxgj2eq... (110 chars, Orchard receiver only)
+
+Orchard/Ironwood proving key (post-NU6.3 circuit) built once in 3.49s (excluded below)
+
+--- Which pool can receive third-party payouts? (N=2) ---
+  Orchard  @ NU6.3: FAILS -> Could not add Orchard recipient: Cross-address transfers are disabled for this builder; use add_change_output for wallet-controlled change
+  Ironwood @ NU6.3: OK    (V6 tx, branch Nu6_3, 9348 bytes)
+  Orchard  @ NU6.2: OK    (V5 tx, branch Nu6_2, 9346 bytes)
+
+OVK=None (N=3): sender UFVK recovers 0 outputs (tried 4 candidate OVKs); recipient #0 still decrypts 1
+verifying key built + first verification in 2.25s (excluded below)
+
+--- Ironwood pool, testnet height 4135000 (Nu6_3) ---
+   N actions  tx_bytes build+prove   fee_zat logical  balances  auth_ok     verify    auditor   recips
+   2       2      9348       3.00s     15000       3       yes      yes      0.02s   sum=pool   all ok
+   5       5     18815       6.76s     30000       6       yes      yes      0.06s   sum=pool   all ok
+  10      10     34595      13.67s     55000      11       yes      yes      0.11s   sum=pool   all ok
+  25      25     81936      30.36s    130000      26       yes      yes      0.24s   sum=pool   all ok
+  50      50    160837      62.85s    255000      51       yes      yes      0.79s   sum=pool   all ok
+ 100     100    318637     124.64s    505000     101       yes      yes      0.53s   sum=pool   all ok
+ 200     200    634237     254.18s   1005000     201       yes      yes      2.54s   sum=pool   all ok
+
+--- Orchard pool, testnet height 4053000 (Nu6_2) ---
+   N actions  tx_bytes build+prove   fee_zat logical  balances  auth_ok     verify    auditor   recips
+   2       2      9347       3.43s     15000       3       yes      yes      2.08s   sum=pool   all ok
+   5       5     18814       6.61s     30000       6       yes      yes      0.02s   sum=pool   all ok
+  10      10     34595      14.85s     55000      11       yes      yes      0.11s   sum=pool   all ok
+  25      25     81935      32.63s    130000      26       yes      yes      0.16s   sum=pool   all ok
+  50      50    160837     116.09s    255000      51       yes      yes      0.59s   sum=pool   all ok
+ 100     100    318637     229.34s    505000     101       yes      yes      1.09s   sum=pool   all ok
+ 200     200    634236     275.57s   1005000     201       yes      yes      1.67s   sum=pool   all ok
+
+Size model (Ironwood, 1 P2PKH in, 1 P2PKH change): bytes ~= 3036 + 3156.0 * N  (N >= 2)
+  N= 30: 97718 bytes -> under 100,000
+  N= 31: 100874 bytes -> OVER 100,000
+max N per tx under 100000 bytes: 30
+max N per tx that fits a 2,000,000-byte block (consensus ceiling, ignoring other txs): 632
+     1320.17 real      1847.67 user        62.37 sys
+          1227964416  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             2593227  page reclaims
+                 561  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+              176467  voluntary context switches
+            14864626  involuntary context switches
+      15956897788706  instructions retired
+       4929344747126  cycles elapsed
+          4637452096  peak memory footprint

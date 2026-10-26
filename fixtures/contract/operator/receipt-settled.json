@@ -1,0 +1,34 @@
+{
+  "campaign_id": "c-000000000001",
+  "network": "testnet",
+  "funding_address": null,
+  "declared_total": "1162500000",
+  "fee_total": "35000",
+  "batches": [
+    {
+      "index": 0,
+      "txid": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "funding_input": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd:0",
+      "net_into_pool": "450000000",
+      "fee": "20000",
+      "shielded_actions": 3,
+      "pool": "ironwood",
+      "confirmations": 3
+    },
+    {
+      "index": 1,
+      "txid": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "funding_input": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd:1",
+      "net_into_pool": "712500000",
+      "fee": "15000",
+      "shielded_actions": 2,
+      "pool": "ironwood",
+      "confirmations": 3
+    }
+  ],
+  "manifest_commitment": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+  "phase": {
+    "phase": "settled"
+  },
+  "findings": []
+}

@@ -1,0 +1,63 @@
+{
+  "id": "c-000000000001",
+  "name": "Sentinel campaign",
+  "network": "testnet",
+  "pool": "ironwood",
+  "created_at": 1700000000,
+  "phase": {
+    "phase": "settled"
+  },
+  "phase_label": "Complete: all batches confirmed",
+  "recipient_count": 5,
+  "batch_count": 2,
+  "max_outputs_per_batch": 3,
+  "fee_policy": {
+    "marginal_fee": 5000,
+    "grace_actions": 2
+  },
+  "declared_total": "1162500000",
+  "fee_total": "35000",
+  "funding_required": "1162535000",
+  "manifest_commitment": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+  "wallet_matches": true,
+  "funding_address": null,
+  "funding": {
+    "outpoint": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd:0",
+    "amount": "1162535000"
+  },
+  "funding_progress": null,
+  "batches": [
+    {
+      "index": 0,
+      "recipients": 3,
+      "total": "450000000",
+      "fee": "20000",
+      "funding_required": "450020000",
+      "state": "confirmed",
+      "txid": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "confirmations": 3,
+      "reason": null
+    },
+    {
+      "index": 1,
+      "recipients": 2,
+      "total": "712500000",
+      "fee": "15000",
+      "funding_required": "712515000",
+      "state": "confirmed",
+      "txid": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "confirmations": 3,
+      "reason": null
+    }
+  ],
+  "warnings": [
+    {
+      "code": "two_recipient_batch",
+      "batch_index": 1,
+      "message": "Batch 1 has two recipients; each can work out the other's amount from the public total and their own."
+    }
+  ],
+  "run": {
+    "state": "settled"
+  }
+}

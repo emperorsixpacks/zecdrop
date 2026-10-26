@@ -1,0 +1,136 @@
+// @vitest-environment jsdom
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { SAMPLE_RECEIPT_HREF } from "@/api/demo";
+import { clearSession } from "@/api/operator/session";
+import "@/test/dom";
+import { installFakeOperator, replyWith } from "@/test/fake-operator";
+import { renderApp } from "@/test/render-app";
+
+// The operator pages are behind the token gate; with no token they explain how
+// to open the operator link. Their real content is tested next to each page
+// (wizard, campaign, campaigns) with a signed-in session.
+function renderAt(path: string) {
+  return renderApp(path);
+}
+
+beforeEach(() => {
+  installFakeOperator({ "GET /api/health": () => replyWith("health.json") });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  clearSession();
+});
+
+const PUBLIC_HEADINGS: [path: string, heading: string][] = [
+  ["/", "Private amounts. Public accountability."],
+  ["/r/abc123", "Payout receipt"],
+  ["/r/demo?demo=1", "Payout receipt"],
+  ["/r/demo?demo=real", "Payout receipt"],
+  ["/r/demo?demo=real-smoke", "Payout receipt"],
+  ["/privacy", "What is public, what is private"],
+];
+
+const OPERATOR_PATHS = ["/campaigns", "/new/basics", "/new/recipients", "/campaign/abc123", "/audit"];
+
+const PAGE_HEADINGS: [path: string, heading: string][] = [
+  ...PUBLIC_HEADINGS,
+  ...OPERATOR_PATHS.map((p): [string, string] => [p, "Open the operator link"]),
+];
+
+describe("routes", () => {
+  it.each(PAGE_HEADINGS)("%s renders its page", (path, heading) => {
+    renderAt(path);
+    expect(screen.getByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
+  });
+
+  it.each(OPERATOR_PATHS)("%s asks for the operator link when there is no token", (path) => {
+    renderAt(path);
+    expect(screen.getByRole("heading", { level: 1, name: "Open the operator link" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Campaigns" })).toBeNull();
+  });
+
+  it("renders a hostile id as text, never as markup", () => {
+    renderAt(`/r/${encodeURIComponent('<img src=x onerror="alert(1)">')}`);
+    expect(document.querySelector("img")).toBeNull();
+    expect(screen.getByText('<img src=x onerror="alert(1)">')).toBeInTheDocument();
+  });
+
+  it("shows unknown routes as not found", () => {
+    renderAt("/nope");
+    expect(screen.getByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it("treats an unknown wizard step as not found when signed in", () => {
+    renderApp("/new/bogus", { signedIn: true });
+    expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it("has a Privacy boundary footer link to /privacy on every page", () => {
+    for (const [path] of [...PAGE_HEADINGS, ["/nope", ""] as const]) {
+      const { unmount } = renderAt(path);
+      const footer = screen.getByRole("contentinfo");
+      expect(within(footer).getByRole("link", { name: "Privacy boundary" })).toHaveAttribute(
+        "href",
+        "/privacy",
+      );
+      unmount();
+    }
+  });
+
+  it("has a skip link and a target for it", () => {
+    renderAt("/");
+    expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
+    expect(document.getElementById("main")).not.toBeNull();
+  });
+
+  it("lets the pitch page reach the sample receipt", async () => {
+    const user = userEvent.setup();
+    renderAt("/");
+    await user.click(screen.getByRole("link", { name: "View a sample receipt" }));
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Status" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("layouts", () => {
+  const OPERATOR_ONLY = ["Campaigns", "New campaign", "Audit"];
+
+  it.each(["/campaigns", "/new/basics", "/campaign/x", "/audit"])(
+    "shows operator navigation on %s",
+    (path) => {
+      renderAt(path);
+      const nav = screen.getByRole("navigation", { name: "Primary" });
+      for (const label of OPERATOR_ONLY) {
+        expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
+      }
+    },
+  );
+
+  it.each(["/", "/r/abc123", "/r/demo?demo=1", "/privacy", "/nope"])(
+    "shows only the public menu on %s",
+    (path) => {
+      renderAt(path);
+      const nav = screen.getByRole("navigation", { name: "Primary" });
+      expect(within(nav).getByRole("link", { name: "Sample receipt" })).toHaveAttribute(
+        "href",
+        SAMPLE_RECEIPT_HREF,
+      );
+      expect(within(nav).getByRole("link", { name: "Privacy boundary" })).toBeInTheDocument();
+      for (const label of OPERATOR_ONLY) {
+        expect(within(nav).queryByRole("link", { name: label })).toBeNull();
+      }
+      expect(screen.getByRole("link", { name: "ZecDrop" })).toHaveAttribute("href", "/");
+    },
+  );
+
+  it("shows the network badge", () => {
+    renderAt("/");
+    expect(screen.getByText(/^Zcash (testnet|mainnet)$/)).toBeInTheDocument();
+  });
+});
+

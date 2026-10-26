@@ -1,0 +1,152 @@
+{
+  "files": [
+    {
+      "file": "health-real.json",
+      "method": "GET",
+      "note": "a real chain: mock is false",
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "file": "create-real.json",
+      "method": "POST",
+      "note": "created on a real chain: a funding address of its own, wallet_matches true",
+      "path": "/api/campaigns",
+      "status": 201
+    },
+    {
+      "file": "campaign-real-awaiting-deposit.json",
+      "method": "GET",
+      "note": "nothing seen at the funding address: funding and funding_progress are null",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-deposit-too-small.json",
+      "method": "POST",
+      "note": "a deposit is seen but does not cover the plan: funding_progress.sufficient is false",
+      "path": "/api/campaigns/{id}/check-funding",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-deposit-shallow.json",
+      "method": "POST",
+      "note": "a sufficient deposit that is not deep enough yet: sufficient true, confirmations below required_depth",
+      "path": "/api/campaigns/{id}/check-funding",
+      "status": 200
+    },
+    {
+      "file": "campaign-real-funded.json",
+      "method": "POST",
+      "note": "the deposit is on the chain at the required depth: funding is set, funding_progress is null",
+      "path": "/api/campaigns/{id}/check-funding",
+      "status": 200
+    },
+    {
+      "file": "receipt-real.json",
+      "method": "GET",
+      "note": "the public receipt on a real chain: funding_address is the campaign's transparent address, the one every batch spends from; null on the mock chain",
+      "path": "/api/campaigns/{id}/receipt",
+      "status": 200
+    },
+    {
+      "file": "error-confirmation-required.json",
+      "method": "GET",
+      "note": "the key is never released without X-Zecdrop-Confirm-Disclosure: I-UNDERSTAND; the warning is in the error",
+      "path": "/api/campaigns/{id}/audit-ufvk-export",
+      "status": 400
+    },
+    {
+      "file": "audit-ufvk-export.json",
+      "method": "GET",
+      "note": "the campaign viewing key (a placeholder here) with the warning the UI must show; irreversible",
+      "path": "/api/campaigns/{id}/audit-ufvk-export",
+      "status": 200
+    },
+    {
+      "file": "error-dev-only.json",
+      "method": "POST",
+      "note": "fund-observed exists on the mock chain only",
+      "path": "/api/campaigns/{id}/fund-observed",
+      "status": 403
+    },
+    {
+      "file": "error-needs-funding-split.json",
+      "method": "POST",
+      "note": "more than one batch on a real chain: the funding-split transaction is not implemented",
+      "path": "/api/campaigns",
+      "status": 422
+    },
+    {
+      "file": "campaign-real-wrong-wallet.json",
+      "method": "GET",
+      "note": "the wallet in use did not make this campaign: wallet_matches is false and there is no funding address",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "error-wrong-wallet-seed.json",
+      "method": "POST",
+      "note": "a campaign is never run with a seed that did not derive its account",
+      "path": "/api/campaigns/{id}/start",
+      "status": 409
+    },
+    {
+      "file": "error-chain-unavailable.json",
+      "method": "POST",
+      "note": "the chain data source could not be reached; try again shortly",
+      "path": "/api/campaigns/{id}/check-funding",
+      "status": 503
+    },
+    {
+      "file": "error-batch-size-too-large.json",
+      "method": "POST",
+      "note": "max_outputs_per_batch above what one transaction can pay (330 Ironwood actions, ZIP-218)",
+      "path": "/api/campaigns",
+      "status": 422
+    },
+    {
+      "file": "error-account-registry.json",
+      "method": "POST",
+      "note": "the account registry could not be written: no campaign is created rather than risk reusing an account",
+      "path": "/api/campaigns",
+      "status": 500
+    },
+    {
+      "file": "error-host-not-allowed.json",
+      "method": "GET",
+      "note": "the Host header is not a loopback name with the server's own port (DNS rebinding); applies to every route",
+      "path": "/api/health",
+      "status": 421
+    },
+    {
+      "file": "campaign-real-batch-failed.json",
+      "method": "GET",
+      "note": "a batch failed after its transaction was built: state failed, with its reason and the txid of that transaction (null if the failure came before anything was built)",
+      "path": "/api/campaigns/{id}",
+      "status": 200
+    },
+    {
+      "file": "error-store-corrupt.json",
+      "method": "GET",
+      "note": "a stored row failed its integrity check (edited outside the operator); nothing was acted on, no key is ever exported from it",
+      "path": "/api/campaigns/{id}",
+      "status": 500
+    },
+    {
+      "file": "error-not-applicable.json",
+      "method": "POST",
+      "note": "the mock chain has no funding addresses to look at",
+      "path": "/api/campaigns/{id}/check-funding",
+      "status": 409
+    },
+    {
+      "file": "error-not-available.json",
+      "method": "GET",
+      "note": "the mock chain has no real viewing keys",
+      "path": "/api/campaigns/{id}/audit-ufvk-export",
+      "status": 409
+    }
+  ],
+  "generated_by": "crates/drop-operator/tests/api_contract.rs"
+}

@@ -1,0 +1,17 @@
+[package]
+name = "drop-near"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Optional campaign funding through the NEAR Intents 1Click API (ADR 0004): token list, dry-first EXACT_OUTPUT quotes to the campaign's transparent address, and swap status."
+
+[dependencies]
+drop-core = { path = "../drop-core" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.21"
+# Address checks only (mainnet t1/t3); no key types.
+zcash_address = { workspace = true }
+zcash_protocol = { workspace = true }
+ureq = { workspace = true }

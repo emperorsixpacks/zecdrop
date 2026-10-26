@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "chain_unavailable",
+    "message": "the chain data source is unavailable; try again shortly"
+  }
+}

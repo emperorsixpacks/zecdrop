@@ -1,0 +1,17 @@
+/target
+**/target
+*.sqlite
+*.sqlite-journal
+.env
+.env.*
+!.env.example
+node_modules
+web/dist
+.DS_Store
+# Never commit wallet material or generated seeds
+*.seed
+*.mnemonic
+wallet-data/
+
+# Disposable notes and agent scratch
+.private/

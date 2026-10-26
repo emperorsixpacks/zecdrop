@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "batch_size_too_large",
+    "message": "max_outputs_per_batch is 331 but one transaction can pay at most 330 recipients"
+  }
+}

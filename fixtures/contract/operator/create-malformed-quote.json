@@ -1,0 +1,16 @@
+{
+  "error": {
+    "code": "import_failed",
+    "error_count": 1,
+    "errors": [
+      {
+        "kind": {
+          "code": "malformed_quote"
+        },
+        "line": 2,
+        "message": "misplaced quote character; quote the whole field and double any inner quotes"
+      }
+    ],
+    "message": "the CSV has 1 problem(s); fix them and try again"
+  }
+}
