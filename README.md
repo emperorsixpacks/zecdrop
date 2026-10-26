@@ -11,7 +11,8 @@ holding a viewing key) can see who got what, and only the auditor can confirm th
 
 **Live demo:** <https://zecdrop-site.vercel.app> is the public receipt viewer, with the real 8-recipient testnet
 receipt bundled as a sample. The operator, which holds the keys, runs on your own computer: there is no wallet to
-connect. To run a payout yourself, follow [`docs/runbooks/testnet-demo.md`](docs/runbooks/testnet-demo.md).
+connect. To test it yourself, see [`docs/JUDGES.md`](docs/JUDGES.md): check the real payout with the key-less verifier,
+or run the whole flow on a fake chain. A real testnet run is in [`docs/runbooks/testnet-demo.md`](docs/runbooks/testnet-demo.md).
 
 ## How it works
 
