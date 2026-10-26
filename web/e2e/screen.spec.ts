@@ -425,7 +425,7 @@ test.describe("what a press does, when the visitor has not asked for less motion
     expect(await button.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).f)).toBeCloseTo(-1, 0);
   });
 
-  test("a button the keyboard has focused keeps its ring (the grey halo of the marker) while the pointer is over it", async ({ page }) => {
+  test("a button the keyboard has focused keeps its ring (the highlighter) while the pointer is over it", async ({ page }) => {
     await page.goto("/get-paid");
     await expect(page.getByRole("heading", { level: 1, name: "Get paid in ZEC" })).toBeVisible();
     const link = page.getByRole("link", { name: "Zodl at zodl.com" });
@@ -433,13 +433,13 @@ test.describe("what a press does, when the visitor has not asked for less motion
     for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
     await expect(link).toBeFocused();
     const ring = async () => await link.evaluate((el) => getComputedStyle(el).boxShadow);
-    // The ring comes in with the press response's own timing (200ms), so it is waited for, whole: the marker's halo, at full strength.
-    await expect.poll(ring, { message: "focused" }).toContain("rgb(224, 223, 216)");
+    // The ring comes in with the press response's own timing (200ms), so it is waited for, whole: the highlighter, at full strength.
+    await expect.poll(ring, { message: "focused" }).toContain("rgb(255, 214, 10)");
     await link.hover();
-    await expect.poll(ring, { message: "focused and hovered", timeout: 3000 }).toContain("rgb(224, 223, 216)");
+    await expect.poll(ring, { message: "focused and hovered", timeout: 3000 }).toContain("rgb(255, 214, 10)");
     // And it stays: a moment later it is still the ring, not the hover's soft shadow.
     await page.waitForTimeout(400);
-    expect(await ring(), "focused and hovered, settled").toContain("rgb(224, 223, 216)");
+    expect(await ring(), "focused and hovered, settled").toContain("rgb(255, 214, 10)");
   });
 
   test("a bar shows its label when it is touched, and only its label, and puts it away when the pointer leaves", async ({ page }) => {

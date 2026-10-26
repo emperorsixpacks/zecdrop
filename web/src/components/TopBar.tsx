@@ -53,8 +53,7 @@ const chip = "inline-flex h-7 shrink-0 items-center rounded-full border px-2.5 t
 
 /** The network, in a word, on the capsule itself, so it is seen without opening anything. In practice mode there is no
  * network to name: the chip says what this is. Otherwise quiet on testnet, which is the default, and loud on mainnet,
- * where the coins are real: the capsule's colours turned over, a paper chip on the black (the strongest mark there is
- * with no colour accent). */
+ * where the coins are real. */
 function NetworkChip({ kind }: { kind: NetworkKind }) {
   if (kind === "practice") {
     return (
@@ -65,7 +64,7 @@ function NetworkChip({ kind }: { kind: NetworkKind }) {
   }
   if (kind === "mainnet") {
     return (
-      <span data-network="mainnet" className={cn(chip, "island-chip border-island-ink bg-island-ink text-island")}>
+      <span data-network="mainnet" className={cn(chip, "island-chip border-island-ink/50 bg-marker text-marker-ink")}>
         Mainnet
       </span>
     );
@@ -83,7 +82,7 @@ function NetworkLabel({ kind }: { kind: NetworkKind }) {
     return <span className={cn(chip, "island-chip hatched border-island-ink/55 font-medium text-island-ink")}>Practice, nothing is real</span>;
   }
   if (kind === "mainnet") {
-    return <span className={cn(chip, "island-chip border-island-ink bg-island-ink text-island")}>Zcash mainnet</span>;
+    return <span className={cn(chip, "island-chip border-island-ink/50 bg-marker text-marker-ink")}>Zcash mainnet</span>;
   }
   return <span className="text-sm text-island-muted">Zcash testnet</span>;
 }
@@ -261,8 +260,8 @@ export function TopBar({ showOperatorNav, network = config.network, mock = false
                           <span
                             className={cn(
                               "island-label -mx-2.5 rounded-full px-2.5 py-0.5",
-                              // The capsule's colours turned over mark where you are; the heavier type says it too.
-                              isActive && "bg-island-ink font-extrabold text-island",
+                              // The highlighter marks where you are; the heavier type says it too, for whoever cannot tell the colours apart.
+                              isActive && "bg-marker font-extrabold text-marker-ink",
                             )}
                           >
                             {link.label}

@@ -1,7 +1,7 @@
 // How the page looks: Redacted paper, light or dark.
 //
 // The look is Redacted paper (src/index.css): a white sheet on a grey desk with black redaction
-// bars, in ink alone (no colour accent). Light is the page; the dark set is the same page after
+// bars and a marker-yellow highlighter. Light is the page; the dark set is the same page after
 // hours, for people who switch, or whose system says dark. The choice is a harmless UI convenience,
 // so it is the one thing this app keeps in localStorage (with the motion setting, motion.ts).
 // Every access is wrapped: storage can be blocked (private windows, disabled site data) and

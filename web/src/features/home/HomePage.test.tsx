@@ -97,6 +97,12 @@ describe("the home page", () => {
     expect(within(section).getByRole("link", { name: "Check a payslip" })).toHaveAttribute("href", "/payslip");
   });
 
+  it("keeps the three public figures plain: nothing is drawn behind the writing", () => {
+    renderHome();
+    const summary = screen.getByTestId("lens-summary");
+    for (const el of [summary, ...summary.querySelectorAll("*")]) expect(el.className).not.toMatch(/marker|highlighter|marked/u);
+  });
+
   it("keeps the count, the total and the fee readable, from the real receipt", () => {
     renderHome();
     const receipt = demoReceipt("real");
@@ -202,14 +208,11 @@ describe("the first look", () => {
   });
 
   // covers: REQ-PRIV-002
-  it("draws the bars over cells that hold nothing, then marks the three public figures, and is then still", async () => {
+  it("draws the bars over cells that hold nothing, and is then still", async () => {
     lively();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { container } = await freshHome();
     expect(container.querySelectorAll(".bar-in")).toHaveLength(16);
-    const marks = container.querySelectorAll(".marked");
-    expect(marks).toHaveLength(3);
-    for (const mark of marks) expect(mark).toHaveAttribute("data-intro", "true");
     // While the bars are being drawn the page is as private as it is after: no address, memo or amount of the list.
     const html = document.body.innerHTML;
     for (const row of samplePayoutRows()) {
@@ -222,7 +225,6 @@ describe("the first look", () => {
       await vi.advanceTimersByTimeAsync(2500);
     });
     expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
-    for (const mark of container.querySelectorAll(".marked")) expect(mark).toHaveAttribute("data-intro", "false");
   });
 
   it("plays once a visit: coming back to the page draws nothing", async () => {
@@ -236,7 +238,6 @@ describe("the first look", () => {
       </MemoryRouter>,
     );
     expect(container.querySelectorAll(".bar-in")).toHaveLength(0);
-    for (const mark of container.querySelectorAll(".marked")) expect(mark).toHaveAttribute("data-intro", "false");
   });
 
   it("does not play in Calm, or when the system asks for reduced motion", async () => {

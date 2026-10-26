@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { demoReceipt, SAMPLE_RECEIPT_HREF } from "@/api/demo";
@@ -7,7 +7,7 @@ import { RedactionLens, type LensMode } from "@/components/lens/Lens";
 import { UnitNote, UnitProvider } from "@/components/UnitProvider";
 import { Button } from "@/components/ui/button";
 import { shortId } from "@/lib/ids";
-import { isLively, motionScale } from "@/lib/motion";
+import { isLively } from "@/lib/motion";
 import { useCoinUnit } from "@/lib/units";
 import { formatZec } from "@/lib/zec";
 
@@ -49,32 +49,21 @@ const textLink = "inline-flex min-h-11 items-center text-base font-medium underl
 // The first look plays once a visit: coming back to the page from another one does not draw the bars again.
 let introPlayed = false;
 
-/** How long the first look lasts (the bars, then the marker over the three figures), after which the marker is plain. */
-const INTRO_MS = 2000;
-
-/** One public figure, marked with the highlighter. */
-function Marked({ index, intro, children }: { index: number; intro: boolean; children: ReactNode }) {
-  return (
-    <span className="marked" data-intro={intro} style={{ "--i": index } as CSSProperties}>
-      {children}
-    </span>
-  );
-}
-
-/** The count, the total and the fee: the three things that stay readable in every view. */
-function Summary({ payouts, total, fee, intro }: { payouts: number; total: bigint; fee: bigint | null; intro: boolean }) {
+/** The count, the total and the fee: the three things that stay readable in every view. Plain ink, nothing behind them (the
+ * owner, 2026-10-20: no highlighter on the writing). */
+function Summary({ payouts, total, fee }: { payouts: number; total: bigint; fee: bigint | null }) {
   const unit = useCoinUnit();
   return (
     <div className="space-y-2">
-      <p className="display flex flex-wrap items-baseline gap-x-3 gap-y-2 text-[1.625rem] sm:text-[2.125rem]" data-testid="lens-summary">
-        <Marked index={0} intro={intro}>{payouts === 1 ? "1 payout" : `${String(payouts)} payouts`}</Marked>{" "}
-        <Marked index={1} intro={intro}>
+      <p className="display flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[1.625rem] sm:text-[2.125rem]" data-testid="lens-summary">
+        <span>{payouts === 1 ? "1 payout" : `${String(payouts)} payouts`}</span>
+        <span>
           <CountUp zatoshi={total} /> {unit}
-        </Marked>{" "}
+        </span>
         {fee !== null && (
-          <Marked index={2} intro={intro}>
+          <span className="text-muted-foreground">
             + {formatZec(fee)} {unit} fee
-          </Marked>
+          </span>
         )}
       </p>
       <p className="text-sm text-muted-foreground">These three are public in every view.</p>
@@ -88,18 +77,11 @@ export default function HomePage() {
   const real = useMemo(() => demoReceipt("real"), []);
   const [mode, setMode] = useState<LensMode>("public");
   const [selectedId, setSelectedId] = useState<string | null>("person-3");
-  // Lively only, and once a visit: the bars are drawn over the sheet, then the marker runs over what is public.
-  const [intro, setIntro] = useState(() => !introPlayed && isLively());
+  // Lively only, and once a visit: the bars are drawn over the sheet while the total counts up.
+  const [intro] = useState(() => !introPlayed && isLively());
   useEffect(() => {
     introPlayed = true;
-    if (!intro) return;
-    const timer = setTimeout(() => {
-      setIntro(false);
-    }, INTRO_MS * motionScale());
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [intro]);
+  }, []);
 
   const payouts = real.batches.reduce((sum, batch) => sum + (batch.shieldedActions ?? 0), 0);
   const total = real.declaredTotal === null ? null : BigInt(real.declaredTotal);
@@ -115,7 +97,7 @@ export default function HomePage() {
         {/* The sheet's column is fixed at the width where a revealed address still fits on its line. */}
         <div className="grid items-start gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_30rem]">
           <div className="space-y-8 lg:pt-6">
-            <h1 className="display text-[clamp(2.75rem,12vw,4.75rem)] leading-[0.92] text-balance [font-stretch:72%] lg:text-[clamp(4rem,6.8vw,5.75rem)]">
+            <h1 className="display text-[clamp(2.75rem,12vw,4.75rem)] leading-[0.92] text-balance [font-stretch:72%] lg:text-[clamp(4rem,6.4vw,5.25rem)]">
               <span className="block">Pay many people.</span> <span className="block">Keep who got what private.</span>{" "}
               <span className="block">Prove the total.</span>
             </h1>
@@ -150,7 +132,7 @@ export default function HomePage() {
                 </p>
               )}
             </div>
-            {total !== null && <Summary payouts={payouts} total={total} fee={fee} intro={intro} />}
+            {total !== null && <Summary payouts={payouts} total={total} fee={fee} />}
             {/* The switch under the list: the buttons beside the sheet come first in the tab order, and focus never goes back up. */}
             <RedactionLens
               rows={rows}

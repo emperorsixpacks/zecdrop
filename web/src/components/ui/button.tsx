@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Slot } from "radix-ui"
 
-// ZecDrop: restyled for web/DESIGN.md. The primary button is ink (off-white ink in the dark set); every
+// ZecDrop: restyled for web/DESIGN.md. The primary button is ink (the marker in the dark set); every
 // size is at least 44px tall, so it is a comfortable touch target.
 const buttonVariants = cva(
   "group/button press inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-transparent font-semibold whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0",

@@ -102,34 +102,15 @@ describe("Redacted paper is complete, in both modes", () => {
     expect(colours("dark")?.["island-ink"]).toBe("#141414");
   });
 
-  it("is the look the owner chose on 2026-10-15, with the yellow taken out on 2026-10-20: white sheet, black bars, ink alone", () => {
+  it("is the look the owner chose on 2026-10-15: white sheet, black bars, a marker-yellow highlighter", () => {
     const light = colours("light");
-    const dark = colours("dark");
     expect(light?.surface).toBe("#ffffff");
     expect(light?.bar).toBe("#000000");
-    // What is revealed sits on a grey tint, a little darker than the sheet in the light set and lighter in the dark one.
-    expect(light?.marker).toBe("#e0dfd8");
-    expect(dark?.marker).toBe("#40403a");
-    // The action is ink on paper; in the dark set, where black would vanish, it is paper on ink.
+    expect(light?.marker).toBe("#ffd60a");
+    // The action is ink on paper; in the dark set, where black would vanish, it is the marker.
     expect(light?.accent).toBe(light?.ink);
-    expect(dark?.accent).toBe(dark?.ink);
-    expect(dark?.["accent-ink"]).toBe("#141414");
-  });
-
-  it("has no hue but 'verified' and 'problem': every other role is a grey", () => {
-    // A warm grey's channels differ by a few steps; a colour's (the old marker yellow, #ffd60a) by hundreds.
-    const spread = (hex: string) => {
-      const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
-      return Math.max(r, g, b) - Math.min(r, g, b);
-    };
-    for (const m of MODES) {
-      const c = colours(m);
-      if (c === null) throw new Error(`no ${m} palette`);
-      for (const role of ROLES) {
-        if (role === "good" || role === "bad") continue;
-        expect(spread(c[role]), `${m} ${role} ${c[role]}`).toBeLessThanOrEqual(12);
-      }
-    }
+    expect(colours("dark")?.accent).toBe(colours("dark")?.marker);
+    expect(colours("dark")?.["accent-ink"]).toBe("#141414");
   });
 });
 

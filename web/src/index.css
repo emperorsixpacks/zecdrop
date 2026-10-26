@@ -1,10 +1,9 @@
 @import "tailwindcss";
 
 /* Design tokens: see web/DESIGN.md. The look is Redacted paper: a document page, black redaction
- * bars, and ink alone, with no colour accent (the owner took the yellow out on 2026-10-20). What is
- * revealed sits on a grey tint, the marker. The action is ink on paper (black) and, in the dark set,
- * paper on ink (off-white). Text is Archivo (with its width axis, for the headlines) and IBM Plex
- * Mono, both bundled. */
+ * bars, and a marker-yellow highlighter for what is revealed and where focus is. The action is ink
+ * on paper (black) and, in the dark set, the marker itself. Text is Archivo (with its width
+ * axis, for the headlines) and IBM Plex Mono, both bundled. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
@@ -70,9 +69,9 @@
 
 /* ---- The colours ----------------------------------------------------------------------------
  * Redacted paper. Light is the page: a cool grey desk with a white sheet on it, ink, and black
- * redaction bars. Dark is the same page after hours: near-black, light ink, and the ink itself as
- * the action. The marker (a grey tint, no hue) is what has been revealed and the halo of the focus
- * ring, in both. Nothing in the app names a colour, it names a role; <html data-theme="dark|light">
+ * redaction bars. Dark is the same page after hours: near-black, light ink, and the marker as
+ * the action. The marker (a highlighter yellow) is what has been revealed and where focus is, in
+ * both. Nothing in the app names a colour, it names a role; <html data-theme="dark|light">
  * (src/lib/theme.ts) picks the set, and the roles below read it. src/colours.test.ts computes the
  * contrast of every pair of roles that meet in the app, in both sets, and fails below WCAG 2.2 AA
  * (text 4.5:1, a control's boundary 3:1); it also fails on a colour literal anywhere else.
@@ -82,7 +81,7 @@
  *   rule, control   hairlines, and the boundary of a control (>= 3:1)
  *   accent          the one action: its fill; accent-ink is the text on it
  *   accent-text     the accent as a TEXT colour (>= 4.5:1)
- *   marker          the tint of what is revealed, and the focus ring's halo; marker-ink is the text on it
+ *   marker          the highlighter: revealed text, focus; marker-ink is the text on it
  *   bar             the redaction bar
  *   island, island-ink, island-muted
  *                   the header capsule: the redaction bar itself, its text, and its quieter text
@@ -102,7 +101,7 @@
   --p-accent: #141414;
   --p-accent-ink: #ffffff;
   --p-accent-text: #141414;
-  --p-marker: #e0dfd8;
+  --p-marker: #ffd60a;
   --p-marker-ink: #141414;
   --p-bar: #000000;
   --p-island: #000000;
@@ -126,7 +125,7 @@
   --p-accent: #141414;
   --p-accent-ink: #ffffff;
   --p-accent-text: #141414;
-  --p-marker: #e0dfd8;
+  --p-marker: #ffd60a;
   --p-marker-ink: #141414;
   --p-bar: #000000;
   --p-island: #000000;
@@ -147,11 +146,11 @@
   --p-muted: #a1a19b;
   --p-rule: #333330;
   --p-control: #77776f;
-  --p-accent: #f2f2ee;
+  --p-accent: #ffd60a;
   --p-accent-ink: #141414;
-  --p-accent-text: #f2f2ee;
-  --p-marker: #40403a;
-  --p-marker-ink: #f2f2ee;
+  --p-accent-text: #ffd60a;
+  --p-marker: #ffd60a;
+  --p-marker-ink: #141414;
   --p-bar: #c9c9c2;
   --p-island: #c9c9c2;
   --p-island-ink: #141414;
@@ -430,38 +429,8 @@ html[data-motion="calm"] { --motion: 0.35; }
 }
 
 /* ---- The home page ---------------------------------------------------------------------------
- * What is public on the home page's sheet is marked with the highlighter, as on a printed page: the marker is what anyone can
- * read, the bars what they cannot. On the first look (Lively, src/features/home/HomePage.tsx) the bars are drawn first, then
- * the marker runs across each public figure in turn (--i), drawn under the text while it runs; once it has run, the page takes
- * `data-intro` away and the marker is the figure's own background again (which an accessibility checker can measure). */
-.marked {
-  position: relative;
-  isolation: isolate;
-  display: inline-block;
-  padding-inline: 0.1em;
-  border-radius: 2px;
-  background-color: var(--highlighter);
-  color: var(--p-marker-ink);
-}
-.marked[data-intro="true"] {
-  background-color: transparent;
-  animation: ink-on-marker calc(300ms * var(--motion)) both;
-  animation-delay: calc((850ms + var(--i, 0) * 170ms) * var(--motion));
-}
-.marked[data-intro="true"]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background-color: var(--highlighter);
-  animation: bar-in calc(420ms * var(--motion)) cubic-bezier(0.7, 0, 0.2, 1) both;
-  animation-delay: calc((850ms + var(--i, 0) * 170ms) * var(--motion));
-}
-@keyframes ink-on-marker {
-  from { color: var(--foreground); }
-  to { color: var(--p-marker-ink); }
-}
+ * Its sheet's public figures are plain ink and its hidden ones are bars; nothing is highlighted on the writing (the owner,
+ * 2026-10-20). */
 
 /* A band across the whole screen in the redaction bar's own colours (the header capsule's pair, held to contrast by
  * src/colours.test.ts). The colour reaches the screen's edges by a shadow clipped to the band's height, so the page is no wider. */

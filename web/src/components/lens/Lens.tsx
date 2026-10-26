@@ -116,7 +116,8 @@ function Cell({
   }
   return (
     <span className="relative inline-block" style={style}>
-      <span className={cn("rounded-[2px] bg-marker px-1 text-marker-ink", moving === "out" && "reveal-in")}>{children}</span>
+      {/* Plain ink, with nothing behind it: where the bar was, the text simply is (the owner, 2026-10-20). */}
+      <span className={cn(moving === "out" && "reveal-in")}>{children}</span>
       {moving === "out" && (
         <span
           aria-hidden
@@ -164,7 +165,7 @@ export function LensList({ rows, mode, selectedId, onSelect, unit, intro = false
               // A row with its text showing is too wide for a phone in one line: name and amount on the
               // first, the address under them. A bar row stays one line, whatever the width.
               open ? "grid-cols-[1fr_auto] sm:grid-cols-[minmax(5.5rem,auto)_1fr_auto]" : "grid-cols-[minmax(5.5rem,auto)_1fr_auto]",
-              open && mode === "recipient" && "bg-marker/12",
+              open && mode === "recipient" && "bg-secondary",
               mode === "recipient" && onSelect && "press-only cursor-pointer",
             )}
           >
@@ -181,7 +182,7 @@ export function LensList({ rows, mode, selectedId, onSelect, unit, intro = false
             </span>
             {open && row.memo ? (
               <span className="order-4 col-span-full text-sm text-muted-foreground sm:order-none sm:col-start-2">
-                Memo: <span className="rounded-[2px] bg-marker px-1 text-marker-ink">{row.memo}</span>
+                Memo: <span className="text-foreground">{row.memo}</span>
               </span>
             ) : null}
           </li>

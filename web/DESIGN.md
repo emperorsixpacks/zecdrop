@@ -9,15 +9,14 @@ be curved "so the notch can be felt", and the get-paid page is too wordy. Answer
 rewrite, and the header's new offset. The identity is unchanged: paper, ink, the marker, redaction bars, the big tight grotesque.
 
 Owner feedback (2026-10-20): "the UI is fine but we need a cool landing page"; the home page read as documentation, not as a
-landing page. Answered by "Home" (below): the headline beside the sheet, with one first look on it (the bars are drawn, then the
-marker runs over the three public figures), a band across the screen in the bar's own colours, the real run printed as a till
-receipt, a section for the people being paid, and the steps, practice mode and tour kept. No new colour, font or claim.
+landing page. Answered by "Home" (below): the headline beside the sheet, with one first look on it (the bars are drawn while the
+total counts up), a band across the screen in the bar's own colours, the real run printed as a till receipt, a section for the
+people being paid, and the steps, practice mode and tour kept. No new colour, font or claim.
 
-Owner feedback (2026-10-20, later): "replace the yellow on the dark and light mode because it's ruining it". The marker yellow is gone
-from both sets: the look is ink alone. What is revealed sits on a grey tint (the marker is now `#E0DFD8` on paper, `#40403A` after
-hours), the dark set's action is the ink itself (off-white with black text), the capsule marks *Mainnet* and the page you are on with
-its own colours turned over, and a warning is a double ink rule. Only *verified* (green) and *problem* (red) keep a hue;
-`src/colours.test.ts` fails if any other role gets one.
+Owner feedback (2026-10-20, later): no yellow highlighting on the writing; the text is plain ink ("complete black"). So nothing is
+highlighted behind text anywhere: a revealed address, amount or memo in the lens is plain text where its bar was, the row of the one
+person revealed takes the neutral tint of a row, and the home page's three public figures are plain. The marker yellow stays where it
+is not on the writing: the action in the dark set, the focus ring, the capsule's *Mainnet* chip and current page.
 
 Owner feedback (2026-10-15): wanted something cleaner and better looking. Direction chosen: **Redacted paper** (light by
 default, black redaction bars, one marker-yellow accent, no gradients or glow), public pages and the shared tokens first; the
@@ -49,13 +48,13 @@ role in `src/index.css` (`--p-*`), nothing in `src/` names one, and `src/colours
 of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails on a colour literal anywhere else.
 
 - Light (the default): desk `#F3F3F0`, sheet `#FFFFFF`, ink `#141414`, muted `#595954`, rule `#DAD9D3`, action `#141414`
-  with white ink, redaction bar `#000000`, marker `#E0DFD8` (a grey tint, with ink `#141414` on it), good `#0B6B3A`, bad `#B3261E`.
+  with white ink, redaction bar `#000000`, marker `#FFD60A` (with ink `#141414` on it), good `#0B6B3A`, bad `#B3261E`.
 - Dark (after hours; chosen by the person, or by a system that says dark): desk `#121212`, sheet `#1B1B1B`, ink `#F2F2EE`,
-  muted `#A1A19B`, rule `#333330`, bar `#C9C9C2`, marker `#40403A` (with ink `#F2F2EE` on it), good `#4ADE80`, bad `#FF8A8A`.
-  Black would vanish on this page, so the **action is the ink** (`#F2F2EE`, with `#141414` on it): paper on ink.
-- The **marker** (a grey tint since 2026-10-20; it was a yellow highlighter) is what has been revealed (the lens lifts a bar and
-  the text under it sits on the tint) and the halo of the focus ring (an ink outline with a marker ring round it). It is not used
-  for decoration. There is no colour accent: only *verified* and *problem* have a hue.
+  muted `#A1A19B`, rule `#333330`, bar `#C9C9C2`, good `#4ADE80`, bad `#FF8A8A`. Black would vanish on this page, so the
+  **action is the marker** (`#FFD60A`, ink `#141414` on it).
+- The **marker** is where focus is (an ink outline with a marker ring), where you are in the header capsule, and the word
+  *Mainnet* on it. It is never drawn behind writing (owner, 2026-10-20): what the lens reveals is plain text where the bar was.
+  It is not used for decoration.
   No gradient anywhere, no glow, no hatching on bars.
 - The **header capsule** is the redaction bar, so its fill (`--p-island`) is the bar's, in both sets. Its text (`--p-island-ink`) is
   `#F2F2EE` on the black bar and `#141414` on the dark set's light grey; its quieter text (`--p-island-muted`) is `#A1A19B` and
@@ -66,8 +65,8 @@ of roles that meet in the app (text 4.5:1; a control's boundary 3:1) and fails o
   to 80. Body line length at most 64 characters. Left aligned everywhere. No third-party font requests (CSP stays
   `'self'`): bundle the files; record package names, versions and licences (OFL) in `PROVENANCE.md`.
 - Shape: one scale of curves, cut from the screen's own corner down to the smallest chip (see "The screen"): pills for buttons,
-  chips and segmented controls, 20px slips of paper for cards, 14px for fields, 2px for redaction bars and the marker on revealed
-  text (they are strokes, not objects). One white **sheet** holds the lens on the home page; elsewhere structure comes from
+  chips and segmented controls, 20px slips of paper for cards, 14px for fields, 2px for redaction bars (they are
+  strokes, not objects). One white **sheet** holds the lens on the home page; elsewhere structure comes from
   spacing, hairline rules and large type, and a step or a result sits on a slip. Rows are ruled lines.
 - The mark: the logo is a small redaction bar next to the name.
 - Motion: **Lively** is the default, **Calm** is the other choice (kept in localStorage), and the system's
@@ -136,11 +135,11 @@ in screenshots). It is a `role="status"`, as is "Chain mode unknown: practice co
    Left: "Pay many people. Keep who got what private. Prove the total." in the big grotesque pushed further (weight 800, width
    72%, up to 92px), the one-sentence testnet status, two buttons (*See a real receipt*, filled; *Try a practice payout*, outline)
    and two text links (*How privacy works*, *Being paid? Start here*). Right: the one white sheet, *Same payout, three views*,
-   with the real transaction's short id, the count, total and fee **on the marker's tint** (what anyone can read; the bars are what
-   they cannot), and the lens on the real 8-payout sample list (Person 1..8), its switch under the list so
+   with the real transaction's short id, the count, total and fee in plain ink (what anyone can read; the bars are what they
+   cannot), and the lens on the real 8-payout sample list (Person 1..8), its switch under the list so
    that the tab order runs down the page (the buttons beside the sheet come first; `e2e/keyboard.spec.ts` holds it).
-2. **The first look** (Lively, once a visit): the sixteen bars wipe in row after row over cells that never held any text, then
-   the marker runs over the three public figures in turn, while the total counts up; about two seconds, then still. In Calm,
+2. **The first look** (Lively, once a visit): the sixteen bars wipe in row after row over cells that never held any text,
+   while the total counts up; about a second, then still. In Calm,
    under reduced motion and on a return to the page it is not played: the sheet is simply there. It is the page's one
    unprompted motion; nothing else on the page moves by itself.
 3. **The band**: the redaction bar itself across the whole screen (the header capsule's fill and ink, so black with light text,
@@ -164,7 +163,7 @@ docs/PRIVACY_BOUNDARY.md, banned phrases still enforced). Findings keep the Rust
 verdict area and in details.
 
 **Payslip.** One column, like the privacy page. Above the button, in this order: the box (label, one line of help), the note that
-checking shares the payslip with whoever runs the verifier (a warning: a double ink rule, read before the button), then
+checking shares the payslip with whoever runs the verifier (a ruled note with the marker's rule, read before the button), then
 Check payslip and Clear; the two helpers (a sample, and a changed copy to watch fail) sit under a hairline with one line
 saying the sample is the real testnet batch's payslip 3. The result is one sheet with an ink rule on top, like a receipt
 without the torn edge: the verdict in large type (a drawn tick and the good colour for Verified, the bad colour for
@@ -175,7 +174,7 @@ notice, never the bad colour: it says nothing about the payslip.
 
 After the two helpers and before the result, only when the box holds a payslip that reads as one: **Send this payslip**, a section
 under a hairline. First
-the warning, a double ink rule, always there and read before any button ("This link holds the whole
+the warning, a ruled note with the marker's rule, always there and read before any button ("This link holds the whole
 payslip. Anyone who gets it can read its amount, its receiver and the key to its memo, and can present it as their own. Send it only
 to the person you want to prove the payment to."). Then up to three secondary buttons, Make a link, Show QR code and (only where the
 phone has a share sheet) Share; the first two toggle and say what they will do next. The link is a read-only box that selects itself
@@ -188,13 +187,13 @@ A link that is not a payslip is one plain sentence above the box, in the problem
 under 240, which `GetPaidPage.test.tsx` keeps as a ceiling). A promise in one line of larger type ("To be paid privately, get a shielded
 wallet and give the payer one address."), and under it, small, what the page does not do (ZecDrop never sees the wallet; nothing leaves the
 phone unless it is shared). Then four numbered steps, each on a **slip** (one column on a phone, two by two from 64rem up): Get a wallet,
-Copy your address, Give it to your payer, When you are paid. The number is a small ink circle (off-white ink in the dark set), drawn and not
+Copy your address, Give it to your payer, When you are paid. The number is a small ink circle (the marker in the dark set), drawn and not
 read, level with its title. Step 1 says what the page claims of the wallet and where that comes from ("By its release notes, version 3.8.0 or
 newer supports the shielded pool that payouts use"), has the one link out, and keeps the rest (what *shielded* means, that other wallets
 have not been checked, and what happens in a wallet that cannot receive in the current pool) behind one closed row, *More about wallets*,
 as the copy rules below ask of a long explanation. Step 2 says where to find the u1 address and gives the other kinds a wallet may show as
 three short rows (how it starts, what to do about it: `utest1`, `t1 or t3`, `zs1`). Step 3 is the box: a line that says the check is of
-shape only, the result as a ruled note (the ink rule for a real-money address, the double ink rule of a warning for a practice, Sapling or unrecognised
+shape only, the result as a ruled note (the ink rule for a real-money address, the marker's rule for a practice, Sapling or unrecognised
 one, the bad colour for the one that would publish every payment), Share and Copy, and the line that says when they turn on. Share is the
 main button where the phone has a share sheet, Copy where it has none. There is no picture, no third-party font and no link out but the
 wallet's.
@@ -303,7 +302,7 @@ lens wipe and the stamp are real animations moved to stated fractions (`seek-*`)
 The owner asked for a notch, like the iPhone's Dynamic Island, in place of a full-width navbar (2026-10-19). The header is one
 capsule floating at the top centre of the page, and it is the site's own **redaction bar**: its fill is the `bar` colour (black in
 the light set, the light grey in the dark set, where black would vanish), its text is light on it (dark on the grey), and the page
-you are on is marked with the capsule's own colours turned over (a paper pill on the black). It is the one bold thing in the app, in
+you are on is marked with the **marker**, the way the lens marks what has been revealed. It is the one bold thing in the app, in
 one place, and everything around it stays quiet: a solid shape, no blur, no gradient, no soft shadow, no border in the dark set
 (the grey is enough against the page).
 
@@ -312,11 +311,11 @@ one place, and everything around it stays quiet: a solid shape, no blur, no grad
   How privacy works; on the operator's side Payouts, New payout, Payout, Audit; the site's own name on a page that has none (said
   once), and on a hosted copy for an operator address, which shows a notice and not the page (`src/lib/page-name.ts`). The network is
   on the capsule at all times, so the thing that most needs to be known is never behind a press: quiet text *testnet*, a
-  chip *Mainnet* in the capsule's colours turned over (paper on the black, black on the grey), a hatched chip *Practice*. Below 24rem the word ZecDrop gives way first and stays in the button's
+  marker-yellow chip *Mainnet*, a hatched chip *Practice*. Below 24rem the word ZecDrop gives way first and stays in the button's
   name; "How privacy works", the longest name, fits whole from 320px up. The chevron is the one addition to the brief's list: a black
   pill that does not look pressable is not found.
 - **Open** (a press, Enter or Space) it morphs in about 350ms (`cubic-bezier(0.32, 0.72, 0, 1)`) into a panel up to 34rem wide with a
-  28px radius, anchored at the same place: the links as rows at least 44px tall, with the current page's label in the capsule's colours turned over, in
+  28px radius, anchored at the same place: the links as rows at least 44px tall, with the current page's label on the marker, in
   heavier type (so it does not rest on a colour alone) and `aria-current="page"`, and a footer row with the network in full ("Zcash
   testnet", "Zcash mainnet"), the theme button and the appearance panel. It lies over the page and moves nothing, so opening it
   never shifts what is under it. Escape, a press outside it, choosing a link, a new page (the back button too) and the focus leaving
@@ -385,7 +384,7 @@ corners, the capsule is the notch, the black redaction bar is the bezel. Three r
   lifts, and its shadow is never drawn on a thing the keyboard has focused, because the focus ring is a shadow too. Calm shortens all of it,
   and under "reduce motion" it is gone: a pressed thing is its colour alone.
 - **Segmented controls.** One pill that glides to the chosen option in 220ms with a small spring (`--motion` scales it). It is the ink
-  (off-white ink in the dark set), not the marker: the marker is kept for what is revealed and for the focus ring's halo.
+  (the marker in the dark set), the action's colour, as the buttons are.
 - **Redaction bars answer touch.** A hidden bar in the lens (the home page's *Same payout, three views*, the receipt's *What the public sees*,
   the operator's check) shows its label, *hidden*, sliding up inside it under a pointer or a finger, and puts it away again. Always the same
   word, never a figure. It is drawn by the stylesheet with an empty alternative text (`content: "hidden" / ""`), so no screen reader reads

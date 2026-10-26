@@ -34,6 +34,13 @@ describe("the redaction lens", () => {
     expect(screen.getByText("Person 2")).toBeInTheDocument();
   });
 
+  it("shows revealed text as plain ink: nothing is drawn behind the writing", () => {
+    render(<Harness initial="auditor" />);
+    const list = screen.getAllByRole("list")[0] as HTMLElement;
+    expect(within(list).getByText("memo-sentinel-one")).toBeInTheDocument();
+    for (const el of list.querySelectorAll("*")) expect(el.className, el.textContent ?? "").not.toMatch(/marker|highlighter/u);
+  });
+
   it("puts the switch under the list when asked, so it comes after the list in the tab order", () => {
     render(<RedactionLens rows={ROWS} mode="public" onModeChange={() => {}} selectedId={null} onSelect={() => {}} unit="TAZ" controls="below" />);
     const list = screen.getAllByRole("list")[0] as HTMLElement;
