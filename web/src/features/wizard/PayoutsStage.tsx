@@ -30,6 +30,8 @@ import { formatZec } from "@/lib/zec";
 import { useWizardDraft } from "./draft";
 import { lensRowsFrom } from "./list";
 import { PayoutPreview } from "./PayoutPreview";
+import { PeopleList } from "./PeopleList";
+import { composeCsv, lineOf, peopleFromCsv, personProblems, totalProblem } from "./people";
 import { batchSizeProblem, csvProblem } from "./validation";
 
 /** "Payout, 8 Oct": the name used when the person does not type one. */
@@ -37,16 +39,14 @@ function defaultRunName(now = new Date()): string {
   return `Payout, ${String(now.getDate())} ${now.toLocaleString("en-GB", { month: "short" })}`;
 }
 
-/** What the example list is called where a file's name would be. */
-const EXAMPLE_LIST_NAME = "demo-recipients.testnet.csv";
-
 const POLICY_LABEL: Record<FeePolicyName, string> = {
   zip317_text: "Standard",
   zebra_main: "Lower",
 };
 
-/** Stage 1 of 3. Add the list, name the run, continue. Everything stays in this
- * page's memory until Continue sends it, once, to the operator on this computer. */
+/** Stage 1 of 3. Add the people, name the run, continue. The list is built here one person at a time (or imported
+ * from a file, for a big one). Everything stays in this page's memory until Continue sends it, once, to the operator
+ * on this computer. */
 export default function PayoutsStage() {
   const navigate = useNavigate();
   const unit = useCoinUnit();
@@ -59,7 +59,10 @@ export default function PayoutsStage() {
   const size = useWizardDraft((s) => s.maxOutputsPerBatch);
   const csvText = useWizardDraft((s) => s.csvText);
   const csvFileName = useWizardDraft((s) => s.csvFileName);
-  const { setName, setFeePolicy, setMaxOutputsPerBatch, setCsv, campaignCreated, reset } = useWizardDraft.getState();
+  const people = useWizardDraft((s) => s.people);
+  const amountMode = useWizardDraft((s) => s.amountMode);
+  const splitTotal = useWizardDraft((s) => s.splitTotal);
+  const { setName, setFeePolicy, setMaxOutputsPerBatch, setCsv, setPeople, campaignCreated, reset } = useWizardDraft.getState();
 
   const exampleList = usePractice((s) => s.exampleList);
   const { state, create, clearError } = useCreateCampaign();
@@ -69,6 +72,8 @@ export default function PayoutsStage() {
   const [localProblem, setLocalProblem] = useState<string | null>(null);
 
   const preview = useMemo(() => previewPayouts(csvText), [csvText]);
+  // With no file imported, the list is the one built on this page.
+  const importing = preview.kind !== "empty";
   const runName = defaultRunName();
   const realChain = health.data?.mock === false;
   const sizeValid = batchSizeProblem(size) === null;
@@ -87,7 +92,19 @@ export default function PayoutsStage() {
     for (const error of importFailure?.errors ?? []) byLine.set(error.line, [...(byLine.get(error.line) ?? []), error.message]);
     return byLine;
   }, [importFailure]);
-  const shownLines = new Set(preview.kind === "rows" ? preview.rows.slice(0, 50).map((r) => r.line) : []);
+  // On the list built here, person N is line N + 1: the operator's sentences go to the person they are about.
+  const byPerson = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (importing) return map;
+    people.forEach((person, index) => {
+      const said = problems.get(lineOf(index));
+      if (said !== undefined) map.set(person.key, [...said]);
+    });
+    return map;
+  }, [importing, people, problems]);
+  const shownLines = new Set(
+    importing ? (preview.kind === "rows" ? preview.rows.slice(0, 50).map((r) => r.line) : []) : people.map((_, index) => lineOf(index)),
+  );
   const elsewhere = (importFailure?.errors ?? []).filter((e) => !shownLines.has(e.line));
 
   /** Change the list: the operator's old verdict no longer applies to it. */
@@ -97,9 +114,26 @@ export default function PayoutsStage() {
     setCsv(text, fileName);
   }
 
+  /** How many things on the list built here stop it from being sent. */
+  function listProblems(): number {
+    const inRows = people.reduce(
+      (count, _, index) => count + Object.values(personProblems(people, index, amountMode)).filter((problem) => problem !== null).length,
+      0,
+    );
+    return inRows + (amountMode !== "each" && totalProblem(splitTotal, people.length, amountMode) !== null ? 1 : 0);
+  }
+
   async function submit() {
     setAsked(true);
-    const problem = csvProblem(csvText) ?? (sizeValid ? null : batchSizeProblem(size));
+    if (!importing) {
+      const count = listProblems();
+      if (count > 0) {
+        setLocalProblem(count === 1 ? "1 problem to fix." : `${String(count)} problems to fix.`);
+        return;
+      }
+    }
+    const csv = importing ? csvText : composeCsv(people);
+    const problem = csvProblem(csv) ?? (sizeValid ? null : batchSizeProblem(size));
     if (problem !== null) {
       setLocalProblem(problem);
       return;
@@ -107,12 +141,13 @@ export default function PayoutsStage() {
     setLocalProblem(null);
     const campaign = await create({
       name: name.trim() === "" ? runName : name.trim(),
-      csv: csvText,
+      csv,
       maxOutputsPerBatch: size,
       feePolicy,
     });
     if (campaign !== null) {
-      campaignCreated(campaign, preview.kind === "rows" ? lensRowsFrom(preview.rows) : null);
+      const rows = previewPayouts(csv);
+      campaignCreated(campaign, rows.kind === "rows" ? lensRowsFrom(rows.rows) : null);
       void navigate("/new/check");
     }
   }
@@ -161,10 +196,7 @@ export default function PayoutsStage() {
 
   return (
     <>
-      <PageHeader
-        title="Add the payouts"
-        {...(preview.kind === "empty" ? { description: "Drop the list of who to pay. Nothing is sent yet." } : {})}
-      />
+      <PageHeader title="Add the payouts" {...(importing ? {} : { description: "Add the people you're paying. Nothing is sent yet." })} />
       <form
         className="space-y-10"
         noValidate
@@ -188,18 +220,36 @@ export default function PayoutsStage() {
         </div>
 
         <section aria-label="Payout list" className="space-y-5">
-          {preview.kind === "empty" ? (
-            <DropZone
-              onList={edit}
-              disabled={creating}
-              {...(exampleList === null
-                ? {}
-                : {
-                    onExample: () => {
-                      edit(exampleList, EXAMPLE_LIST_NAME);
-                    },
-                  })}
-            />
+          {!importing ? (
+            <>
+              {exampleList !== null && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    disabled={creating}
+                    onClick={() => {
+                      edit("");
+                      setPeople(peopleFromCsv(exampleList));
+                    }}
+                  >
+                    Use the example list
+                  </Button>
+                  <p className="text-sm text-muted-foreground">Eight practice people, ready to send.</p>
+                </div>
+              )}
+              {verdict}
+              <PeopleList
+                showAll={asked}
+                operatorProblems={byPerson}
+                network={health.data?.network ?? null}
+                disabled={creating}
+                onChange={() => {
+                  clearError();
+                  setLocalProblem(null);
+                }}
+              />
+            </>
           ) : (
             <>
               {preview.kind === "rows" ? (
@@ -235,14 +285,19 @@ export default function PayoutsStage() {
 
           {importFailure === null && state.status === "failed" && <FailureNotice error={state.error} />}
           {asked && localProblem !== null && (
-            <p role="alert" className="text-base font-medium text-problem">
+            <p ref={setSummary} tabIndex={-1} role="alert" className="text-base font-medium text-problem outline-none">
               {localProblem}
             </p>
           )}
         </section>
 
-        {preview.kind !== "empty" && (
-          <div className="border-b border-border">
+        <div className="border-b border-border">
+          {!importing && (
+            <Disclosure summary="Import a list instead">
+              <DropZone onList={edit} disabled={creating} quiet />
+            </Disclosure>
+          )}
+          {importing && (
             <Disclosure summary="Edit as text">
               <Label htmlFor={ids.edit} className="sr-only">
                 Payout list as text
@@ -263,6 +318,7 @@ export default function PayoutsStage() {
                 disabled={creating}
               />
             </Disclosure>
+          )}
           <Disclosure summary="Options">
             <div className="space-y-8 pt-1">
               <fieldset className="space-y-3">
@@ -335,16 +391,13 @@ export default function PayoutsStage() {
               </div>
             </div>
           </Disclosure>
-          </div>
-        )}
+        </div>
 
-        {preview.kind !== "empty" && (
-          <div className="flex flex-wrap items-center gap-4">
-            <Button type="submit" size="lg" disabled={creating}>
-              {creating ? "Checking the list…" : "Continue"}
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="submit" size="lg" disabled={creating}>
+            {creating ? "Checking the list…" : "Continue"}
+          </Button>
+        </div>
       </form>
     </>
   );

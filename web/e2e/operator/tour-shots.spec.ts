@@ -153,6 +153,7 @@ for (const look of TOUR_LOOKS) {
       await load(page, operatorUrl("/new", { token: true }));
       await page.getByRole("heading", { level: 1, name: "Add the payouts" }).waitFor();
       await page.getByLabel("Name this payout run").fill("Autumn grants");
+      await page.getByRole("button", { name: "Import a list instead" }).click();
       await page.getByRole("button", { name: "or paste it" }).click();
       await page.getByLabel("Paste your list").fill(loadDemoCsv());
       await page.getByRole("button", { name: "Use this list" }).click();

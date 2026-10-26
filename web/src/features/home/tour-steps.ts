@@ -46,7 +46,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "add",
     title: "Add the payouts",
-    text: "Drop in a CSV of addresses and amounts, or paste it.",
+    text: "Type in who you're paying, one person at a time, or import a list.",
     publicNote: "Nothing yet.",
     hiddenNote: "The whole list. Only the operator on your computer has it.",
     shots: [

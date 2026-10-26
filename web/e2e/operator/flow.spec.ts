@@ -31,6 +31,7 @@ test("create, fund, send, settle and share, leaving no recipient data behind", a
   await expect(page.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Progress" })).toContainText("Payouts");
   await page.getByLabel("Name this payout run").fill(campaignName);
+  await page.getByRole("button", { name: "Import a list instead" }).click();
   await page.getByRole("button", { name: "or paste it" }).click();
   await page.getByLabel("Paste your list").fill(sentinels.csv);
   await page.getByRole("button", { name: "Use this list" }).click();

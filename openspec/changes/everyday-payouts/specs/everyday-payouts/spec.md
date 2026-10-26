@@ -1,7 +1,7 @@
 # everyday-payouts
 
 ### REQ-IMP-002 — A payout list can be built in the page without a file
-Status: planned
+Status: implemented
 The payouts step SHALL let a payer build the payout list one person at a time (an address, an amount, an optional note) and SHALL
 turn it into `address,amount,memo` text that the CSV importer (REQ-IMP-001) accepts unchanged, with every field quoted as RFC 4180
 requires and every amount written as the importer's own decimal form. It SHALL be able to split a total evenly, every share exactly

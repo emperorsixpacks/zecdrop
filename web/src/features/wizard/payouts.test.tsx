@@ -71,8 +71,14 @@ afterEach(() => {
 
 type User = ReturnType<typeof userEvent.setup>;
 
+/** Open "Import a list instead", where a file or a pasted list goes. */
+async function openImport(user: User) {
+  await user.click(await screen.findByRole("button", { name: "Import a list instead" }));
+}
+
 /** Paste a list into the drop zone, the way a person does. */
 async function pasteList(user: User, csv: string) {
+  await openImport(user);
   await user.click(await screen.findByRole("button", { name: "or paste it" }));
   await user.click(screen.getByLabelText("Paste your list"));
   await user.paste(csv);
@@ -85,26 +91,33 @@ describe("Stage 1: Payouts", () => {
     operator = installFakeOperator({ "GET /api/health": mockHealth, "POST /api/campaigns": created });
   });
 
-  it("starts with one big thing to do: drop a list", () => {
+  // covers: REQ-IMP-002
+  it("starts with the people being paid, one to fill in, and keeps a file one click away", async () => {
+    const user = userEvent.setup();
     renderApp("/new", { signedIn: true });
     expect(screen.getByRole("heading", { level: 1, name: "Add the payouts" })).toBeInTheDocument();
+    const list = screen.getByTestId("people-list");
+    expect(within(list).getByRole("group", { name: "Person 1" })).toBeInTheDocument();
+    expect(within(list).getByLabelText("Address")).toHaveValue("");
+    expect(within(list).getByLabelText("Amount")).toHaveValue("");
+    expect(within(list).getByLabelText("Note they'll see")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Add a person" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    // No spreadsheet is asked for; importing one is still there, closed.
+    expect(screen.queryByText("Drop a CSV here")).toBeNull();
+    await openImport(user);
     expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose a file" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "or paste it" })).toBeInTheDocument();
-    // Nothing to continue with yet, and no options to fiddle with.
-    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Options" })).toBeNull();
   });
 
-  it("the first screen says in one line what to do and that nothing is sent yet, and the line goes once a list is in", async () => {
+  it("the first screen says in one line what to do and that nothing is sent yet, and the line goes once a list is imported", async () => {
     const user = userEvent.setup();
     renderApp("/new", { signedIn: true });
-    expect(screen.getByText("Drop the list of who to pay. Nothing is sent yet.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "or paste it" }));
-    await user.click(screen.getByLabelText("Paste your list"));
-    await user.paste("address,amount\nu1x,1\n");
+    expect(screen.getByText("Add the people you're paying. Nothing is sent yet.")).toBeInTheDocument();
+    await pasteList(user, "address,amount\nu1x,1\n");
     await screen.findByTestId("payout-table");
-    expect(screen.queryByText("Drop the list of who to pay. Nothing is sent yet.")).toBeNull();
+    expect(screen.queryByText("Add the people you're paying. Nothing is sent yet.")).toBeNull();
   });
 
   it("offers a default name, so the field can be left alone", () => {
@@ -160,13 +173,14 @@ describe("Stage 1: Payouts", () => {
     expect(screen.getByTestId("payout-total")).toHaveTextContent("1 TAZ");
 
     await user.click(screen.getByRole("button", { name: "Use a different list" }));
-    expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
+    expect(screen.getByTestId("people-list")).toBeInTheDocument();
     expect(useWizardDraft.getState().csvText).toBe("");
   });
 
   it("reads a chosen file, shows its name, and keeps its content off the rest of the page", async () => {
     const user = userEvent.setup();
     renderApp("/new", { signedIn: true });
+    await openImport(user);
     const file = new File([VALID_CSV], "payroll.csv", { type: "text/csv" });
     await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]') as HTMLInputElement, file);
     expect(await screen.findByText("payroll.csv")).toBeInTheDocument();
@@ -177,6 +191,7 @@ describe("Stage 1: Payouts", () => {
   it("refuses a file over 32 MB without reading it", async () => {
     const user = userEvent.setup();
     renderApp("/new", { signedIn: true });
+    await openImport(user);
     const big = new File(["x"], "big.csv", { type: "text/csv" });
     Object.defineProperty(big, "size", { value: 33 * 1024 * 1024 });
     await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]') as HTMLInputElement, big);

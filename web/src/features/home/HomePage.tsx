@@ -27,7 +27,7 @@ import { Tour } from "./Tour";
 // live in the operator on the person's own computer (docs/ADR/0002), never on this site.
 const STEPS: readonly { title: string; text: string }[] = [
   { title: "Start the operator", text: "It runs on your own computer and holds the keys." },
-  { title: "Add your payout list", text: "Drop in a CSV of addresses and amounts, then check it." },
+  { title: "Add your payout list", text: "Type in who you're paying, or import a list. Then check it." },
   { title: "Fund the address", text: "Send coins to the address it shows. Open in wallet fills in the amount." },
   { title: "Send and share", text: "One transaction sends all the payouts. Share the receipt link so anyone can check the total." },
 ];

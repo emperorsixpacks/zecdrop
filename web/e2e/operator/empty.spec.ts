@@ -42,7 +42,7 @@ for (const viewport of VIEWPORTS) {
         const empty = page.getByTestId("payouts-empty");
         await expect(empty).toBeVisible();
         await expect(empty.getByText("No payouts yet")).toBeVisible();
-        await expect(empty.getByRole("button", { name: "Choose a file" })).toBeVisible();
+        await expect(empty.getByRole("link", { name: "Start a payout" })).toHaveAttribute("href", "/new");
         await clean(page, "payouts, none", problems);
 
         await chooseFromIsland(page, "Audit");
@@ -53,8 +53,9 @@ for (const viewport of VIEWPORTS) {
 
         await page.goto("about:blank");
         await page.goto(operatorUrl("/new", { token: true }));
-        await expect(page.getByText("Drop the list of who to pay. Nothing is sent yet.")).toBeVisible();
-        await clean(page, "first run of the drop zone", problems);
+        await expect(page.getByText("Add the people you're paying. Nothing is sent yet.")).toBeVisible();
+        await expect(page.getByRole("group", { name: "Person 1" })).toBeVisible();
+        await clean(page, "first run of the people list", problems);
 
         await page.unroute(/\/api\/campaigns$/u);
         const id = "c-000000000001";

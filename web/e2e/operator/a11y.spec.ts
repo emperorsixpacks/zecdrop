@@ -182,6 +182,7 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
         const sentinels = loadSentinels();
         const bad = loadSentinels("row-errors.csv");
         const paste = async (csv: string) => {
+          await page.getByRole("button", { name: "Import a list instead" }).click();
           await page.getByRole("button", { name: "or paste it" }).click();
           await page.getByLabel("Paste your list").fill(csv);
           await page.getByRole("button", { name: "Use this list" }).click();
@@ -193,6 +194,7 @@ for (const viewport of [NARROWEST, ...VIEWPORTS]) {
         await check(page, "payouts, empty", watched);
 
         // Pasting opens the box for it.
+        await page.getByRole("button", { name: "Import a list instead" }).click();
         await page.getByRole("button", { name: "or paste it" }).click();
         await expect(page.getByLabel("Paste your list")).toBeVisible();
         await check(page, "payouts, paste box", watched);

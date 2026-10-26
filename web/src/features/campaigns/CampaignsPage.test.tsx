@@ -50,18 +50,16 @@ describe("the payouts list", () => {
     expect(screen.getByRole("link", { name: "New payout" })).toHaveAttribute("href", "/new");
   });
 
-  it("when there are none: one sentence and the drop zone, which starts a run with what was dropped", async () => {
+  it("when there are none: one sentence and one button, which starts a run with the people list", async () => {
     installFakeOperator({ "GET /api/health": health, "GET /api/campaigns": () => replyWith("campaigns-empty.json") });
     const user = userEvent.setup();
     renderApp("/campaigns", { signedIn: true });
-    expect(await screen.findByText("Each run you send shows up here. Drop a list to start the first.")).toBeInTheDocument();
-    expect(screen.getByText("Drop a CSV here")).toBeInTheDocument();
+    expect(await screen.findByText("Each run you send shows up here. Add the people you're paying to start the first.")).toBeInTheDocument();
+    expect(screen.queryByText("Drop a CSV here")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "or paste it" }));
-    await user.click(screen.getByLabelText("Paste your list"));
-    await user.paste("address,amount\nu1x,1\n");
+    await user.click(within(screen.getByTestId("payouts-empty")).getByRole("link", { name: "Start a payout" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Add the payouts" })).toBeInTheDocument();
-    expect(await screen.findByTestId("payout-count")).toHaveTextContent("1 person");
+    expect(await screen.findByTestId("people-list")).toBeInTheDocument();
   });
 
   it("the empty list says so in a heading, shows what a list will look like as bars, and holds no text in the picture", async () => {
@@ -72,9 +70,9 @@ describe("the payouts list", () => {
     const ghost = within(empty).getByTestId("ghost-rows");
     expect(ghost).toHaveAttribute("aria-hidden", "true");
     expect(ghost.textContent).toBe("");
-    // The one way to start is still the link in the header, and the drop zone takes a file straight away.
+    // The link in the header and the one in the empty list both start a run.
     expect(screen.getByRole("link", { name: "New payout" })).toHaveAttribute("href", "/new");
-    expect(within(empty).getByRole("button", { name: "Choose a file" })).toBeInTheDocument();
+    expect(within(empty).getByRole("link", { name: "Start a payout" })).toHaveAttribute("href", "/new");
   });
 
   it("says the operator can't be reached, and tries again when asked", async () => {
@@ -94,7 +92,7 @@ describe("the payouts list", () => {
 
     reachable = true;
     await user.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByText("Each run you send shows up here. Drop a list to start the first.")).toBeInTheDocument();
+    expect(await screen.findByText("Each run you send shows up here. Add the people you're paying to start the first.")).toBeInTheDocument();
   });
 
   it("falls back to the explainer when the operator refuses the token", async () => {
