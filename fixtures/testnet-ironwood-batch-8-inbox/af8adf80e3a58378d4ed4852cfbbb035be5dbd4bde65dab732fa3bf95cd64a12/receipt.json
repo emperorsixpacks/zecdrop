@@ -1,0 +1,25 @@
+{
+  "campaign_id": null,
+  "network": "testnet",
+  "funding_address": "tmM4VS6wn8oNwTgRFEPTiicWqbBzUG1Q3bY",
+  "funding_source": "shielded",
+  "declared_total": "500000",
+  "fee_total": "45000",
+  "batches": [
+    {
+      "index": 0,
+      "txid": "af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12",
+      "funding_input": "6e677bc50c0e17396340d40bbf5464d749c7192c6d19f914a7db5772ad5870f3:0",
+      "net_into_pool": "500000",
+      "fee": "45000",
+      "shielded_actions": 8,
+      "pool": "ironwood",
+      "confirmations": 32
+    }
+  ],
+  "manifest_commitment": "ca5ccacaaa467610fb8c0e1a36c364429c9ff91f17403a34ea679292fd73803f",
+  "phase": {
+    "phase": "settled"
+  },
+  "findings": []
+}

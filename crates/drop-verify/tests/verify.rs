@@ -713,6 +713,13 @@ const REAL_BATCH_8: (&str, &str) = (
     "testnet-ironwood-batch-8",
     "6e2359182d1dc77253ebe46aecdecd45d829a5b1baecf2750cb6a3736a877955",
 );
+/// The same 8 recipients, campaign `c-6207fac6674f`, funded through its shielded deposit address: its deposit is the move
+/// out of that address (docs/ADR/0006-shielded-inbox.md), to a funding address of its own.
+const REAL_BATCH_8_INBOX: (&str, &str) = (
+    "testnet-ironwood-batch-8-inbox",
+    "af8adf80e3a58378d4ed4852cfbbb035be5dbd4bde65dab732fa3bf95cd64a12",
+);
+const REAL_INBOX_FUNDING_ADDRESS: &str = "tmM4VS6wn8oNwTgRFEPTiicWqbBzUG1Q3bY";
 
 fn real_dir((set, txid): (&str, &str)) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -840,9 +847,9 @@ async fn a_tampered_declared_total_fails_the_real_8_recipient_batch() {
 // covers: REQ-VER-004
 #[tokio::test]
 async fn the_captured_receipts_are_what_the_verifier_computes_from_the_captured_chain_data() {
-    // receipt.json came from the hosted verifier on testnet; recomputing it offline from the
-    // stored transactions (at the depth it was captured at) must give the same receipt.
-    for batch in [REAL_BATCH_3, REAL_BATCH_8] {
+    // receipt.json came from a verifier on testnet; recomputing it offline from the stored
+    // transactions (at the depth it was captured at) must give the same receipt.
+    for batch in [REAL_BATCH_3, REAL_BATCH_8, REAL_BATCH_8_INBOX] {
         let captured: PublicReceipt =
             serde_json::from_value(real_json(batch, "receipt.json")).unwrap();
         let (txid, chain) = real_chain(batch, captured.batches[0].confirmations);
@@ -899,6 +906,36 @@ async fn the_real_8_recipient_batch_was_funded_from_transparent_coins_and_still_
         receipt.findings
     );
     assert_eq!(receipt.phase, CampaignPhase::Settled);
+}
+
+// covers: REQ-VER-007, REQ-FUND-006
+#[tokio::test]
+async fn the_real_batch_funded_through_a_shielded_deposit_address_reads_shielded() {
+    // Its deposit is the operator's move out of the payout's inbox: Ironwood notes in, the exact
+    // funding out to the funding address, no transparent input. The verifier needs nothing new.
+    let (txid, chain) = real_chain(REAL_BATCH_8_INBOX, 32);
+    let receipt = verify_campaign(&chain, &request(vec![txid], 500_000), &config(3))
+        .await
+        .unwrap();
+    assert_eq!(receipt.funding_source, Some(FundingSource::Shielded));
+    assert!(receipt.findings.is_empty(), "{:?}", receipt.findings);
+    assert_eq!(receipt.phase, CampaignPhase::Settled);
+    assert_eq!(
+        receipt.funding_address.as_deref(),
+        Some(REAL_INBOX_FUNDING_ADDRESS)
+    );
+    let batch = &receipt.batches[0];
+    assert_eq!(batch.net_into_pool, Some(Zatoshi::new(500_000).unwrap()));
+    assert_eq!(batch.fee, Some(Zatoshi::new(45_000).unwrap()));
+    assert_eq!(batch.shielded_actions, Some(8));
+    assert_eq!(
+        batch.funding_input,
+        Some(
+            "6e677bc50c0e17396340d40bbf5464d749c7192c6d19f914a7db5772ad5870f3:0"
+                .parse()
+                .unwrap()
+        )
+    );
 }
 
 // covers: REQ-VER-007

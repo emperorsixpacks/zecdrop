@@ -9,7 +9,8 @@ It was mined at height 4,537,003 (branch `77190ad9`).
 What happened, all on testnet:
 1. A 2-person payout (`c-69df9236f35c`, declared 100,000 zatoshi, funding required 115,000) was created on a real operator.
 2. Its inbox (an Orchard-only Unified Address of its own wallet) was paid 130,000 zatoshi from a shielded wallet, shielded to
-   shielded (`20dd79d0d864ed35ddb07e7cd97858bf798f9c1280e34d42276ac004db3ce0e0`).
+   shielded. That payment is not named here: naming it would publish what the inbox keeps off the record, which payment fed
+   which payout.
 3. At 11 confirmations the move was built, checked and sent: this transaction.
 4. The operator's funding poller saw its output at the payout's funding address `tmHWPvYdJcXfuthNsHz4oUkTJVFUPdqbFma`
    and funded the payout with `funding_source: shielded`; the payout was then sent.
