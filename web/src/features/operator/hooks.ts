@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkFunding,
   createCampaign,
+  exportPayslips,
   exportViewingKey,
   getCampaign,
   getCampaignReceipt,
@@ -17,7 +18,7 @@ import {
   type CreateCampaignInput,
 } from "@/api/operator/client";
 import { subscribeToEvents, type StreamStatus } from "@/api/operator/events";
-import type { OperatorCampaign, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
+import type { OperatorCampaign, PayslipsExport, ProgressEvent, ViewingKeyExport } from "@/api/operator/schemas";
 import { getToken, rejectToken, useSession } from "@/api/operator/session";
 import type { OutPointView } from "@/api/types";
 
@@ -214,6 +215,50 @@ export function useViewingKey(id: string) {
 
   // A key fetched for another campaign is never shown for this one.
   const state: ViewingKeyState = held.id === id ? held.state : { status: "idle" };
+  return { state, request, clear };
+}
+
+// ---- the payslips ------------------------------------------------------------------------
+
+export type PayslipsState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; payslips: PayslipsExport }
+  | { status: "failed"; error: unknown };
+
+/** Fetches a settled campaign's payslips (REQ-PAY-005) the way `useViewingKey` fetches the key, and for the same
+ * reason: without React Query, so they are never in a cache. They live in this component's state only, and go on
+ * `clear()`, on a change of campaign, and when the component goes away. */
+export function usePayslips(id: string) {
+  const [held, setHeld] = useState<{ id: string; state: PayslipsState }>({ id, state: { status: "idle" } });
+  const generation = useRef(0);
+
+  // Answers still on their way are ignored once the page is left or the campaign changes.
+  useEffect(
+    () => () => {
+      generation.current += 1;
+    },
+    [id],
+  );
+
+  const clear = useCallback(() => {
+    generation.current += 1;
+    setHeld({ id, state: { status: "idle" } });
+  }, [id]);
+
+  const request = useCallback(async () => {
+    const mine = ++generation.current;
+    setHeld({ id, state: { status: "loading" } });
+    try {
+      const payslips = await exportPayslips(id);
+      if (generation.current === mine) setHeld({ id, state: { status: "ready", payslips } });
+    } catch (error) {
+      if (generation.current === mine) setHeld({ id, state: { status: "failed", error } });
+    }
+  }, [id]);
+
+  // Payslips fetched for another campaign are never shown for this one.
+  const state: PayslipsState = held.id === id ? held.state : { status: "idle" };
   return { state, request, clear };
 }
 

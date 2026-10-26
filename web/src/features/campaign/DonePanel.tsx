@@ -9,15 +9,18 @@ import { FailureNotice } from "@/features/operator/FailureNotice";
 
 import { useReceiptShare } from "./useReceiptShare";
 
-/** The campaign is settled: the stamp comes down once, then the three things to do next.
+/** The campaign is settled: the stamp comes down once, then the things to do next.
  * "Open public receipt" and "Copy receipt link" wait for the receipt the operator builds. */
 export function DonePanel({
   campaign,
   onAuditor,
+  onPayslips,
   celebrate = false,
 }: {
   campaign: OperatorCampaign;
   onAuditor: () => void;
+  /** Open the section where each person's payslip is sent. */
+  onPayslips: () => void;
   /** This page watched it settle: a short burst of confetti beside the stamp, when Lively. */
   celebrate?: boolean;
 }) {
@@ -63,6 +66,9 @@ export function DonePanel({
             Copy receipt link
           </Button>
         )}
+        <Button size="lg" variant="outline" onClick={onPayslips}>
+          Send payslips
+        </Button>
         <Button size="lg" variant="outline" onClick={onAuditor}>
           Give an auditor access
         </Button>

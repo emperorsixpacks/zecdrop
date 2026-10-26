@@ -17,6 +17,7 @@ import { phaseProgress, phaseSentence } from "@/lib/phase";
 
 import { ActivityLog } from "./ActivityLog";
 import { DonePanel } from "./DonePanel";
+import { PayslipsCard } from "./PayslipsCard";
 import { RunTimeline } from "./RunTimeline";
 import { SendControl } from "./SendControl";
 import { ShareDetails } from "./ShareDetails";
@@ -38,10 +39,12 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
   const funded = campaign?.funding != null;
   const stream = useCampaignStream(id, funded, campaign?.run.state ?? "unknown");
   const [auditorOpen, setAuditorOpen] = useState(false);
+  const [payslipsOpen, setPayslipsOpen] = useState(false);
   // Confetti is for a settling this page watched, not for a receipt opened later.
   const [sawRunning, setSawRunning] = useState(false);
   if (campaign?.run.state === "running" && !sawRunning) setSawRunning(true);
   const auditor = useRef<HTMLDivElement>(null);
+  const payslips = useRef<HTMLDivElement>(null);
 
   // Read before the early returns narrow `query`: a failed refresh keeps the last good data on screen.
   const refreshFailed = query.isRefetchError;
@@ -94,6 +97,13 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
     });
   };
 
+  const openPayslips = () => {
+    setPayslipsOpen(true);
+    requestAnimationFrame(() => {
+      payslips.current?.scrollIntoView?.({ block: "start" });
+    });
+  };
+
   return (
     <div className="space-y-12">
       <div className="space-y-6">
@@ -134,7 +144,7 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
       <FundingPanel campaign={campaign} />
 
       {settled ? (
-        <DonePanel campaign={campaign} onAuditor={openAuditor} celebrate={sawRunning} />
+        <DonePanel campaign={campaign} onAuditor={openAuditor} onPayslips={openPayslips} celebrate={sawRunning} />
       ) : started ? (
         <div className="space-y-6">
           <RunTimeline campaign={campaign} log={stream.log} />
@@ -158,6 +168,13 @@ export function CampaignView({ id, flow = false, onStarted }: CampaignViewProps)
         <Disclosure summary="Share the receipt">
           <ShareDetails campaign={campaign} />
         </Disclosure>
+        {settled && (
+          <div ref={payslips}>
+            <Disclosure summary="Payslips" open={payslipsOpen} onOpenChange={setPayslipsOpen}>
+              <PayslipsCard campaignId={campaign.id} />
+            </Disclosure>
+          </div>
+        )}
         <div ref={auditor}>
           <Disclosure summary="Auditor access" open={auditorOpen} onOpenChange={setAuditorOpen}>
             <ViewingKeyCard campaignId={campaign.id} />

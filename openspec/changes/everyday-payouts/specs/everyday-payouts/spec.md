@@ -11,7 +11,7 @@ including a problem the operator reports for the row's line, and SHALL keep impo
 that the list appears in no storage, no address bar, no console line and no request other than the create call.
 
 ### REQ-PAY-005 — The payer's screen gives each person their payslip
-Status: planned
+Status: implemented
 Once every batch of a campaign is confirmed at the required depth, the operator SHALL issue the campaign's payslips to its own page
 from the transaction bytes it stored before broadcast, one per payout row in payout-list order, each checked against its output
 before it is returned, through a protected route that SHALL refuse without an explicit disclosure header, SHALL refuse on the mock
