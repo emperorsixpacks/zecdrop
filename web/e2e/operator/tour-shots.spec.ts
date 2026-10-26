@@ -149,11 +149,12 @@ for (const look of TOUR_LOOKS) {
       test.setTimeout(180_000);
       await useTheme(page, look);
 
-      // 1. Add the payouts: the demo list, named.
+      // 1. Add the payouts: an organisation's run, the demo list imported, named. (The tour walks the whole flow, the audit
+      // included, which is the organisation view.)
       await load(page, operatorUrl("/new", { token: true }));
       await page.getByRole("heading", { level: 1, name: "Add the payouts" }).waitFor();
+      await page.getByRole("radio", { name: "Organisation" }).click();
       await page.getByLabel("Name this payout run").fill("Autumn grants");
-      await page.getByRole("button", { name: "Import a list instead" }).click();
       await page.getByRole("button", { name: "or paste it" }).click();
       await page.getByLabel("Paste your list").fill(loadDemoCsv());
       await page.getByRole("button", { name: "Use this list" }).click();

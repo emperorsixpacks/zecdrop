@@ -46,14 +46,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "add",
     title: "Add the payouts",
-    text: "Type in who you're paying, one person at a time, or import a list.",
+    text: "Import your list, or type people in one by one.",
     publicNote: "Nothing yet.",
     hiddenNote: "The whole list. Only the operator on your computer has it.",
     shots: [
       {
         id: "add-payouts",
         height: 860,
-        alt: "The operator's Add the payouts screen. The run is named Autumn grants. Above the list it says 8 people, 0.005 TAZ; each row shows a shortened address, an amount and a memo.",
+        alt: "The operator's Add the payouts screen for an organisation. The run is named Autumn grants. Above the list it says 8 people, 0.005 TAZ; each row shows a shortened address, an amount and a memo.",
         caption: "Operator screen: Add the payouts",
       },
     ],
