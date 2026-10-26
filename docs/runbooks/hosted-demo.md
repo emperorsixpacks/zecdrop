@@ -26,6 +26,8 @@ browser ──https──▶ static site (web/dist)           receipt page, samp
 
 ## 1. Deploy the verifier
 
+A VPS works too: [`deploy/vps/`](../../deploy/vps/README.md) has a compose file with Caddy for the https certificate.
+
 Build and run from the repository root (any host that runs a container and gives it a public https address):
 
 ```bash
