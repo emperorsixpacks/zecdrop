@@ -66,6 +66,36 @@ test payment from a transparent address before the real deposit ties that addres
 spends it and the receipt says `shielded`. Pay in one deposit, as the funding screen asks. Our own testnet runs show both kinds: the 3-person batch of 2026-10-08 was funded straight from the faucet's
 shielded wallet (shielded); the 8-person batch from a sweep of that run's change (transparent, tied to that change address).
 
+## The shielded deposit address ("the inbox")
+
+When the operator runs with zcash-devtool (testnet only; docs/ADR/0006-shielded-inbox.md), each payout also gets a shielded
+deposit address of its own, in front of the transparent one: a Unified Address with only an Orchard receiver, of a wallet whose
+seed the operator derives from its own (REQ-FUND-005). The payer pays it from a shielded wallet, in one payment or several. Once
+the notes are confirmed (10 blocks) and after a random wait, the operator moves exactly the funding to the payout's transparent
+funding address, in one transaction it checks before sending (REQ-FUND-006). From there the payout runs as before.
+
+- **What the chain shows.** The payment into the inbox is an ordinary shielded transaction. The move is public like any deposit:
+  an amount leaving the shielded pool for the payout's funding address, at a time. It names no address it came from, so the
+  receipt says `funding_source: shielded`. The public total is exactly what it was.
+- **What changes for the payer.** Their wallet never pays a transparent address, and the public deposit is built by the operator
+  at a random moment, not by their wallet when they pay. Several payments add up, and what is left over can go back to a shielded
+  address (REQ-FUND-007).
+- **What `shielded` now describes.** For a payout funded through its inbox, `shielded` describes the operator's move, always.
+  How the payer filled the inbox is not on the receipt: one who filled it from a transparent address (an exchange's, say) is
+  public in that shielding transaction, and its amount and time can still tie it to the payout. The funding screen asks for a
+  shielded wallet for that reason.
+- **What it does not hide.** The total is public by design. A payer who shields exactly that amount just before paying can still
+  be matched by amount and time; the random wait helps, it does not hide.
+- **Who can see the inbox.** Only the operator's own computer. The inbox is a different seed from the payout's account, so the
+  payout's viewing key (what an auditor gets) sees none of it: not the deposits, not their memos, not where a send-back goes
+  (REQ-PRIV-004). The receipt and the operator's logs carry nothing of it.
+- **What the node learns.** Setting an inbox up tells the light wallet server the height it scans from; each sync asks about the
+  inbox account's (unused) transparent addresses; the move is sent over the same server that watches the funding address. The
+  operator never fetches the payer's payment by id, which would tell the server which payment fed which payout.
+- **On disk.** zcash-devtool's wallet database (the inbox's viewing keys, notes and amounts) is not encrypted; its spending keys
+  are, to an identity derived from the operator's seed. The inbox directory is 0700, and the PCZT files a transaction is built
+  from are deleted after use.
+
 ## A list built in the page
 
 The operator's page can build the payout list one person at a time instead of reading a file (REQ-IMP-002): an address, an
