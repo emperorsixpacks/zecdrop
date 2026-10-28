@@ -1,0 +1,38 @@
+name: Build and push verifier
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deploy/verifier.Dockerfile"
+      - ".github/workflows/build-verifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push verifier
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/verifier.Dockerfile
+          push: true
+          tags: ghcr.io/emperorsixpacks/zecdrop-verifier:latest
