@@ -57,10 +57,17 @@ export function contentSecurityPolicy(apiUrl) {
 /** The routes the app handles in the browser; the host must answer them all with index.html. */
 export const CLIENT_ROUTES = ["/r/:path*", "/privacy", "/payslip", "/get-paid", "/start", "/campaigns", "/new/:path*", "/campaign/:path*", "/audit"];
 
-export function buildHostedConfig({ apiUrl }) {
+export function buildHostedConfig({ apiUrl, verifierProxyUrl }) {
+  // The key-less verifier is reachable through the page's own origin at /api/*, so the
+  // browser talks https to the site and Vercel proxies to the (http) verifier. This avoids a
+  // second TLS domain; set VERIFIER_PROXY_URL (and VITE_API_URL=/api) to turn it on.
+  const rewrites = CLIENT_ROUTES.map((source) => ({ source, destination: "/index.html" }));
+  if (verifierProxyUrl) {
+    rewrites.unshift({ source: "/api/:path*", destination: `${verifierProxyUrl}/:path*` });
+  }
   return {
     $schema: "https://openapi.vercel.sh/vercel.json",
-    rewrites: CLIENT_ROUTES.map((source) => ({ source, destination: "/index.html" })),
+    rewrites,
     headers: [
       {
         source: "/(.*)",
@@ -118,7 +125,7 @@ export function matchSource(source, pathname) {
 function main() {
   const args = process.argv.slice(2);
   const dist = resolve(process.cwd(), args.includes("--dist") ? (args[args.indexOf("--dist") + 1] ?? "dist") : "dist");
-  const config = buildHostedConfig({ apiUrl: process.env["VITE_API_URL"] });
+  const config = buildHostedConfig({ apiUrl: process.env["VITE_API_URL"], verifierProxyUrl: process.env["VERIFIER_PROXY_URL"] });
   const text = `${JSON.stringify(config, null, 2)}\n`;
   const targets = [join(dist, "vercel.json"), ...(args.includes("--root") ? [resolve(process.cwd(), "vercel.json")] : [])];
   for (const target of targets) writeFileSync(target, text);
